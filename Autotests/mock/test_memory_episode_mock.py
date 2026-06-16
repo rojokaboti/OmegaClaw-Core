@@ -20,6 +20,7 @@ import datetime
 import time
 
 
+from actions import act
 from helpers import (
     Checker, find_skill_calls, make_prompt, send_prompt,
     wait_for_skill_call, wait_for_skill_match,
@@ -46,7 +47,7 @@ def test_memory_episode_mock(llm, comm):
         )
         llm.set_answer(
             prompt1,
-            '(remember "Barney the dog lost his first baby tooth at the vet today.")',
+            act(("remember", "Barney the dog lost his first baby tooth at the vet today.")),
         )
         if not comm.send_message(prompt1):
             c.fail("comm-1", "could not deliver first prompt within 60s")
@@ -89,7 +90,7 @@ def test_memory_episode_mock(llm, comm):
         )
         llm.set_answer(
             prompt2,
-            f'(query "Barney tooth") (send "{recall_reply}")',
+            act(("query", "Barney tooth"), ("send", recall_reply)),
         )
         if not comm.send_message(prompt2):
             c.fail("comm-2", "could not deliver recall prompt within 60s")

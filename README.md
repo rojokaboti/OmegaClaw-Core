@@ -147,6 +147,8 @@ disables restrictions. |
 | `TG_BOT_TOKEN` | Telegram bot token. |
 | `MM_BOT_TOKEN` | Mattermost bot token. |
 | `SL_BOT_TOKEN` | Slack bot token (`xoxb-...`). |
+| `OMEGACLAW_ACTION_PROTOCOL` | LLM tool-call parsing mode: `json` (default, strict JSON action protocol), `auto` (JSON with legacy text fallback), or `legacy` (original `balance_parentheses` heuristic parser). |
+| `OMEGACLAW_MAX_ACTIONS` | Max tool actions accepted per turn under the JSON protocol (default `5`). |
 
 ---
 

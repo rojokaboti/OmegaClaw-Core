@@ -10,6 +10,7 @@ Run:
 import time
 
 
+from actions import act
 from helpers import (
     Checker, dexec, dexec_root, make_prompt, send_prompt, wait_for_file,
 )
@@ -51,7 +52,7 @@ def test_edit_delete_line_mock(llm, comm):
         )
         llm.set_answer(
             prompt,
-            f'(shell "sed -i 2d {TARGET_FILE}")',
+            act(("shell", f"sed -i 2d {TARGET_FILE}")),
         )
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")

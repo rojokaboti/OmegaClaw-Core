@@ -11,6 +11,7 @@ Run:
 import time
 
 
+from actions import act
 from helpers import (
     Checker, dexec, dexec_root, find_skill_calls, get_git_remote,
     make_prompt, send_prompt,
@@ -56,7 +57,7 @@ def test_git_pull_public_mock(llm, comm):
         # clone into the path directly.
         llm.set_answer(
             prompt,
-            f'(shell "rm -rf {TARGET_DIR} && git clone {remote} {TARGET_DIR}")',
+            act(("shell", f"rm -rf {TARGET_DIR} && git clone {remote} {TARGET_DIR}")),
         )
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")

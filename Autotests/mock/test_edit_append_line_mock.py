@@ -11,6 +11,7 @@ Run:
 import time
 
 
+from actions import act
 from helpers import (
     Checker, dexec, dexec_root, make_prompt, send_prompt, wait_for_file,
 )
@@ -49,10 +50,9 @@ def test_edit_append_line_mock(llm, comm):
             f"Append exactly the word Delta as a new fourth line at the end "
             f"of the file {TARGET_FILE}. Do not modify the existing 3 lines.",
         )
-        llm.set_answer(
-            prompt,
-            f'(shell "printf \'%s\\\\n\' {LINE4_EXPECTED} >> {TARGET_FILE}")',
-        )
+        # backslash-n stays literal in the shell command so printf emits a newline.
+        append_cmd = f"printf '%s\\n' {LINE4_EXPECTED} >> {TARGET_FILE}"
+        llm.set_answer(prompt, act(("shell", append_cmd)))
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")
         c.ok("comm", f"run-id={c.run_id}")

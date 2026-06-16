@@ -108,6 +108,7 @@ jobs:
         working-directory: Autotests
         run: |
           python ../src/helper.py
+          python ../src/action_protocol.py
           pytest -s -v @run_mandatory
         env:
           OMEGACLAW_CONTAINER: ${{ env.AUTOTESTS_OMEGACLAW_CONTAINER }}

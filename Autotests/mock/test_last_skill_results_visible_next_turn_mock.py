@@ -14,6 +14,7 @@ Run:
 import subprocess
 import time
 
+from actions import act
 from helpers import (
     CONTAINER, Checker, make_prompt, send_prompt, wait_for_skill_call,
 )
@@ -46,7 +47,7 @@ def test_last_skill_results_visible_next_turn_mock(llm, comm):
         # the next iteration's LAST_SKILL_USE_RESULTS.
         llm.set_answer(
             prompt1,
-            f'(metta "(quote {sentinel})") (send "computed")',
+            act(("metta", f"(quote {sentinel})"), ("send", "computed")),
         )
         if not comm.send_message(prompt1):
             c.fail("comm-1", "could not deliver turn 1 prompt within 60s")

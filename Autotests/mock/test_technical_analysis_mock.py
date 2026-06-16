@@ -12,6 +12,7 @@ Run:
     pytest test_technical_analysis_mock.py -s
 """
 
+from actions import act
 from helpers import (
     Checker, find_skill_calls, make_prompt, send_prompt,
     wait_for_skill_match,
@@ -58,7 +59,7 @@ def test_technical_analysis_mock(llm, comm):
             f"Use the technical-analysis skill to get technical analysis for "
             f"ticker {TICKER}. Summarize in one line.",
         )
-        llm.set_answer(prompt, f'(send "{TA_SUMMARY}")')
+        llm.set_answer(prompt, act(("send", TA_SUMMARY)))
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")
         c.ok("comm", f"run-id={c.run_id}")

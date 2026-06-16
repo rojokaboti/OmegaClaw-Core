@@ -15,6 +15,7 @@ Run:
 import time
 
 
+from actions import act
 from helpers import (
     Checker, find_skill_calls, make_prompt, send_prompt,
     wait_for_skill_call, wait_for_skill_match,
@@ -41,8 +42,8 @@ def test_skill_query_mock(llm, comm):
         )
         llm.set_answer(
             seed_prompt,
-            f'(remember "My favorite color is {secret_color}.") '
-            f'(send "Stored: favorite colour is {secret_color}.")',
+            act(("remember", f"My favorite color is {secret_color}."),
+                ("send", f"Stored: favorite colour is {secret_color}.")),
         )
         if not comm.send_message(seed_prompt):
             c.fail("comm-seed", "could not deliver seed prompt within 60s")
@@ -77,8 +78,8 @@ def test_skill_query_mock(llm, comm):
         )
         llm.set_answer(
             recall_prompt,
-            f'(query "favorite color") '
-            f'(send "Your favorite color is {secret_color}.")',
+            act(("query", "favorite color"),
+                ("send", f"Your favorite color is {secret_color}.")),
         )
         if not comm.send_message(recall_prompt):
             c.fail("comm-recall", "could not deliver recall prompt within 60s")
