@@ -2,45 +2,45 @@
   "fixtures": 54,
   "baseline": {
     "total": 54,
-    "execute_total": 39,
+    "execute_total": 38,
     "execute_success": 15,
-    "reject_total": 15,
+    "reject_total": 16,
     "reject_success": 1,
     "false_accepts": 38,
-    "false_rejects": 24,
+    "false_rejects": 23,
     "nothing_was_done": 1,
     "parse_failures": 38,
     "parse_success_rate": 0.2963,
-    "execute_success_rate": 0.3846,
-    "reject_success_rate": 0.0667
+    "execute_success_rate": 0.3947,
+    "reject_success_rate": 0.0625
   },
   "candidate_json": {
     "total": 54,
-    "execute_total": 39,
-    "execute_success": 24,
-    "reject_total": 15,
-    "reject_success": 15,
+    "execute_total": 38,
+    "execute_success": 23,
+    "reject_total": 16,
+    "reject_success": 16,
     "false_accepts": 0,
     "false_rejects": 15,
-    "nothing_was_done": 30,
+    "nothing_was_done": 31,
     "parse_failures": 15,
     "parse_success_rate": 0.7222,
-    "execute_success_rate": 0.6154,
+    "execute_success_rate": 0.6053,
     "reject_success_rate": 1.0
   },
   "candidate_auto": {
     "total": 54,
-    "execute_total": 39,
-    "execute_success": 39,
-    "reject_total": 15,
-    "reject_success": 6,
+    "execute_total": 38,
+    "execute_success": 38,
+    "reject_total": 16,
+    "reject_success": 7,
     "false_accepts": 9,
     "false_rejects": 0,
-    "nothing_was_done": 6,
+    "nothing_was_done": 7,
     "parse_failures": 9,
     "parse_success_rate": 0.8333,
     "execute_success_rate": 1.0,
-    "reject_success_rate": 0.4
+    "reject_success_rate": 0.4375
   },
   "baseline_rows": [
     {
@@ -709,7 +709,7 @@
     {
       "id": "ut_json_mixed",
       "category": "unknown_tool",
-      "intent": "execute",
+      "intent": "reject",
       "outcome": "fail",
       "tools": [
         "{"
@@ -1248,13 +1248,11 @@
     {
       "id": "ut_json_mixed",
       "category": "unknown_tool",
-      "intent": "execute",
+      "intent": "reject",
       "outcome": "ok",
-      "tools": [
-        "send"
-      ],
+      "tools": [],
       "unknown_leaked": [],
-      "rendered": "((send \"ok\"))"
+      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'sudo'. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at mo..."
     }
   ],
   "candidate_auto_rows": [
@@ -1853,13 +1851,11 @@
     {
       "id": "ut_json_mixed",
       "category": "unknown_tool",
-      "intent": "execute",
+      "intent": "reject",
       "outcome": "ok",
-      "tools": [
-        "send"
-      ],
+      "tools": [],
       "unknown_leaked": [],
-      "rendered": "((send \"ok\"))"
+      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'sudo'. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at mo..."
     }
   ]
 }

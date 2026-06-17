@@ -119,7 +119,7 @@ _add("ut_legacy_delete", "unknown_tool", "delete-everything /etc", "reject")
 _add("ut_legacy_drop", "unknown_tool", "drop-table users", "reject")
 _add("ut_json_mixed", "unknown_tool",
      '{"actions":[{"tool":"sudo","args":{"command":"rm -rf /"}},{"tool":"send","args":{"text":"ok"}}]}',
-     "execute", {"send"})  # valid subset must survive, unknown must be dropped
+     "reject")  # all-or-nothing: an unknown tool rejects the whole batch
 
 
 if __name__ == "__main__":

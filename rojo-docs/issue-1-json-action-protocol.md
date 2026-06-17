@@ -132,6 +132,38 @@ answers — confirming the baked local code ran (not the remote `git-import!`).
 
 ---
 
+## 5b. Pre-merge refinements (from architectural review)
+
+A second pass hardened the protocol based on an architectural review:
+
+- **Protocol versioning** — accepts `{"version":1,"actions":[…]}` (also a bare
+  `{"actions":[…]}` or list = v1). Unknown versions are handled **leniently**
+  (warning logged, still processed) to avoid breaking otherwise-valid output.
+- **Explicit authorize stage** — pipeline is now parse → validate → **authorize**
+  → render. `OMEGACLAW_DISABLED_TOOLS` (comma-separated) gates tools;
+  `shell`/`metta` are flagged `HIGH_RISK_TOOLS` in the prompt. Default empty =
+  allow all (keeps every existing test green); the value is the *capability* to
+  restrict, with explicit tests.
+- **All-or-nothing execution semantics** — any invalid or unauthorized action,
+  or exceeding `OMEGACLAW_MAX_ACTIONS`, **rejects the whole batch** with a
+  structured error and re-prompts. No partial execution; no silent truncation
+  (the old behavior silently capped at 5).
+- **Structured errors** — every failure is a `{code, message}` object
+  (`unknown_tool`, `missing_arg`, `tool_disabled`, `too_many_actions`,
+  `unsupported_version`, `no_json`, …).
+- **Measurable fallback** — `auto` mode emits a greppable
+  `[action_protocol] FALLBACK_TO_LEGACY` line so legacy usage can be counted and
+  trended toward zero.
+- New env var documented in `README.md`: `OMEGACLAW_DISABLED_TOOLS` (plus the
+  scrub/`scripts/omegaclaw` passthrough so it actually works in-container).
+
+Items from the review already present in the first pass (per-tool arg schemas,
+`json.dumps` escaping, auto-fallback-only-when-no-JSON, false-accept/reject in
+the benchmark) were left as-is. Cosmetic suggestions (dataclass refactor,
+`.jsonl` corpus) were intentionally skipped to avoid churn on validated code.
+
+---
+
 ## 6. Reviewer guide — test & compare against the previous version
 
 Prerequisites: Docker reachable (member of the `docker` group), Python 3.12, and

@@ -9,12 +9,12 @@ Corpus: **54 synthetic LLM outputs** across valid_json, legacy_text, malformed_j
 | Metric | Baseline | Candidate (json) | Candidate (auto) |
 | --- | --- | --- | --- |
 | Overall parse success rate | 29.6% | 72.2% | 83.3% |
-| Execute success rate | 38.5% | 61.5% | 100.0% |
-| Reject (validation) success rate | 6.7% | 100.0% | 40.0% |
+| Execute success rate | 39.5% | 60.5% | 100.0% |
+| Reject (validation) success rate | 6.2% | 100.0% | 43.8% |
 | Parse failures (count) | 38 | 15 | 9 |
 | **False accepts (unknown tool → eval)** | 38 | 0 | 9 |
-| False rejects (lost legit action) | 24 | 15 | 0 |
-| NOTHING_WAS_DONE outcomes | 1 | 30 | 6 |
+| False rejects (lost legit action) | 23 | 15 | 0 |
+| NOTHING_WAS_DONE outcomes | 1 | 31 | 7 |
 
 - **json: parse-failure reduction 60.5%** (38 → 15).
 - **auto: parse-failure reduction 76.3%** (38 → 9).

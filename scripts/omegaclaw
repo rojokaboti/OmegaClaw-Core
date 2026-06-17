@@ -519,6 +519,7 @@ start() {
             -e IMPORT_KB_ON_START="${IMPORT_KB_ON_START:-1}"
             -e OMEGACLAW_ACTION_PROTOCOL="${OMEGACLAW_ACTION_PROTOCOL:-}"
             -e OMEGACLAW_MAX_ACTIONS="${OMEGACLAW_MAX_ACTIONS:-}"
+            -e OMEGACLAW_DISABLED_TOOLS="${OMEGACLAW_DISABLED_TOOLS:-}"
             "$image"
             "commchannel=${commchannel}"
             "provider=${provider}"
