@@ -58,6 +58,12 @@ _BUILTIN_DEFAULTS = {
     },
 }
 
+# Returned by load_config() when an EXPLICITLY configured config cannot be loaded
+# and fail-open was not opted into: callers must NOT fall back to built-in (cloud)
+# providers (privacy: an explicit private/local config that fails must never
+# silently route prompts to an external default).
+FAIL_CLOSED = object()
+
 _CACHE = {}
 _WARNED = set()
 
@@ -98,10 +104,34 @@ def validate_config(cfg):
     return None
 
 
-def _fallback(message):
-    path = config_path()
+def _is_explicit(path_arg):
+    """True when the config was explicitly requested (path arg or env var)."""
+    return path_arg is not None or bool(os.environ.get("OMEGACLAW_LLM_CONFIG_PATH"))
+
+
+def _fail_open_opt_in():
+    return (os.environ.get("OMEGACLAW_LLM_CONFIG_FAIL_OPEN") or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _on_unloadable(path, message, explicit):
+    """Decide what an unloadable config returns.
+
+    * not explicit (no env; shipped default absent)          -> built-in defaults (fail-open).
+    * explicit + OMEGACLAW_LLM_CONFIG_FAIL_OPEN opt-in        -> built-in defaults (fail-open).
+    * explicit, no opt-in                                     -> FAIL_CLOSED (no external routing).
+    """
+    if explicit and not _fail_open_opt_in():
+        if path not in _WARNED:
+            print(
+                f"[provider_config] SECURITY explicit OMEGACLAW_LLM_CONFIG_PATH could not be loaded "
+                f"({path}): {message}; refusing to fall back to built-in providers "
+                f"(set OMEGACLAW_LLM_CONFIG_FAIL_OPEN=1 to override)",
+                flush=True,
+            )
+            _WARNED.add(path)
+        return FAIL_CLOSED
     if path not in _WARNED:
-        print(f"[provider_config] WARNING {message}; using built-in defaults", flush=True)
+        print(f"[provider_config] WARNING {message} ({path}); using built-in defaults", flush=True)
         _WARNED.add(path)
     return builtin_defaults()
 
@@ -109,14 +139,18 @@ def _fallback(message):
 def load_config(path=None):
     """Load + validate the provider config, caching by (path, mtime).
 
-    Fail-open: missing, unparseable, or invalid config returns the built-in
-    defaults (with a one-time warning) so provider selection never bricks the agent.
+    Failure model (privacy-aware): an **absent shipped default** (no env set) fails open to
+    the built-in defaults so the agent never bricks out-of-box. But an **explicitly supplied**
+    ``OMEGACLAW_LLM_CONFIG_PATH`` that is missing/unparseable/invalid fails **closed**
+    (returns :data:`FAIL_CLOSED`) so prompts can never be silently routed to a built-in cloud
+    provider; set ``OMEGACLAW_LLM_CONFIG_FAIL_OPEN=1`` to opt back into fallback.
     """
+    explicit = _is_explicit(path)
     path = path or config_path()
     try:
         mtime = os.path.getmtime(path)
     except OSError:
-        return _fallback(f"provider config not found ({path})")
+        return _on_unloadable(path, "provider config not found", explicit)
 
     key = (path, mtime)
     if key in _CACHE:
@@ -125,13 +159,13 @@ def load_config(path=None):
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
     except Exception as exc:
-        result = _fallback(f"failed to parse provider config ({path}): {exc}")
+        result = _on_unloadable(path, f"failed to parse: {exc}", explicit)
         _CACHE[key] = result
         return result
 
     err = validate_config(data)
     if err:
-        result = _fallback(f"invalid provider config ({path}): {err}")
+        result = _on_unloadable(path, f"invalid config: {err}", explicit)
         _CACHE[key] = result
         return result
 
@@ -146,15 +180,21 @@ def reset_cache():
 
 
 def default_provider(cfg=None):
-    return (cfg or load_config()).get("default_provider")
+    cfg = cfg if cfg is not None else load_config()
+    if cfg is FAIL_CLOSED:
+        return None
+    return cfg.get("default_provider")
 
 
 def provider_entry(name, cfg=None):
-    return ((cfg or load_config()).get("providers") or {}).get(name)
+    cfg = cfg if cfg is not None else load_config()
+    if cfg is FAIL_CLOSED:
+        return None
+    return (cfg.get("providers") or {}).get(name)
 
 
 def config_model(name, cfg=None):
-    """The model configured for ``name`` (per config), or '' if unknown."""
+    """The model configured for ``name`` (per config), or '' if unknown/fail-closed."""
     entry = provider_entry(name, cfg)
     return entry.get("model", "") if entry else ""
 
@@ -175,15 +215,32 @@ if __name__ == "__main__":
     assert validate_config({"default_provider": "Y", "providers": {"Y": {"model": "m", "base_url": "u"}}}) is not None  # missing env
     assert validate_config({"default_provider": "Y", "providers": {"Y": {"api_key_env": "K", "model": "m", "base_url": "u", "api_style": "bogus"}}}) is not None
 
-    # missing path -> fallback to builtin
+    # explicit missing path -> FAIL_CLOSED (no silent fallback to cloud defaults)
     reset_cache()
     os.environ["OMEGACLAW_LLM_CONFIG_PATH"] = "/nonexistent/llm.yaml"
     try:
-        cfg = load_config()
-        assert cfg["default_provider"] == "Anthropic"
+        assert load_config() is FAIL_CLOSED
+        assert default_provider() is None and config_model("Anthropic") == ""
     finally:
         os.environ.pop("OMEGACLAW_LLM_CONFIG_PATH", None)
         reset_cache()
+
+    # explicit missing + opt-in -> falls back to builtin
+    reset_cache()
+    os.environ["OMEGACLAW_LLM_CONFIG_PATH"] = "/nonexistent/llm.yaml"
+    os.environ["OMEGACLAW_LLM_CONFIG_FAIL_OPEN"] = "1"
+    try:
+        cfg = load_config()
+        assert cfg is not FAIL_CLOSED and cfg["default_provider"] == "Anthropic"
+    finally:
+        os.environ.pop("OMEGACLAW_LLM_CONFIG_PATH", None)
+        os.environ.pop("OMEGACLAW_LLM_CONFIG_FAIL_OPEN", None)
+        reset_cache()
+
+    # no env, explicit path arg missing -> still explicit -> FAIL_CLOSED
+    reset_cache()
+    assert load_config("/nonexistent/explicit.yaml") is FAIL_CLOSED
+    reset_cache()
 
     # relative path resolves against repo root regardless of CWD
     cwd = os.getcwd()

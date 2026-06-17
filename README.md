@@ -153,7 +153,8 @@ disables restrictions. |
 | `OMEGACLAW_TOOL_POLICY_PATH` | Path to the tool/action policy YAML (default `profile/tool_policy.yaml`). Set to `profile/tool_policy.hardened.yaml` for a strict `default: deny` posture. A **relative** value is resolved against the install root (the repo dir), not the process CWD, so it works regardless of where the agent is launched. |
 | `OMEGACLAW_DEBUG_LLM_RAW` | `1`/`true` to log raw model responses (for debugging). Default off — raw bodies are **not** logged; only metadata (provider, model, timestamp, char count, trace id). When enabled, common secret/token formats are best-effort redacted (not a guarantee). |
 | `OMEGACLAW_LLM_LOG_PATH` | Optional path to append per-response JSONL log records (metadata always; redacted raw only when `OMEGACLAW_DEBUG_LLM_RAW` is set). |
-| `OMEGACLAW_LLM_CONFIG_PATH` | Path to the provider/model config YAML (default `profile/llm_providers.yaml`). Relative values resolve against the install root. A missing/invalid file falls back to built-in defaults with a warning. |
+| `OMEGACLAW_LLM_CONFIG_PATH` | Path to the provider/model config YAML (default `profile/llm_providers.yaml`). Relative values resolve against the install root. **Failure model:** an absent *shipped default* (no env set) fails open to built-in defaults; an **explicit** path that is missing/invalid **fails closed** (no external provider registered) so prompts can't silently route to a cloud default. |
+| `OMEGACLAW_LLM_CONFIG_FAIL_OPEN` | `1`/`true` to opt an explicit `OMEGACLAW_LLM_CONFIG_PATH` back into fail-open (fall back to built-in defaults instead of failing closed). |
 
 ---
 
@@ -172,8 +173,13 @@ provider, and at startup the agent logs the effective configuration, e.g.:
 [llm_config] provider=Anthropic model=claude-opus-4-6 base_url=https://api.anthropic.com/v1/ class=AIProvider available=True
 ```
 
-A missing or invalid config file falls back to built-in defaults (mirroring the
-shipped YAML) with a warning, so provider selection never bricks the agent. The
+**Failure model.** If no config is configured and the shipped default is absent, the
+gate fails **open** to built-in defaults (mirroring the shipped YAML) with a warning, so
+the out-of-box agent never bricks. But if `OMEGACLAW_LLM_CONFIG_PATH` is **explicitly set**
+and the file is missing/invalid, the gate fails **closed** — no external provider is
+registered and a `[provider_config] SECURITY …` line is logged — so an operator pointing at
+a private/local provider can never have prompts silently routed to a built-in cloud default.
+Set `OMEGACLAW_LLM_CONFIG_FAIL_OPEN=1` to opt an explicit config back into fail-open. The
 `Test` provider (mock) is registered in code, not via this file.
 
 ---

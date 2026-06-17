@@ -31,13 +31,13 @@ Provider/model selection was inconsistent and not reproducible without editing P
 
 | File | Change |
 |---|---|
-| `src/provider_config.py` *(new)* | YAML loader (`OMEGACLAW_LLM_CONFIG_PATH`, relative→install root), `validate_config` (model/api_key_env/base_url/api_style/default_provider), **fail-open to `_BUILTIN_DEFAULTS`** with a warning, `config_model`/`default_provider`. |
+| `src/provider_config.py` *(new)* | YAML loader (`OMEGACLAW_LLM_CONFIG_PATH`, relative→install root), `validate_config` (model/api_key_env/base_url/api_style/default_provider). **Failure model:** absent shipped default → fail-open to `_BUILTIN_DEFAULTS`; **explicit** path missing/invalid → fail **closed** (`FAIL_CLOSED` sentinel), opt back in with `OMEGACLAW_LLM_CONFIG_FAIL_OPEN=1`. `config_model`/`default_provider`. |
 | `profile/llm_providers.yaml` *(new)* | The 6 real providers with exact current values (api_style + reasoning), mirroring the built-in defaults. |
 | `lib_llm_ext.py` | `split_system_user()` (single delimiter parser; the 3 providers now share it, each keeping its send shape); config-driven registration loop replacing the 7 hardcoded lines (class chosen by `api_style`/`reasoning`; `TestProvider` always registered); OpenRouter reasoning from config; `effective_model()` + `describe_effective_config()`. |
 | `src/loop.metta` | `LLM` reflects the real model via `(py-call (lib_llm_ext.effective_model (provider)))`; startup logs `describe_effective_config`. |
 | `entrypoint.sh`, `scripts/omegaclaw` | Thread `OMEGACLAW_LLM_CONFIG_PATH`. |
 | `README.md` | Env-var row + "Provider / model configuration" section. |
-| `Autotests/test_provider_config.py` *(new)* | 21 tests (stub `openai`); loading/validation/fallback/relative-path/registration/split. In `run_mandatory` + CI self-test. |
+| `Autotests/test_provider_config.py` *(new)* | 25 tests (stub `openai`); loading/validation/relative-path/registration/split + fail-closed-on-explicit & fail-open opt-in. In `run_mandatory` + CI self-test. |
 | `benchmarks/provider_config_*` *(new)* | Reproducibility matrix + deterministic results. |
 
 ## 4. KPI results (`benchmarks/provider_config_results.md`)
@@ -64,8 +64,14 @@ startup log. Default behavior is preserved (shipped YAML mirrors the old hardcod
   `OpenAI → gpt-5.4`, `OpenRouter → z-ai/glm-5.1`.
 - **Provider/model switch with no Python edit, in-container:** pointing
   `OMEGACLAW_LLM_CONFIG_PATH` at a custom YAML resolved the model to `in-container-override`.
-- **`@run_mandatory`: 128 passed, 0 failed** — the config-driven registration keeps the
-  `TestProvider` mock path working; no regression.
+- **In-container full mandatory suite (`pytest @run_mandatory`): 128 passed, 0 failed** — the
+  config-driven registration keeps the `TestProvider` mock path working; no regression. (This
+  is the whole Dockerized suite; the focused host file `Autotests/test_provider_config.py` is
+  **25 tests**.)
+- **Fail-closed proof (PR #23 review fix):** with an explicit-but-missing
+  `OMEGACLAW_LLM_CONFIG_PATH`, registration registers **no external provider** (Anthropic/OpenAI
+  absent, only `Test`) and logs `[provider_config] SECURITY …` + `[lib_llm_ext] SECURITY …`;
+  `OMEGACLAW_LLM_CONFIG_FAIL_OPEN=1` restores the built-in fallback.
 
 ## 6. Reviewer guide — test & compare against the previous version
 
@@ -123,7 +129,10 @@ git diff main --stat
 ## 7. Risk / rollback
 - Behavior preserved: shipped YAML mirrors the old hardcoded values; `AIProvider` send shape
   kept byte-identical; `callProvider` unchanged; the `Test` provider (mock) is always registered.
-- Fail-open to built-in defaults avoids bricking on a missing/typo'd config; switching is still
-  YAML/env-only (the KPI). A relative `OMEGACLAW_LLM_CONFIG_PATH` resolves against the install
-  root (applying the #2 review lesson).
+- **Failure model (PR #23 review fix):** an *absent shipped default* fails open to built-in
+  defaults (out-of-box availability); an *explicitly supplied* `OMEGACLAW_LLM_CONFIG_PATH` that
+  is missing/invalid fails **closed** (no external provider registered, loud `SECURITY` log) so
+  prompts can't be silently routed to a built-in cloud default. `OMEGACLAW_LLM_CONFIG_FAIL_OPEN=1`
+  opts an explicit config back into fallback. A relative path resolves against the install root
+  (#2 lesson). Switching providers is still YAML/env-only (the KPI).
 - No deferrals — the issue scope is fully implemented.

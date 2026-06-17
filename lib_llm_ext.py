@@ -321,13 +321,26 @@ def _build_provider(name: str, entry: dict) -> AbstractAIProvider:
 
 
 def _register_from_config():
-    """Register all providers from the declarative config, then the Test provider."""
+    """Register all providers from the declarative config, then the Test provider.
+
+    Fail-closed: if an EXPLICIT provider config could not be loaded
+    (provider_config.FAIL_CLOSED), register NO external providers so prompts can never
+    be silently routed to a built-in cloud default; only the Test provider remains.
+    """
     cfg = provider_config.load_config()
-    for name, entry in (cfg.get("providers") or {}).items():
-        try:
-            _register_provider_instance(_build_provider(name, entry))
-        except Exception as exc:  # pragma: no cover - defensive; skip a bad entry
-            print(f"[lib_llm_ext] WARNING could not register provider {name!r}: {exc}", flush=True)
+    if cfg is provider_config.FAIL_CLOSED:
+        print(
+            "[lib_llm_ext] SECURITY refusing to register built-in providers because the "
+            "explicit LLM config failed to load; no external provider is configured "
+            "(set OMEGACLAW_LLM_CONFIG_FAIL_OPEN=1 to override)",
+            flush=True,
+        )
+    else:
+        for name, entry in (cfg.get("providers") or {}).items():
+            try:
+                _register_provider_instance(_build_provider(name, entry))
+            except Exception as exc:  # pragma: no cover - defensive; skip a bad entry
+                print(f"[lib_llm_ext] WARNING could not register provider {name!r}: {exc}", flush=True)
     # The Test provider is environment-driven and always registered (mock harness).
     _register_provider_instance(TestProvider())
 

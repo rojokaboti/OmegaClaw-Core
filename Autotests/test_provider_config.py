@@ -83,27 +83,62 @@ def test_default_provider_must_exist():
     assert err and "default_provider" in err
 
 
-def test_invalid_config_falls_back_to_builtin():
+def test_no_env_does_not_fail_closed():
+    # No explicit config -> shipped default (or built-in fallback), never FAIL_CLOSED.
+    os.environ.pop("OMEGACLAW_LLM_CONFIG_PATH", None)
+    pc.reset_cache()
+    try:
+        cfg = pc.load_config()
+        assert cfg is not pc.FAIL_CLOSED
+        assert pc.config_model("OpenAI", cfg) == "gpt-5.4"
+    finally:
+        pc.reset_cache()
+
+
+def test_explicit_missing_fails_closed():
+    # SECURITY: an explicit-but-missing config must NOT fall back to cloud defaults.
+    os.environ["OMEGACLAW_LLM_CONFIG_PATH"] = "/nonexistent/llm.yaml"
+    pc.reset_cache()
+    try:
+        assert pc.load_config() is pc.FAIL_CLOSED
+        assert pc.default_provider() is None
+        assert pc.config_model("Anthropic") == ""
+    finally:
+        os.environ.pop("OMEGACLAW_LLM_CONFIG_PATH", None)
+        pc.reset_cache()
+
+
+def test_explicit_invalid_fails_closed():
     tmp = _write_tmp("version: 1\ndefault_provider: X\nproviders: {}\n")
     os.environ["OMEGACLAW_LLM_CONFIG_PATH"] = tmp
     pc.reset_cache()
     try:
-        cfg = pc.load_config()
-        assert cfg["default_provider"] == "Anthropic"  # builtin
+        assert pc.load_config() is pc.FAIL_CLOSED
     finally:
         os.environ.pop("OMEGACLAW_LLM_CONFIG_PATH", None)
         pc.reset_cache()
         os.unlink(tmp)
 
 
-def test_missing_config_falls_back_to_builtin():
+def test_explicit_path_arg_missing_fails_closed():
+    pc.reset_cache()
+    try:
+        assert pc.load_config("/nonexistent/explicit.yaml") is pc.FAIL_CLOSED
+    finally:
+        pc.reset_cache()
+
+
+def test_fail_open_opt_in_restores_builtin():
     os.environ["OMEGACLAW_LLM_CONFIG_PATH"] = "/nonexistent/llm.yaml"
+    os.environ["OMEGACLAW_LLM_CONFIG_FAIL_OPEN"] = "1"
     pc.reset_cache()
     try:
         cfg = pc.load_config()
-        assert pc.config_model("OpenAI", cfg) == "gpt-5.4"
+        assert cfg is not pc.FAIL_CLOSED
+        assert pc.config_model("OpenAI", cfg) == "gpt-5.4"  # builtin
     finally:
         os.environ.pop("OMEGACLAW_LLM_CONFIG_PATH", None)
+        os.environ.pop("OMEGACLAW_LLM_CONFIG_FAIL_OPEN", None)
         pc.reset_cache()
 
 
@@ -153,6 +188,48 @@ def test_describe_effective_config_shows_provider_and_model():
 def test_describe_unknown_provider_is_clear():
     desc = llm.describe_effective_config("Bogus")
     assert "UNKNOWN" in desc
+
+
+def test_fail_closed_registers_no_external_providers():
+    # SECURITY end-to-end: an explicit-missing config must register NO cloud provider,
+    # and callProvider for one must fail loudly (never silently route externally).
+    saved = dict(llm._provider_registry)
+    os.environ["OMEGACLAW_LLM_CONFIG_PATH"] = "/nonexistent/llm.yaml"
+    pc.reset_cache()
+    try:
+        llm._provider_registry.clear()
+        llm._register_from_config()
+        assert llm._get_provider("Anthropic") is None
+        assert llm._get_provider("OpenAI") is None
+        assert llm._get_provider("Test") is not None  # mock harness still works
+        raised = False
+        try:
+            llm.callProvider("Anthropic", "hi")
+        except RuntimeError:
+            raised = True
+        assert raised, "callProvider should fail closed when no provider is registered"
+    finally:
+        os.environ.pop("OMEGACLAW_LLM_CONFIG_PATH", None)
+        pc.reset_cache()
+        llm._provider_registry.clear()
+        llm._provider_registry.update(saved)
+
+
+def test_fail_open_opt_in_registers_providers():
+    saved = dict(llm._provider_registry)
+    os.environ["OMEGACLAW_LLM_CONFIG_PATH"] = "/nonexistent/llm.yaml"
+    os.environ["OMEGACLAW_LLM_CONFIG_FAIL_OPEN"] = "1"
+    pc.reset_cache()
+    try:
+        llm._provider_registry.clear()
+        llm._register_from_config()
+        assert llm._get_provider("Anthropic") is not None  # builtin restored
+    finally:
+        os.environ.pop("OMEGACLAW_LLM_CONFIG_PATH", None)
+        os.environ.pop("OMEGACLAW_LLM_CONFIG_FAIL_OPEN", None)
+        pc.reset_cache()
+        llm._provider_registry.clear()
+        llm._provider_registry.update(saved)
 
 
 # --- prompt split normalization ------------------------------------------
