@@ -521,6 +521,8 @@ start() {
             -e OMEGACLAW_MAX_ACTIONS="${OMEGACLAW_MAX_ACTIONS:-}"
             -e OMEGACLAW_DISABLED_TOOLS="${OMEGACLAW_DISABLED_TOOLS:-}"
             -e OMEGACLAW_TOOL_POLICY_PATH="${OMEGACLAW_TOOL_POLICY_PATH:-}"
+            -e OMEGACLAW_DEBUG_LLM_RAW="${OMEGACLAW_DEBUG_LLM_RAW:-}"
+            -e OMEGACLAW_LLM_LOG_PATH="${OMEGACLAW_LLM_LOG_PATH:-}"
             "$image"
             "commchannel=${commchannel}"
             "provider=${provider}"

@@ -1,10 +1,80 @@
 import os, time
+import json
+import re
+import uuid
 import openai
 from typing import Optional
 
+# --- Raw LLM response logging (Issue #3): gated + redacted ------------------
+#
+# Raw model output can contain private user text, tool outputs, or accidentally
+# echoed secrets, and it ends up in stdout -> `docker logs`. So by default we log
+# metadata only (provider, model, timestamp, char count, trace id) and NOT the raw
+# body. Raw context is logged only when OMEGACLAW_DEBUG_LLM_RAW is explicitly set,
+# and even then it is passed through redact_secrets() first -- unredacted secrets
+# are never emitted.
+
+_REDACTION_PATTERNS = [
+    # Anthropic keys (check before the generic sk- rule).
+    ("anthropic_key", re.compile(r"sk-ant-[A-Za-z0-9_\-]{8,}")),
+    # OpenAI keys, incl. project keys (sk-, sk-proj-).
+    ("openai_key", re.compile(r"sk-(?:proj-)?[A-Za-z0-9_\-]{16,}")),
+    # GitHub tokens: ghp_/gho_/ghu_/ghs_/ghr_ and fine-grained github_pat_.
+    ("github_token", re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b")),
+    # AWS access key id.
+    ("aws_key", re.compile(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b")),
+    # HTTP bearer tokens (redact the token, keep the scheme).
+    ("bearer", re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._\-]{12,}")),
+    # Long high-entropy-ish base64/hex runs (>=40 chars). Conservative: requires a
+    # contiguous token of base64 alphabet, so normal prose is not mangled.
+    ("secret", re.compile(r"\b[A-Za-z0-9+/_\-]{40,}={0,2}\b")),
+]
+
+
+def redact_secrets(text: str) -> str:
+    """Replace secret-looking substrings with a typed ``[REDACTED:<kind>]`` marker.
+
+    Conservative by design: matches known key/token shapes plus long base64-ish
+    runs, leaving ordinary text intact.
+    """
+    if not text:
+        return text
+    out = text
+    for kind, pattern in _REDACTION_PATTERNS:
+        if kind == "bearer":
+            out = pattern.sub(lambda m: f"{m.group(1)}[REDACTED:bearer]", out)
+        else:
+            out = pattern.sub(f"[REDACTED:{kind}]", out)
+    return out
+
+
+def _raw_logging_enabled() -> bool:
+    return (os.environ.get("OMEGACLAW_DEBUG_LLM_RAW") or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _log_raw(provider: str, model: str, raw: str) -> None:
     ts = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-    print(f"[LLM_RAW] ts={ts} provider={provider} model={model} chars={len(raw or '')} raw={raw!r}")
+    raw = raw or ""
+    chars = len(raw)
+    trace = uuid.uuid4().hex[:8]
+    debug = _raw_logging_enabled()
+
+    if debug:
+        body = repr(redact_secrets(raw))
+    else:
+        body = "<redacted; set OMEGACLAW_DEBUG_LLM_RAW=1>"
+    print(f"[LLM_RAW] ts={ts} trace={trace} provider={provider} model={model} chars={chars} raw={body}")
+
+    log_path = os.environ.get("OMEGACLAW_LLM_LOG_PATH")
+    if log_path:
+        record = {"ts": ts, "trace": trace, "provider": provider, "model": model, "chars": chars}
+        if debug:
+            record["raw"] = redact_secrets(raw)
+        try:
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        except OSError as exc:  # best-effort; never break the chat path
+            print(f"[LLM_RAW] WARNING could not write OMEGACLAW_LLM_LOG_PATH ({log_path}): {exc}")
 
 
 class AbstractAIProvider:
