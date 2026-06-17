@@ -48,6 +48,11 @@ try:  # registered to MeTTa as a flat module ("helper"), but also a package memb
 except ImportError:  # pragma: no cover - import path differs under pytest from repo root
     from src.helper import LLM_COMMANDS, balance_parentheses
 
+try:  # tool/action policy gate (Issue #2). Lazy-safe: no circular import at load.
+    import tool_policy
+except ImportError:  # pragma: no cover - alternate import path under pytest
+    from src import tool_policy
+
 
 # Protocol envelope version understood by this implementation.
 PROTOCOL_VERSION = 1
@@ -269,18 +274,29 @@ def _disabled_tools():
 def authorize_actions(actions):
     """Policy gate run after validation, before rendering.
 
-    Returns ``(authorized_actions, errors)``. All-or-nothing: if any action uses
-    a disabled tool the whole batch is refused. Default policy (no disabled
-    tools) authorizes everything, preserving current behavior.
+    Two layers, all-or-nothing (any denial refuses the whole batch):
+
+    1. ``OMEGACLAW_DISABLED_TOOLS`` -- a quick env allowlist override.
+    2. The declarative tool/action policy (``tool_policy.check_action``) which
+       enforces per-tool enable/disable, file ``allowed_roots``, and shell
+       allow/deny. The shipped default policy is permissive, so behavior is
+       preserved unless an operator selects a stricter ``OMEGACLAW_TOOL_POLICY_PATH``.
+
+    Returns ``(authorized_actions, errors)``.
     """
     disabled = _disabled_tools()
-    if not disabled:
-        return actions, []
-    errors = [
-        _err("tool_disabled", f"tool {a['tool']!r} is disabled by policy")
-        for a in actions
-        if a["tool"] in disabled
-    ]
+    errors = []
+    for a in actions:
+        if a["tool"] in disabled:
+            errors.append(_err("tool_disabled", f"tool {a['tool']!r} is disabled by policy"))
+            continue
+        decision = tool_policy.check_action(a["tool"], a["values"])
+        if not decision.allowed:
+            tool_policy.log_denial(a["tool"], decision)
+            errors.append(_err(
+                "policy_denied",
+                f"{a['tool']}: {decision.reason} (risk={decision.risk})",
+            ))
     if errors:
         return [], errors
     return actions, []

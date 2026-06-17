@@ -150,6 +150,35 @@ disables restrictions. |
 | `OMEGACLAW_ACTION_PROTOCOL` | LLM tool-call parsing mode: `json` (default, strict JSON action protocol), `auto` (JSON with legacy text fallback), or `legacy` (original `balance_parentheses` heuristic parser). |
 | `OMEGACLAW_MAX_ACTIONS` | Max tool actions accepted per turn under the JSON protocol (default `5`). Exceeding it rejects the whole batch. |
 | `OMEGACLAW_DISABLED_TOOLS` | Comma-separated tool names to refuse (default none = allow all). Use to gate high-risk escape hatches such as `shell` and `metta` in restricted deployments. A batch containing a disabled tool is rejected. |
+| `OMEGACLAW_TOOL_POLICY_PATH` | Path to the tool/action policy YAML (default `profile/tool_policy.yaml`). Set to `profile/tool_policy.hardened.yaml` for a strict `default: deny` posture. |
+
+---
+
+## Security: two layers
+
+OmegaClaw applies defense-in-depth around tool use:
+
+1. **Filesystem sandbox (Landlock)** — `profile/policy.yaml`, applied at startup
+   via `applySecurityPolicy`. This is an **OS-level** guard: it constrains which
+   paths the process can read/write, enforced by the kernel *after* a syscall is
+   attempted. It cannot reason about *which command* a `shell` action runs.
+
+2. **Tool/action policy** — `profile/tool_policy.yaml`, enforced by
+   `src/tool_policy.py` at the action-protocol gate (`authorize_actions`),
+   **before** an action becomes a MeTTa skill call. It decides, per tool:
+   enabled/disabled, `allowed_roots` for file reads/writes (path-resolved to block
+   `../` escapes), and shell `allow`/`deny` glob lists. Denials are structured and
+   logged (`[tool_policy] POLICY_DENIAL …`) and reject the whole action batch.
+
+The shipped default (`tool_policy.yaml`) is **permissive** (preserves normal
+behavior). A strict, opt-in example lives in `tool_policy.hardened.yaml`
+(`default: deny`, shell disabled); select it with `OMEGACLAW_TOOL_POLICY_PATH`.
+A missing/unparseable policy file fails open (allow-all) with a warning, so a
+misconfiguration never bricks the agent.
+
+> Channel-specific restrictions and an interactive approval workflow are modeled
+> in the policy decision (`risk`, `requires_approval`) but not yet enforced; a
+> tool marked `requires_approval: true` is currently denied.
 
 ---
 

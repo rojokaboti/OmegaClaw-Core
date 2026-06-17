@@ -1,0 +1,48 @@
+# Tool/action policy (Issue #2) — SHIPPED DEFAULT (permissive).
+#
+# This is the semantic tool gate that runs BEFORE MeTTa skill evaluation,
+# complementing the Landlock filesystem sandbox in policy.yaml. The default is
+# intentionally permissive so it preserves existing agent behavior: every tool
+# the agent normally uses is enabled, file writes are constrained to the same
+# roots Landlock already allows, and shell is enabled with no deny patterns.
+#
+# For a strict, locked-down posture see tool_policy.hardened.yaml and select it
+# with OMEGACLAW_TOOL_POLICY_PATH.
+version: 1
+
+# Action for tools not explicitly listed below. "allow" preserves behavior;
+# "deny" (see hardened profile) refuses anything not whitelisted.
+default: allow
+
+tools:
+  send: {enabled: true}
+  query: {enabled: true}
+  search: {enabled: true}
+  remember: {enabled: true}
+  pin: {enabled: true}
+  episodes: {enabled: true}
+  tavily-search: {enabled: true}
+  technical-analysis: {enabled: true}
+  metta: {enabled: true}
+
+  read-file:
+    enabled: true
+    allowed_roots:
+      - /PeTTa/repos/OmegaClaw-Core
+      - /tmp
+
+  write-file:
+    enabled: true
+    allowed_roots:
+      - /PeTTa/repos/OmegaClaw-Core/memory
+      - /tmp
+
+  append-file:
+    enabled: true
+    allowed_roots:
+      - /PeTTa/repos/OmegaClaw-Core/memory
+      - /tmp
+
+  shell:
+    enabled: true
+    deny: []
