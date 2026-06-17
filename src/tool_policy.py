@@ -44,9 +44,16 @@ _DEFAULT_RISK = {
 _PATH_TOOLS = {"read-file", "write-file", "append-file"}
 _COMMAND_TOOLS = {"shell"}
 
-_DEFAULT_POLICY_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "profile", "tool_policy.yaml"
-)
+# Repo/install root (the dir containing src/ and profile/). Relative policy paths
+# resolve against this, NOT the process CWD -- the agent runs from /PeTTa in the
+# container while the policy lives under /PeTTa/repos/OmegaClaw-Core/profile/.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_DEFAULT_POLICY_PATH = os.path.join(_REPO_ROOT, "profile", "tool_policy.yaml")
+
+# Sentinel returned by load_policy() when an EXPLICITLY configured policy cannot be
+# loaded: the gate then fails closed (denies everything) rather than silently
+# allowing all. Distinct from None, which means "no policy configured -> allow all".
+_DENY_ALL = object()
 
 # (resolved_path, mtime) -> parsed policy dict (or None when absent/unparseable).
 _CACHE = {}
@@ -72,25 +79,47 @@ class PolicyDecision:
 
 
 def policy_path():
-    """Active policy file path (``OMEGACLAW_TOOL_POLICY_PATH`` or the default)."""
-    return os.environ.get("OMEGACLAW_TOOL_POLICY_PATH") or _DEFAULT_POLICY_PATH
+    """Active policy file path (``OMEGACLAW_TOOL_POLICY_PATH`` or the default).
+
+    A relative ``OMEGACLAW_TOOL_POLICY_PATH`` is resolved against the install root
+    (`_REPO_ROOT`), not the process CWD -- so the documented relative value works
+    regardless of where the agent is launched (the container runs from /PeTTa).
+    """
+    env = os.environ.get("OMEGACLAW_TOOL_POLICY_PATH")
+    if not env:
+        return _DEFAULT_POLICY_PATH
+    return env if os.path.isabs(env) else os.path.join(_REPO_ROOT, env)
 
 
 def load_policy(path=None):
     """Load and cache the policy dict for ``path``.
 
-    Fail-open: a missing or unparseable file returns ``None`` (meaning "no policy
-    -> allow all") with a one-time warning, so a misconfiguration never bricks the
-    agent. The shipped default file is permissive regardless.
+    Failure model (a security control must not silently misconfigure):
+
+    * **Explicit** request (a ``path`` arg, or ``OMEGACLAW_TOOL_POLICY_PATH`` set) that
+      cannot be loaded -> return ``_DENY_ALL`` and log a prominent SECURITY error. The
+      gate then fails closed (denies everything) so the operator notices immediately.
+    * **Default** (no env set, shipped permissive file somehow absent) -> return ``None``
+      (allow all) with a warning, preserving "never brick" for the out-of-box default.
     """
+    explicit = path is not None or bool(os.environ.get("OMEGACLAW_TOOL_POLICY_PATH"))
     path = path or policy_path()
+
+    def _unloadable(message):
+        if explicit:
+            if path not in _MISSING_WARNED:
+                print(f"[tool_policy] SECURITY {message} ({path}); failing closed (deny all)", flush=True)
+                _MISSING_WARNED.add(path)
+            return _DENY_ALL
+        if path not in _MISSING_WARNED:
+            print(f"[tool_policy] WARNING {message} ({path}); allowing all tools (no policy configured)", flush=True)
+            _MISSING_WARNED.add(path)
+        return None
+
     try:
         mtime = os.path.getmtime(path)
     except OSError:
-        if path not in _MISSING_WARNED:
-            print(f"[tool_policy] WARNING policy file not found: {path}; allowing all tools", flush=True)
-            _MISSING_WARNED.add(path)
-        return None
+        return _unloadable("policy file not found")
 
     key = (path, mtime)
     if key in _CACHE:
@@ -100,10 +129,10 @@ def load_policy(path=None):
             data = yaml.safe_load(f) or {}
         if not isinstance(data, dict):
             raise ValueError("policy root is not a mapping")
-    except Exception as exc:  # pragma: no cover - defensive
-        print(f"[tool_policy] WARNING failed to parse policy {path}: {exc}; allowing all tools", flush=True)
-        _CACHE[key] = None
-        return None
+    except Exception as exc:
+        result = _unloadable(f"failed to parse policy: {exc}")
+        _CACHE[key] = result
+        return result
     _CACHE[key] = data
     return data
 
@@ -181,7 +210,16 @@ def check_action(tool, values, policy=None):
     if policy is None:
         policy = load_policy()
 
-    # Fail-open: no policy configured -> allow everything (legacy behavior).
+    # Fail closed: an explicitly-configured policy that could not be loaded denies
+    # everything (the operator set a security control; honor it loudly, not silently).
+    if policy is _DENY_ALL:
+        return PolicyDecision(
+            False,
+            "tool policy configured but could not be loaded; failing closed",
+            _DEFAULT_RISK.get(tool, "low"),
+        )
+
+    # Fail open: no policy configured -> allow everything (legacy/default behavior).
     if policy is None:
         return PolicyDecision(True, "no policy (allow all)", _DEFAULT_RISK.get(tool, "low"))
 
@@ -280,8 +318,23 @@ def _selftest():
     assert check_action("shell", ["git status"], allowcfg).allowed
     assert not check_action("shell", ["nc -e /bin/sh"], allowcfg).allowed
 
-    # fail-open: no policy -> allow
-    assert check_action("shell", ["anything"], None).allowed
+    # fail closed: an explicitly-configured policy that cannot be loaded denies all.
+    d = check_action("shell", ["anything"], _DENY_ALL)
+    assert not d.allowed and "failing closed" in d.reason, d
+
+    # relative env path resolves against the repo root, not CWD (the review bug).
+    import os as _os
+    _cwd = _os.getcwd()
+    _os.chdir("/")
+    _os.environ["OMEGACLAW_TOOL_POLICY_PATH"] = "profile/tool_policy.hardened.yaml"
+    reset_cache()
+    try:
+        # hardened is now active even from CWD=/ -> shell is denied (not allow-all).
+        assert not check_action("shell", ["ls"]).allowed
+    finally:
+        _os.environ.pop("OMEGACLAW_TOOL_POLICY_PATH", None)
+        reset_cache()
+        _os.chdir(_cwd)
 
     print("tool_policy self-tests passed")
 

@@ -122,15 +122,60 @@ def test_risk_levels():
 
 # --- loading & fail-open -------------------------------------------------
 
-def test_missing_policy_allows_all():
+def test_explicit_missing_fails_closed():
+    # An EXPLICITLY configured but missing policy must fail closed (deny all), not
+    # silently allow everything.
     os.environ["OMEGACLAW_TOOL_POLICY_PATH"] = "/nonexistent/policy.yaml"
     tp.reset_cache()
     try:
         d = tp.check_action("shell", ["anything dangerous"])
-        assert d.allowed and "no policy" in d.reason
+        assert not d.allowed and "failing closed" in d.reason
+        # even benign tools are denied while the security control is misconfigured
+        assert not tp.check_action("send", ["hi"]).allowed
     finally:
         os.environ.pop("OMEGACLAW_TOOL_POLICY_PATH", None)
         tp.reset_cache()
+
+
+def test_bad_yaml_explicit_fails_closed():
+    with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as f:
+        f.write("this: [is not: valid: yaml\n")
+        tmp = f.name
+    os.environ["OMEGACLAW_TOOL_POLICY_PATH"] = tmp
+    tp.reset_cache()
+    try:
+        assert not tp.check_action("send", ["hi"]).allowed
+    finally:
+        os.environ.pop("OMEGACLAW_TOOL_POLICY_PATH", None)
+        tp.reset_cache()
+        os.unlink(tmp)
+
+
+def test_no_env_uses_shipped_default():
+    # No env set -> the shipped permissive default loads (resolved against the repo
+    # root regardless of CWD), so normal tools remain usable.
+    os.environ.pop("OMEGACLAW_TOOL_POLICY_PATH", None)
+    tp.reset_cache()
+    assert tp.check_action("send", ["hi"]).allowed
+    assert tp.check_action("shell", ["mkdir -p /tmp/x"]).allowed
+
+
+def test_relative_env_path_resolves_against_repo_root():
+    # Regression for the PR #21 review: a relative OMEGACLAW_TOOL_POLICY_PATH must
+    # resolve against the install root, NOT the process CWD. From an unrelated CWD,
+    # the hardened policy must actually take effect (shell denied), not fail open.
+    cwd = os.getcwd()
+    os.chdir(tempfile.gettempdir())
+    os.environ["OMEGACLAW_TOOL_POLICY_PATH"] = "profile/tool_policy.hardened.yaml"
+    tp.reset_cache()
+    try:
+        assert not tp.check_action("shell", ["ls"]).allowed          # hardened active
+        assert not tp.check_action("write-file", ["/etc/x", "y"]).allowed
+        assert tp.check_action("send", ["hi"]).allowed
+    finally:
+        os.environ.pop("OMEGACLAW_TOOL_POLICY_PATH", None)
+        tp.reset_cache()
+        os.chdir(cwd)
 
 
 def test_load_from_env_path():

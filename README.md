@@ -150,7 +150,7 @@ disables restrictions. |
 | `OMEGACLAW_ACTION_PROTOCOL` | LLM tool-call parsing mode: `json` (default, strict JSON action protocol), `auto` (JSON with legacy text fallback), or `legacy` (original `balance_parentheses` heuristic parser). |
 | `OMEGACLAW_MAX_ACTIONS` | Max tool actions accepted per turn under the JSON protocol (default `5`). Exceeding it rejects the whole batch. |
 | `OMEGACLAW_DISABLED_TOOLS` | Comma-separated tool names to refuse (default none = allow all). Use to gate high-risk escape hatches such as `shell` and `metta` in restricted deployments. A batch containing a disabled tool is rejected. |
-| `OMEGACLAW_TOOL_POLICY_PATH` | Path to the tool/action policy YAML (default `profile/tool_policy.yaml`). Set to `profile/tool_policy.hardened.yaml` for a strict `default: deny` posture. |
+| `OMEGACLAW_TOOL_POLICY_PATH` | Path to the tool/action policy YAML (default `profile/tool_policy.yaml`). Set to `profile/tool_policy.hardened.yaml` for a strict `default: deny` posture. A **relative** value is resolved against the install root (the repo dir), not the process CWD, so it works regardless of where the agent is launched. |
 
 ---
 
@@ -172,9 +172,16 @@ OmegaClaw applies defense-in-depth around tool use:
 
 The shipped default (`tool_policy.yaml`) is **permissive** (preserves normal
 behavior). A strict, opt-in example lives in `tool_policy.hardened.yaml`
-(`default: deny`, shell disabled); select it with `OMEGACLAW_TOOL_POLICY_PATH`.
-A missing/unparseable policy file fails open (allow-all) with a warning, so a
-misconfiguration never bricks the agent.
+(`default: deny`, shell disabled); select it with `OMEGACLAW_TOOL_POLICY_PATH`
+(relative values resolve against the install root).
+
+**Failure model.** If no policy is configured and the shipped default file is
+somehow absent, the gate **fails open** (allow-all, with a warning) so the
+out-of-box agent never bricks. But if `OMEGACLAW_TOOL_POLICY_PATH` is **explicitly
+set** and the file cannot be loaded (missing path, bad YAML), the gate **fails
+closed** — every action is denied and a prominent `[tool_policy] SECURITY …`
+error is logged — because a misconfigured security control must be loud, never a
+silent allow-all.
 
 > Channel-specific restrictions and an interactive approval workflow are modeled
 > in the policy decision (`risk`, `requires_approval`) but not yet enforced; a
