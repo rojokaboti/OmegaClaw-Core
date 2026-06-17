@@ -81,8 +81,9 @@ shell — that's the intended default posture; lock down via the hardened profil
 Built `omegaclaw:local` from this branch and ran the mock suite under the **permissive
 default** (backward-compat), plus a targeted **hardened-policy** denial run.
 
-- `@run_mandatory`: **96 passed, 0 failed** (4m23s) — was 78 before; +18 new tool-policy
-  unit tests. All existing integration tests still green under the permissive default.
+- `@run_mandatory`: **99 passed, 0 failed** (4m24s) — was 78 before the policy layer;
+  +21 tool-policy unit tests (incl. the PR #21 review regression tests). All existing
+  integration tests still green under the permissive default.
 - `@run_optional`: **5 passed, 1 skipped, 0 failed** (`git_push_to_remote` self-skips
   without credentials, same as `main`).
 - Env-scrub check: `OMEGACLAW_TOOL_POLICY_PATH` is forwarded to the agent through the
@@ -100,6 +101,20 @@ default** (backward-compat), plus a targeted **hardened-policy** denial run.
   Denials happen in `parse_and_render_metta` *before* an s-expression exists, so a denied
   action provably cannot reach `skills.pl` / `open` — satisfying the KPI (100% of denied
   actions blocked before skill evaluation).
+
+- **PR #21 review fix — relative path resolves correctly in-container.** Running the baked
+  code from the container's CWD (`/PeTTa`) with the *relative* documented value
+  `OMEGACLAW_TOOL_POLICY_PATH=profile/tool_policy.hardened.yaml`:
+
+  | Action | Result |
+  |---|---|
+  | `policy_path()` | `/PeTTa/repos/OmegaClaw-Core/profile/tool_policy.hardened.yaml` (resolved vs install root) |
+  | `shell ls` | **BLOCKED** (was silently allowed before the fix) |
+  | `write-file /etc/x` | **BLOCKED** |
+  | `write-file /tmp/ok`, `send hi` | allowed |
+
+  And a bogus explicit path (`profile/does_not_exist.yaml`) **fails closed** — every action
+  denied with `[tool_policy] SECURITY … failing closed (deny all)`.
 
 ## 6. What was deferred (and why)
 
