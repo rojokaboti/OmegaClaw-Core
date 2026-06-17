@@ -13,8 +13,8 @@
           (configure maxWakeLoops 1)
           (configure spamShield True)
           (configure sleepInterval 1) ;10
-          (configure LLM gpt-5.4)
           (configure provider Anthropic) ;Anthropic or OpenAI or ASICloud or ASIOne or Test
+          (configure LLM (py-call (lib_llm_ext.effective_model (provider)))) ;reflects the model from profile/llm_providers.yaml
           (configure maxOutputToken 6000)
           (configure reasoningMode medium)
           (configure wakeupInterval 600) ;600=10 minutes
@@ -42,6 +42,7 @@
    (omegaclaw 1))
 (= (omegaclaw $k)
    (progn (if (== $k 1) (progn (initLoop)
+                               (println! (py-call (lib_llm_ext.describe_effective_config (provider))))
                                (applySecurityPolicy)
                                (initMemory)
                                (initKnowledge)

@@ -523,6 +523,8 @@ start() {
             -e OMEGACLAW_TOOL_POLICY_PATH="${OMEGACLAW_TOOL_POLICY_PATH:-}"
             -e OMEGACLAW_DEBUG_LLM_RAW="${OMEGACLAW_DEBUG_LLM_RAW:-}"
             -e OMEGACLAW_LLM_LOG_PATH="${OMEGACLAW_LLM_LOG_PATH:-}"
+            -e OMEGACLAW_LLM_CONFIG_PATH="${OMEGACLAW_LLM_CONFIG_PATH:-}"
+            -e OMEGACLAW_LLM_CONFIG_FAIL_OPEN="${OMEGACLAW_LLM_CONFIG_FAIL_OPEN:-}"
             "$image"
             "commchannel=${commchannel}"
             "provider=${provider}"

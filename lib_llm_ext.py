@@ -1,9 +1,17 @@
 import os, time
 import json
 import re
+import sys
 import uuid
 import openai
 from typing import Optional
+
+# Ensure the sibling src/ dir is importable regardless of MeTTa import order, so
+# `import provider_config` resolves whether or not src is already on sys.path.
+_SRC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "src")
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
+import provider_config  # noqa: E402 (declarative provider/model config, Issue #4)
 
 # --- Raw LLM response logging (Issue #3): gated + redacted ------------------
 #
@@ -80,6 +88,21 @@ def _log_raw(provider: str, model: str, raw: str) -> None:
             print(f"[LLM_RAW] WARNING could not write OMEGACLAW_LLM_LOG_PATH ({log_path}): {exc}")
 
 
+_PROMPT_SEPARATOR = ":-:-:-:"
+
+
+def split_system_user(content: str):
+    """Parse the agent prompt into ``(system, user)`` around the ``:-:-:-:``
+    separator. The single place this delimiter is parsed (Issue #4) -- providers
+    then decide how to send the two parts. No separator -> ``("", content)``."""
+    if content is None:
+        return "", ""
+    if _PROMPT_SEPARATOR in content:
+        system, user = content.split(_PROMPT_SEPARATOR, 1)
+        return system, user
+    return "", content
+
+
 class AbstractAIProvider:
     def __init__(self, name: str):
         self._name = name
@@ -145,7 +168,8 @@ class AIProvider(AbstractAIProvider):
         if self._client is None:
             raise RuntimeError(f"{self.name} not configured (set {self._var_name})")
 
-        content = content.replace(":-:-:-:", " ")
+        sysmsg, usermsg = split_system_user(content)
+        content = f"{sysmsg} {usermsg}" if sysmsg else usermsg
         try:
             response = self._client.chat.completions.create(
                 model=self._model_name,
@@ -166,16 +190,16 @@ class AIProvider(AbstractAIProvider):
         return text.replace("_quote_", '"').replace("_apostrophe_", "'")
 
 class OpenRouterProvider(AIProvider):
-    """OpenRouter provider with reasoning mode enabled (reasoning tokens excluded from the response)."""
+    """OpenRouter provider with reasoning mode enabled (reasoning tokens excluded from the response).
+
+    The reasoning block is config-driven (provider entry's ``reasoning:``)."""
+
+    def __init__(self, name: str, var_name: str, model_name: str, base_url: str, reasoning: dict = None):
+        super().__init__(name, var_name, model_name, base_url)
+        self._reasoning = reasoning or {"enabled": True, "max_tokens": 6000, "exclude": True}
 
     def chat(self, content: str, max_tokens: int = 6000, reasoning: str = "medium", **kwargs) -> str:
-        return super().chat(content, max_tokens, reasoning, extra_body={
-            "reasoning": {
-                "enabled": True,
-                "max_tokens": 6000,
-                "exclude": True,
-            }
-        }, **kwargs)
+        return super().chat(content, max_tokens, reasoning, extra_body={"reasoning": self._reasoning}, **kwargs)
 
 class AsiOneProvider(AIProvider):
     """Lazy AI provider with on-demand initialization."""
@@ -190,7 +214,7 @@ class AsiOneProvider(AIProvider):
         if self._client is None:
             raise RuntimeError(f"{self.name} not configured (set {self._var_name})")
 
-        sysmsg, usermsg = content.split(":-:-:-:")
+        sysmsg, usermsg = split_system_user(content)
         try:
             response = self._client.chat.completions.create(
                 model=self._model_name,
@@ -224,10 +248,7 @@ class OpenAIProvider(AIProvider):
         if self._client is None:
             raise RuntimeError(f"{self.name} not configured (set {self._var_name})")
 
-        if ":-:-:-:" in content:
-            sysmsg, usermsg = content.split(":-:-:-:", 1)
-        else:
-            sysmsg, usermsg = "", content
+        sysmsg, usermsg = split_system_user(content)
         try:
             response = self._client.responses.create(
                 model=self._model_name,
@@ -284,14 +305,68 @@ def _get_provider(name: str) -> Optional[AIProvider]:
     return _provider_registry.get(name)
 
 
-# Register all providers (cheap - just stores config)
-_register_provider(name="ASICloud", var_name="ASI_API_KEY", model_name="minimax/minimax-m2.5", base_url="https://inference.asicloud.cudos.org/v1")
-_register_provider(name="Anthropic", var_name="ANTHROPIC_API_KEY", model_name="claude-opus-4-6", base_url="https://api.anthropic.com/v1/")
-_register_provider(name="Ollama-local", var_name="OLLAMA_API_KEY", model_name="qwen3.5:9b", base_url="http://localhost:11434/v1")
-_register_provider_instance(AsiOneProvider(name="ASIOne", var_name="ASIONE_API_KEY", model_name="asi1-ultra", base_url="https://api.asi1.ai/v1"))
-_register_provider_instance(OpenRouterProvider(name="OpenRouter", var_name="OPENROUTER_API_KEY", model_name="z-ai/glm-5.1", base_url="https://openrouter.ai/api/v1"))
-_register_provider_instance(TestProvider())
-_register_provider_instance(OpenAIProvider(name="OpenAI", var_name="OPENAI_API_KEY", model_name="gpt-5.4", base_url="https://api.openai.com/v1"))
+def _build_provider(name: str, entry: dict) -> AbstractAIProvider:
+    """Construct the right provider class from a config entry (Issue #4)."""
+    var_name = entry["api_key_env"]
+    model = entry["model"]
+    base_url = entry["base_url"]
+    style = entry.get("api_style", "chat_completions")
+    if style == "responses":
+        return OpenAIProvider(name, var_name, model, base_url)
+    if style == "asione":
+        return AsiOneProvider(name, var_name, model, base_url)
+    if entry.get("reasoning"):
+        return OpenRouterProvider(name, var_name, model, base_url, reasoning=entry["reasoning"])
+    return AIProvider(name, var_name, model, base_url)
+
+
+def _register_from_config():
+    """Register all providers from the declarative config, then the Test provider.
+
+    Fail-closed: if an EXPLICIT provider config could not be loaded
+    (provider_config.FAIL_CLOSED), register NO external providers so prompts can never
+    be silently routed to a built-in cloud default; only the Test provider remains.
+    """
+    cfg = provider_config.load_config()
+    if cfg is provider_config.FAIL_CLOSED:
+        print(
+            "[lib_llm_ext] SECURITY refusing to register built-in providers because the "
+            "explicit LLM config failed to load; no external provider is configured "
+            "(set OMEGACLAW_LLM_CONFIG_FAIL_OPEN=1 to override)",
+            flush=True,
+        )
+    else:
+        for name, entry in (cfg.get("providers") or {}).items():
+            try:
+                _register_provider_instance(_build_provider(name, entry))
+            except Exception as exc:  # pragma: no cover - defensive; skip a bad entry
+                print(f"[lib_llm_ext] WARNING could not register provider {name!r}: {exc}", flush=True)
+    # The Test provider is environment-driven and always registered (mock harness).
+    _register_provider_instance(TestProvider())
+
+
+_register_from_config()
+
+
+def effective_model(provider_name: str) -> str:
+    """The model the given provider will actually use (read from the registry)."""
+    provider = _get_provider(provider_name)
+    return getattr(provider, "_model_name", "") if provider else ""
+
+
+def describe_effective_config(provider_name: str) -> str:
+    """One-line startup summary of the effective provider/model (Issue #4)."""
+    provider = _get_provider(provider_name)
+    if provider is None:
+        return f"[llm_config] provider={provider_name} UNKNOWN (not registered) -- check `provider` config"
+    model = getattr(provider, "_model_name", "(n/a)")
+    base = getattr(provider, "_base_url", "(n/a)")
+    reasoning = getattr(provider, "_reasoning", None)
+    extra = f" reasoning={reasoning}" if reasoning else ""
+    return (
+        f"[llm_config] provider={provider_name} model={model} base_url={base} "
+        f"class={type(provider).__name__} available={provider.is_available}{extra}"
+    )
 
 
 def callProvider(provider_name: str, content: str, max_tokens: int = 6000, reasoning: str = "medium") -> str:
