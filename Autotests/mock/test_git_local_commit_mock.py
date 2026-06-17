@@ -12,6 +12,7 @@ Run:
 import time
 
 
+from actions import act
 from helpers import (
     Checker, dexec, dexec_root, find_skill_calls, make_prompt, send_prompt,
     setup_git_in_container, teardown_git_in_container, wait_for_file,
@@ -54,10 +55,10 @@ def test_git_local_commit_mock(llm, comm):
         # arg itself is double-quoted, so we escape inner quotes.
         llm.set_answer(
             prompt,
-            f'(shell "git -C {TARGET_DIR} init") '
-            f'(write-file "{commit_path}" "{marker}") '
-            f'(shell "git -C {TARGET_DIR} add -A") '
-            f'(shell "git -C {TARGET_DIR} commit -m \\"add hello {c.run_id}\\"")',
+            act(("shell", f"git -C {TARGET_DIR} init"),
+                ("write-file", commit_path, marker),
+                ("shell", f"git -C {TARGET_DIR} add -A"),
+                ("shell", f'git -C {TARGET_DIR} commit -m "add hello {c.run_id}"')),
         )
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")

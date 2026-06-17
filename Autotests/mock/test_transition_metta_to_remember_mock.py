@@ -13,6 +13,7 @@ Run:
 import subprocess
 import time
 
+from actions import act
 from helpers import (
     CHROMA_SQLITE, CONTAINER, Checker, find_skill_calls, make_prompt,
     send_prompt, wait_for_skill_call,
@@ -56,17 +57,19 @@ def test_transition_metta_to_remember_mock(llm, comm):
             f"with NAL inheritance, then commit the conclusion to long-term "
             f"memory tagged '{conclusion_marker}'.",
         )
-        metta_call = (
-            '(metta "(|- ((--> sam friend) (stv 1.0 0.9)) '
-            '((--> garfield animal) (stv 1.0 0.9)))")'
+        metta_expr = (
+            "(|- ((--> sam friend) (stv 1.0 0.9)) "
+            "((--> garfield animal) (stv 1.0 0.9)))"
         )
-        remember_call = (
-            f'(remember "{conclusion_marker}: Sam is friend of an animal '
-            '(derived via NAL inheritance).")'
+        remember_text = (
+            f"{conclusion_marker}: Sam is friend of an animal "
+            "(derived via NAL inheritance)."
         )
         llm.set_answer(
             prompt,
-            f'{metta_call} {remember_call} (send "Reasoned and remembered.")',
+            act(("metta", metta_expr),
+                ("remember", remember_text),
+                ("send", "Reasoned and remembered.")),
         )
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")

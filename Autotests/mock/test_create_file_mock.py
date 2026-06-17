@@ -7,6 +7,7 @@ Run:
 import time
 
 
+from actions import act
 from helpers import (
     Checker, dexec, make_prompt, send_prompt, wait_for_file,
 )
@@ -30,7 +31,8 @@ def test_hello_file(llm, comm):
             f"Please overwrite {TARGET_FILE} so it contains exactly the single "
             "word Hello (no quotes, no extra newlines, create the directory if needed).",
         )
-        llm.set_answer(prompt, f'(shell "mkdir -p /tmp/testcat") (write-file "/tmp/testcat/hello.txt" "Hello")')
+        llm.set_answer(prompt, act(("shell", "mkdir -p /tmp/testcat"),
+                                   ("write-file", "/tmp/testcat/hello.txt", "Hello")))
 
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")

@@ -11,6 +11,7 @@ Run:
 import time
 
 
+from actions import act
 from helpers import (
     Checker, dexec, dexec_root, make_prompt, send_prompt, wait_for_file,
 )
@@ -48,8 +49,12 @@ def test_run_repeated_mock(llm, comm):
             f"a row. The script appends a date line to {OUTPUT_FILE} each "
             "time it runs.",
         )
-        repeated = " ".join(f'(shell "sh {SCRIPT_FILE}")' for _ in range(EXPECTED_RUNS))
-        llm.set_answer(prompt, repeated)
+        # The JSON action protocol caps actions per turn (OMEGACLAW_MAX_ACTIONS,
+        # default 5), so the ten runs are expressed as a single shell loop. The
+        # test asserts on the EXPECTED_RUNS output lines, not the shell-call
+        # count, so behavior is preserved.
+        loop_cmd = f"for i in $(seq {EXPECTED_RUNS}); do sh {SCRIPT_FILE}; done"
+        llm.set_answer(prompt, act(("shell", loop_cmd)))
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")
         c.ok("comm", f"run-id={c.run_id}")

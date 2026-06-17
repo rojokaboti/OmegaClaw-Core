@@ -12,6 +12,7 @@ Run:
     pytest test_tavily_search_mock.py -s
 """
 
+from actions import act
 from helpers import (
     Checker, find_skill_calls, make_prompt, send_prompt,
     wait_for_skill_match,
@@ -57,7 +58,7 @@ def test_tavily_search_mock(llm, comm):
             "Use the tavily-search skill (not regular search) for query "
             "'Fetch.ai latest news'. Summarize what Tavily returns.",
         )
-        llm.set_answer(prompt, f'(send "{FETCH_SUMMARY}")')
+        llm.set_answer(prompt, act(("send", FETCH_SUMMARY)))
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")
         c.ok("comm", f"run-id={c.run_id}")

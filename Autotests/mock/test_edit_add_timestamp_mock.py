@@ -12,6 +12,7 @@ Run:
 import time
 
 
+from actions import act
 from helpers import (
     Checker, dexec, dexec_root, make_prompt, send_prompt, wait_for_file,
 )
@@ -52,7 +53,7 @@ def test_edit_add_timestamp_mock(llm, comm):
         # real test.
         llm.set_answer(
             prompt,
-            f'(shell "date -Iseconds >> {TARGET_FILE}")',
+            act(("shell", f"date -Iseconds >> {TARGET_FILE}")),
         )
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")

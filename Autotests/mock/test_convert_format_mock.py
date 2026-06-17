@@ -11,6 +11,7 @@ Run:
 import time
 
 
+from actions import act
 from helpers import (
     Checker, dexec, dexec_root, make_prompt, send_prompt, wait_for_file,
 )
@@ -50,7 +51,7 @@ def test_convert_md_to_txt_mock(llm, comm):
         )
         llm.set_answer(
             prompt,
-            f'(shell "cp {SOURCE_FILE} {DEST_FILE}")',
+            act(("shell", f"cp {SOURCE_FILE} {DEST_FILE}")),
         )
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")

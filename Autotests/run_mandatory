@@ -1,3 +1,5 @@
+test_action_protocol.py
+mock/test_actions_equivalence.py
 mock/test_comm.py
 mock/test_convert_format_mock.py
 mock/test_create_empty_file_mock.py

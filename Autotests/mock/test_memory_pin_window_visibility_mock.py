@@ -12,6 +12,7 @@ Run:
 """
 import time
 
+from actions import act
 from helpers import (
     Checker, HISTORY_FILE, dexec, find_skill_calls, make_prompt,
     send_prompt, wait_for_skill_call,
@@ -43,7 +44,7 @@ def test_memory_pin_window_visibility_mock(llm, comm):
         )
         llm.set_answer(
             prompt1,
-            f'(pin "{pin_marker}") (send "Pinned {pin_marker}.")',
+            act(("pin", pin_marker), ("send", f"Pinned {pin_marker}.")),
         )
         if not comm.send_message(prompt1):
             c.fail("comm-1", "could not deliver turn 1 prompt within 60s")
@@ -94,7 +95,7 @@ def test_memory_pin_window_visibility_mock(llm, comm):
         )
         llm.set_answer(
             prompt2,
-            f'(send "I pinned {pin_marker} previously.")',
+            act(("send", f"I pinned {pin_marker} previously.")),
         )
         if not comm.send_message(prompt2):
             c.fail("comm-2", "could not deliver turn 2 prompt within 60s")

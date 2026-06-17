@@ -17,6 +17,7 @@ import urllib.request
 import pytest
 
 
+from actions import act
 from helpers import (
     Checker, dexec, dexec_root, find_skill_calls, get_git_remote,
     get_git_token, make_prompt, send_prompt, setup_git_in_container,
@@ -107,7 +108,7 @@ def test_git_push_to_remote_mock(llm, comm):
             f"git commit -m 'qa run {c.run_id}' && "
             f"git push -u origin {branch}"
         )
-        llm.set_answer(prompt, f'(shell "{chain}")')
+        llm.set_answer(prompt, act(("shell", chain)))
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")
         c.ok("comm", f"run-id={c.run_id}")

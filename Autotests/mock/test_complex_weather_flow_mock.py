@@ -17,6 +17,7 @@ import re
 import time
 
 
+from actions import act
 from helpers import (
     Checker, dexec, dexec_root, find_skill_calls, make_prompt,
     send_prompt, wait_for_file,
@@ -54,14 +55,20 @@ def test_complex_weather_flow_mock(llm, comm):
             f"number from {WEATHER_TXT} into {TEMP_ONLY}. Make {SCRIPT_SH} "
             f"executable, then run it.",
         )
-        # Single LLM response containing the full pipeline.
+        # Single LLM response containing the full pipeline. Real newlines in the
+        # script body round-trip through JSON to newlines in the written file.
+        script_body = (
+            "#!/bin/bash\n"
+            f"grep -oE '[0-9]+' {WEATHER_TXT} | head -1 > {TEMP_ONLY}\n"
+        )
         llm.set_answer(
             prompt,
-            f'(write-file "{WEATHER_TXT}" "{FORECAST_TEXT}") '
-            f'(write-file "{SCRIPT_SH}" '
-            f'"#!/bin/bash\\ngrep -oE \'[0-9]+\' {WEATHER_TXT} | head -1 > {TEMP_ONLY}\\n") '
-            f'(shell "chmod +x {SCRIPT_SH}") '
-            f'(shell "sh {SCRIPT_SH}")',
+            act(
+                ("write-file", WEATHER_TXT, FORECAST_TEXT),
+                ("write-file", SCRIPT_SH, script_body),
+                ("shell", f"chmod +x {SCRIPT_SH}"),
+                ("shell", f"sh {SCRIPT_SH}"),
+            ),
         )
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")

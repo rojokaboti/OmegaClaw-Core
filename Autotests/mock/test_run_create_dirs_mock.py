@@ -13,6 +13,7 @@ Run:
 import time
 
 
+from actions import act
 from helpers import (
     Checker, dexec, dexec_root, find_skill_calls, make_prompt,
     send_prompt, wait_for_file,
@@ -44,11 +45,12 @@ def test_run_create_dirs_mock(llm, comm):
             f"test3 inside {TARGET_DIR}/. Make it executable, then run it.",
         )
         mkdir_args = " ".join(f"{TARGET_DIR}/{d}" for d in EXPECTED_DIRS)
+        script_body = f"#!/bin/bash\nmkdir -p {mkdir_args}\n"
         llm.set_answer(
             prompt,
-            f'(write-file "{SCRIPT_PATH}" "#!/bin/bash\\nmkdir -p {mkdir_args}\\n") '
-            f'(shell "chmod +x {SCRIPT_PATH}") '
-            f'(shell "sh {SCRIPT_PATH}")',
+            act(("write-file", SCRIPT_PATH, script_body),
+                ("shell", f"chmod +x {SCRIPT_PATH}"),
+                ("shell", f"sh {SCRIPT_PATH}")),
         )
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")

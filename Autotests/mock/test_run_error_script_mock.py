@@ -11,6 +11,7 @@ Run:
 import time
 
 
+from actions import act
 from helpers import (
     Checker, dexec, dexec_root, make_prompt, send_prompt, wait_for_file,
 )
@@ -54,7 +55,7 @@ def test_run_error_script_mock(llm, comm):
         )
         llm.set_answer(
             prompt,
-            f'(shell "sh {SCRIPT_FILE} > {OUTPUT_FILE} 2>&1")',
+            act(("shell", f"sh {SCRIPT_FILE} > {OUTPUT_FILE} 2>&1")),
         )
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")

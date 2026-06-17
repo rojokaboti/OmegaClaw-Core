@@ -13,6 +13,7 @@ import subprocess
 import time
 
 
+from actions import act
 from helpers import (
     CHROMA_SQLITE, CONTAINER, Checker, find_skill_calls,
     make_prompt, send_prompt, wait_for_skill_call,
@@ -59,7 +60,7 @@ def test_memory_chromadb_mock(llm, comm):
         )
         llm.set_answer(
             prompt,
-            f'(remember "Unique smoke marker {marker} was emitted by CI.")',
+            act(("remember", f"Unique smoke marker {marker} was emitted by CI.")),
         )
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")

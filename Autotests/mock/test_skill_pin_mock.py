@@ -8,6 +8,7 @@ Run:
     pytest test_skill_pin_mock.py -s
 """
 
+from actions import act
 from helpers import (
     Checker, find_skill_calls, make_prompt, send_prompt,
     wait_for_skill_call, wait_for_skill_match,
@@ -30,8 +31,8 @@ def test_skill_pin_mock(llm, comm):
         )
         llm.set_answer(
             prompt,
-            '(pin "Server restart progress: alpha done; beta and gamma pending.") '
-            '(send "Tracking: alpha done, beta and gamma pending.")',
+            act(("pin", "Server restart progress: alpha done; beta and gamma pending."),
+                ("send", "Tracking: alpha done, beta and gamma pending.")),
         )
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")

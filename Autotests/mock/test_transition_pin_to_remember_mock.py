@@ -15,6 +15,7 @@ Run:
 import subprocess
 import time
 
+from actions import act
 from helpers import (
     CHROMA_SQLITE, CONTAINER, Checker, find_skill_calls, make_prompt,
     send_prompt, wait_for_skill_call,
@@ -56,8 +57,8 @@ def test_transition_pin_to_remember_mock(llm, comm):
         )
         llm.set_answer(
             prompt1,
-            f'(pin "{marker}: candidates A, B, C") '
-            f'(send "Pinned {marker}: A, B, C.")',
+            act(("pin", f"{marker}: candidates A, B, C"),
+                ("send", f"Pinned {marker}: A, B, C.")),
         )
         if not comm.send_message(prompt1):
             c.fail("comm-1", "could not deliver turn 1 prompt within 60s")
@@ -90,8 +91,8 @@ def test_transition_pin_to_remember_mock(llm, comm):
         )
         llm.set_answer(
             prompt2,
-            f'(remember "{marker}: candidates A, B, C") '
-            f'(send "Committed {marker} to long-term memory.")',
+            act(("remember", f"{marker}: candidates A, B, C"),
+                ("send", f"Committed {marker} to long-term memory.")),
         )
         if not comm.send_message(prompt2):
             c.fail("comm-2", "could not deliver turn 2 prompt within 60s")

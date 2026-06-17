@@ -17,6 +17,7 @@ import datetime
 import time
 
 
+from actions import act
 from helpers import (
     Checker, find_skill_calls, make_prompt, send_prompt,
     wait_for_skill_call, wait_for_skill_match,
@@ -41,7 +42,7 @@ def test_skill_episodes_mock(llm, comm):
             f"the keyword {marker} from me. No need to remember it — just "
             f"reply once.",
         )
-        llm.set_answer(seed_prompt, f'(send "Acknowledged keyword {marker}.")')
+        llm.set_answer(seed_prompt, act(("send", f"Acknowledged keyword {marker}.")))
         if not comm.send_message(seed_prompt):
             c.fail("comm-seed", "could not deliver seed prompt within 60s")
         c.ok("comm-seed", f"run-id={seed_id}, time={seed_time:%H:%M:%S}")
@@ -70,7 +71,8 @@ def test_skill_episodes_mock(llm, comm):
         )
         llm.set_answer(
             recall_prompt,
-            f'(episodes "{time_str}") (send "The unique keyword was {marker}.")',
+            act(("episodes", time_str),
+                ("send", f"The unique keyword was {marker}.")),
         )
         if not comm.send_message(recall_prompt):
             c.fail("comm-recall", "could not deliver recall prompt within 60s")

@@ -12,6 +12,7 @@ Run:
     pytest test_search_invalid_mock.py -s
 """
 
+from actions import act
 from helpers import (
     Checker, find_skill_calls, make_prompt, send_prompt,
     wait_for_skill_match,
@@ -43,8 +44,8 @@ def test_search_invalid_mock(llm, comm):
         )
         llm.set_answer(
             prompt,
-            f'(send "No results found for {GIBBERISH}. The string appears to '
-            f'be gibberish — no meaningful matches.")',
+            act(("send", f"No results found for {GIBBERISH}. The string appears to "
+                         f"be gibberish — no meaningful matches.")),
         )
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")

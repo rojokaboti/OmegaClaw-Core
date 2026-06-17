@@ -11,6 +11,7 @@ Run:
 import time
 
 
+from actions import act
 from helpers import (
     Checker, dexec, make_prompt, send_prompt, wait_for_file,
 )
@@ -37,8 +38,8 @@ def test_create_empty_file_mock(llm, comm):
         )
         llm.set_answer(
             prompt,
-            f'(shell "mkdir -p {TARGET_DIR}") '
-            f'(write-file "{TARGET_FILE}" "")',
+            act(("shell", f"mkdir -p {TARGET_DIR}"),
+                ("write-file", TARGET_FILE, "")),
         )
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")

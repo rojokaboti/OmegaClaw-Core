@@ -15,6 +15,7 @@ Run:
 import subprocess
 import time
 
+from actions import act
 from helpers import (
     CONTAINER, Checker, find_skill_calls, make_prompt, send_prompt,
     wait_for_skill_call,
@@ -60,7 +61,7 @@ def test_pin_invisible_within_iteration_mock(llm, comm):
         )
         llm.set_answer(
             prompt,
-            f'(pin "{marker}") (send "Pinned a progress code.")',
+            act(("pin", marker), ("send", "Pinned a progress code.")),
         )
         if not comm.send_message(prompt):
             c.fail("comm", "could not deliver prompt within 60s")
