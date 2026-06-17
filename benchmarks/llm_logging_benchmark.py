@@ -16,6 +16,7 @@ Run: `python3 benchmarks/llm_logging_benchmark.py`
 import io
 import json
 import os
+import re
 import sys
 import time
 import types
@@ -79,8 +80,16 @@ def main():
     }
     analysis = {name: _analyze(out) for name, out in configs.items()}
 
+    # Mask the volatile timestamp and random trace id so the committed artifact is
+    # deterministic across runs (re-running the benchmark leaves the tree clean).
+    def _sanitize(text):
+        text = re.sub(r"ts=\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", "ts=<ts>", text)
+        text = re.sub(r"trace=[0-9a-f]{8}", "trace=<trace>", text)
+        return text
+
+    captured = {name: _sanitize(out).strip() for name, out in configs.items()}
     with open(os.path.join(_HERE, "llm_logging_results.json"), "w", encoding="utf-8") as f:
-        json.dump({"analysis": analysis, "captured": configs}, f, indent=2)
+        json.dump({"analysis": analysis, "captured": captured}, f, indent=2)
 
     b, d, g = analysis["baseline"], analysis["default"], analysis["debug"]
     md = "\n".join([

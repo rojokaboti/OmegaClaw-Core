@@ -151,7 +151,7 @@ disables restrictions. |
 | `OMEGACLAW_MAX_ACTIONS` | Max tool actions accepted per turn under the JSON protocol (default `5`). Exceeding it rejects the whole batch. |
 | `OMEGACLAW_DISABLED_TOOLS` | Comma-separated tool names to refuse (default none = allow all). Use to gate high-risk escape hatches such as `shell` and `metta` in restricted deployments. A batch containing a disabled tool is rejected. |
 | `OMEGACLAW_TOOL_POLICY_PATH` | Path to the tool/action policy YAML (default `profile/tool_policy.yaml`). Set to `profile/tool_policy.hardened.yaml` for a strict `default: deny` posture. A **relative** value is resolved against the install root (the repo dir), not the process CWD, so it works regardless of where the agent is launched. |
-| `OMEGACLAW_DEBUG_LLM_RAW` | `1`/`true` to log raw model responses (for debugging). Default off — raw bodies are **not** logged; only metadata (provider, model, timestamp, char count, trace id). Even when enabled, secret-looking values are redacted. |
+| `OMEGACLAW_DEBUG_LLM_RAW` | `1`/`true` to log raw model responses (for debugging). Default off — raw bodies are **not** logged; only metadata (provider, model, timestamp, char count, trace id). When enabled, common secret/token formats are best-effort redacted (not a guarantee). |
 | `OMEGACLAW_LLM_LOG_PATH` | Optional path to append per-response JSONL log records (metadata always; redacted raw only when `OMEGACLAW_DEBUG_LLM_RAW` is set). |
 
 ---
@@ -167,9 +167,11 @@ secrets, and agent stdout is captured by `docker logs`. By default OmegaClaw log
 ```
 
 To see raw content while debugging, set `OMEGACLAW_DEBUG_LLM_RAW=1`. Even then the body is
-passed through a secret redactor (OpenAI/Anthropic keys, GitHub/AWS tokens, bearer tokens,
-long base64-ish secrets → `[REDACTED:<kind>]`), so unredacted secrets are never emitted.
-Set `OMEGACLAW_LLM_LOG_PATH=/path/log.jsonl` to additionally append structured records.
+passed through a **best-effort** secret redactor for common token formats
+(OpenAI/Anthropic keys, GitHub/AWS tokens, bearer tokens, long base64-ish secrets →
+`[REDACTED:<kind>]`). This reduces — but does not guarantee elimination of — secret
+leakage, so treat debug logs as potentially sensitive. Set
+`OMEGACLAW_LLM_LOG_PATH=/path/log.jsonl` to additionally append structured records.
 
 ---
 

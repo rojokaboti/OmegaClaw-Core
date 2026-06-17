@@ -11,8 +11,10 @@ from typing import Optional
 # echoed secrets, and it ends up in stdout -> `docker logs`. So by default we log
 # metadata only (provider, model, timestamp, char count, trace id) and NOT the raw
 # body. Raw context is logged only when OMEGACLAW_DEBUG_LLM_RAW is explicitly set,
-# and even then it is passed through redact_secrets() first -- unredacted secrets
-# are never emitted.
+# and even then it is passed through redact_secrets() first, which does best-effort
+# redaction of common secret/token formats. This is not a guarantee that every
+# possible secret is caught -- OMEGACLAW_DEBUG_LLM_RAW is an explicit opt-in for
+# debugging, so callers should treat debug logs as potentially sensitive.
 
 _REDACTION_PATTERNS = [
     # Anthropic keys (check before the generic sk- rule).
@@ -34,8 +36,9 @@ _REDACTION_PATTERNS = [
 def redact_secrets(text: str) -> str:
     """Replace secret-looking substrings with a typed ``[REDACTED:<kind>]`` marker.
 
-    Conservative by design: matches known key/token shapes plus long base64-ish
-    runs, leaving ordinary text intact.
+    Best-effort: detects common secret/token formats (known key/token shapes plus
+    long base64-ish runs) and leaves ordinary text intact. It does not guarantee
+    that every possible secret is caught.
     """
     if not text:
         return text

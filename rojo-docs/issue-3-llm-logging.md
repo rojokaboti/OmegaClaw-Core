@@ -27,8 +27,10 @@ OpenAIProvider; OpenRouter via `super().chat()`), so the leak was on every path.
 ```
 [LLM_RAW] ts=… trace=ab12cd34 provider=OpenAI model=… chars=1234 raw=<redacted; set OMEGACLAW_DEBUG_LLM_RAW=1>
 ```
-**After (`OMEGACLAW_DEBUG_LLM_RAW=1`):** raw context shown, but every secret-shaped
-value is replaced with `[REDACTED:<kind>]` first — unredacted secrets are never emitted.
+**After (`OMEGACLAW_DEBUG_LLM_RAW=1`):** raw context shown, but it is first passed through
+a **best-effort** redactor that replaces common secret/token formats with
+`[REDACTED:<kind>]`. This is explicit opt-in for debugging and reduces — but does not
+guarantee elimination of — secret leakage, so debug logs should be treated as sensitive.
 Optional `OMEGACLAW_LLM_LOG_PATH` appends JSONL records (metadata always; redacted raw
 only in debug).
 
@@ -130,7 +132,10 @@ git diff main --stat
 ## 7. Risk / rollback
 - Behavior change is intentional (default no longer prints raw bodies). Nothing consumes
   the `LLM_RAW` line (CI readiness uses `CHARS_SENT`).
-- Redaction is conservative (typed placeholders); debug remains useful. Even debug never
-  prints unredacted secrets (acceptance criterion).
+- Redaction is **best-effort** (common secret/token formats → typed placeholders); debug
+  remains useful but is not a guarantee that every secret is caught, so debug logs are
+  treated as sensitive (explicit opt-in). The default path emits no raw body at all.
 - JSONL write is best-effort and never raises into the provider `chat()` path.
+- The benchmark masks volatile `ts`/`trace` before writing `llm_logging_results.json`, so
+  re-running it leaves the working tree clean (reproducible artifact).
 - No deferrals — the issue scope is fully implemented.
