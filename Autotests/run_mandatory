@@ -1,4 +1,5 @@
 test_action_protocol.py
+test_tool_policy.py
 mock/test_actions_equivalence.py
 mock/test_comm.py
 mock/test_convert_format_mock.py

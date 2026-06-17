@@ -1,0 +1,61 @@
+# Tool/action policy (Issue #2) — HARDENED, opt-in example.
+#
+# A strict default-deny posture: only explicitly enabled tools are permitted,
+# shell is disabled, and file writes are constrained to memory + /tmp. Select it
+# with: OMEGACLAW_TOOL_POLICY_PATH=/PeTTa/repos/OmegaClaw-Core/profile/tool_policy.hardened.yaml
+#
+# This is the profile used for the Issue #2 KPI proof (100% of denied actions
+# blocked before reaching skills.pl / file I/O). It will refuse tools that the
+# default permissive profile allows (e.g. shell, search) — that is intentional.
+version: 1
+default: deny
+
+tools:
+  send: {enabled: true}
+  query: {enabled: true}
+  pin: {enabled: true}
+  episodes: {enabled: true}
+  metta: {enabled: true}
+
+  # Approval-gating demo: committing to long-term memory needs sign-off. The
+  # interactive approval workflow is deferred, so `requires_approval` currently
+  # DENIES (with a logged reason) rather than prompting.
+  remember:
+    enabled: true
+    requires_approval: true
+
+  read-file:
+    enabled: true
+    allowed_roots:
+      - /PeTTa/repos/OmegaClaw-Core
+
+  write-file:
+    enabled: true
+    allowed_roots:
+      - /PeTTa/repos/OmegaClaw-Core/memory
+      - /tmp
+
+  append-file:
+    enabled: true
+    allowed_roots:
+      - /PeTTa/repos/OmegaClaw-Core/memory
+      - /tmp
+
+  # Shell is an escape hatch: disabled here. If enabled, the allow/deny globs
+  # below apply (deny is evaluated first). Patterns are fnmatch globs over the
+  # full command and argv[0]; they are coarse — prefer an allow-list for real
+  # lockdown. shell command filtering is something Landlock cannot do at all.
+  shell:
+    enabled: false
+    allow:
+      - "git status*"
+      - "python3 *"
+    deny:
+      - "rm -rf /"
+      - "* | sh"
+      - "* | bash"
+      - "curl * | sh"
+      - "wget * | sh"
+
+  # search/tavily-search/technical-analysis/write outside roots: not listed ->
+  # denied by `default: deny`.

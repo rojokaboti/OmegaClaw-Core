@@ -520,6 +520,7 @@ start() {
             -e OMEGACLAW_ACTION_PROTOCOL="${OMEGACLAW_ACTION_PROTOCOL:-}"
             -e OMEGACLAW_MAX_ACTIONS="${OMEGACLAW_MAX_ACTIONS:-}"
             -e OMEGACLAW_DISABLED_TOOLS="${OMEGACLAW_DISABLED_TOOLS:-}"
+            -e OMEGACLAW_TOOL_POLICY_PATH="${OMEGACLAW_TOOL_POLICY_PATH:-}"
             "$image"
             "commchannel=${commchannel}"
             "provider=${provider}"
