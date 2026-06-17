@@ -1,0 +1,64 @@
+{
+  "combos": [
+    {
+      "combo": "default (shipped YAML)",
+      "provider": "Anthropic",
+      "expected_model": "claude-opus-4-6",
+      "resolved_model": "claude-opus-4-6",
+      "python_edit_required": false,
+      "ok": true
+    },
+    {
+      "combo": "switch provider -> OpenAI",
+      "provider": "OpenAI",
+      "expected_model": "gpt-5.4",
+      "resolved_model": "gpt-5.4",
+      "python_edit_required": false,
+      "ok": true
+    },
+    {
+      "combo": "switch provider -> OpenRouter",
+      "provider": "OpenRouter",
+      "expected_model": "z-ai/glm-5.1",
+      "resolved_model": "z-ai/glm-5.1",
+      "python_edit_required": false,
+      "ok": true
+    },
+    {
+      "combo": "custom model via OMEGACLAW_LLM_CONFIG_PATH",
+      "provider": "Anthropic",
+      "expected_model": "claude-test-override",
+      "resolved_model": "claude-test-override",
+      "python_edit_required": false,
+      "ok": true
+    }
+  ],
+  "splits": [
+    {
+      "case": "system + user",
+      "expected": [
+        "SYSTEM PROMPT",
+        "HUMAN-MSG: hello"
+      ],
+      "got": [
+        "SYSTEM PROMPT",
+        "HUMAN-MSG: hello"
+      ],
+      "ok": true
+    },
+    {
+      "case": "no separator",
+      "expected": [
+        "",
+        "just a user message"
+      ],
+      "got": [
+        "",
+        "just a user message"
+      ],
+      "ok": true
+    }
+  ],
+  "startup_log_example": "[llm_config] provider=Anthropic model=claude-opus-4-6 base_url=https://api.anthropic.com/v1/ class=AIProvider available=<bool>",
+  "metadata_visible": true
+}
