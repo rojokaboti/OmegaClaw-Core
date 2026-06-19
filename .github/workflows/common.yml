@@ -111,6 +111,7 @@ jobs:
           python ../src/action_protocol.py
           python ../src/tool_policy.py
           python ../src/provider_config.py
+          python ../src/memory_schema.py
           pytest -s -v @run_mandatory
         env:
           OMEGACLAW_CONTAINER: ${{ env.AUTOTESTS_OMEGACLAW_CONTAINER }}

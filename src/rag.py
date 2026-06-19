@@ -8,6 +8,7 @@ import traceback
 import chromadb
 import openai
 from   lib_llm_ext import initLocalEmbedding, useLocalEmbedding
+from   memory_schema import KNOWLEDGE_PRIOR_CONFIDENCE  # provenance schema (Issue #5)
 
 logger = logging.getLogger(__name__)
 
@@ -269,7 +270,11 @@ def init_knowledge(embedding_selection):
                     "source": filename,
                     "breadcrumb": c["breadcrumb"],
                     "type": "chunk",
-                    "time": "knowledge_prior"
+                    "time": "knowledge_prior",
+                    # Provenance schema (Issue #5): knowledge priors are a discounted,
+                    # auditable source so retrieval/filters can distinguish them.
+                    "source_type": "knowledge_prior",
+                    "confidence": KNOWLEDGE_PRIOR_CONFIDENCE,
                 }
                 for c in chunks
             ]
