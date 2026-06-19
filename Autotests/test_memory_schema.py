@@ -14,8 +14,15 @@ for _p in (_SRC, _REPO_ROOT):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+import importlib.util  # noqa: E402
 import json  # noqa: E402
 import memory_schema as ms  # noqa: E402
+
+_HAS_CHROMA = importlib.util.find_spec("chromadb") is not None
+
+
+class _ChromaSkip(Exception):
+    """Raised to skip a chroma-backed test when chromadb is unavailable (standalone)."""
 
 
 # --- pure: build / validate / defaults -----------------------------------
@@ -100,9 +107,17 @@ def _ephemeral_collection():
 
 
 def _with_ephemeral(fn):
-    """Run fn() with memory_schema._collection pointed at an in-memory collection."""
-    import pytest  # only used when chromadb available
-    pytest.importorskip("chromadb")
+    """Run fn() with memory_schema._collection pointed at an in-memory collection.
+
+    Gated on chromadb presence only (no pytest dependency), so it RUNS standalone
+    in-container (chromadb present) and skips on hosts without it.
+    """
+    if not _HAS_CHROMA:
+        try:
+            import pytest
+            pytest.skip("chromadb not installed")
+        except ImportError:
+            raise _ChromaSkip("chromadb not installed")
     coll = _ephemeral_collection()
     saved = ms._collection
     ms._collection = lambda: coll
@@ -162,7 +177,7 @@ def _run_standalone():
                 fn()
                 print(f"PASS {name}")
             except BaseException as exc:  # pytest Skipped subclasses BaseException
-                if exc.__class__.__name__ == "Skipped" or isinstance(exc, ImportError) or "chromadb" in str(exc):
+                if exc.__class__.__name__ in ("Skipped", "_ChromaSkip") or isinstance(exc, (ImportError, _ChromaSkip)) or "chromadb" in str(exc):
                     print(f"SKIP {name} (no chromadb)")
                     continue
                 if isinstance(exc, AssertionError):
