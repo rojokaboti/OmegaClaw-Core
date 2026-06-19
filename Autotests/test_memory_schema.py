@@ -100,10 +100,16 @@ def test_remember_claim_action_renders():
 
 # --- chroma-backed store (in-memory; skip without chromadb) --------------
 
+_coll_counter = [0]
+
+
 def _ephemeral_collection():
+    # Unique collection name per call: EphemeralClient instances can share in-process
+    # state, so reusing one name would leak documents across tests.
     import chromadb
+    _coll_counter[0] += 1
     client = chromadb.EphemeralClient()
-    return client.get_or_create_collection(name="test_claims", embedding_function=None)
+    return client.get_or_create_collection(name=f"test_claims_{_coll_counter[0]}", embedding_function=None)
 
 
 def _with_ephemeral(fn):
