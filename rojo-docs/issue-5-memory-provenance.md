@@ -26,10 +26,10 @@ provenance/filter view.
 
 | | Before | After |
 |---|---|---|
-| Knowledge-prior metadata | `source, breadcrumb, type, time` | + `source_type=knowledge_prior`, `confidence=0.7` |
+| Knowledge-prior metadata | `source, breadcrumb, type, time` | **full schema via `build_metadata`** (claim=breadcrumb, source, source_type=knowledge_prior, confidence 0.7, created_at, atoms_json, supersedes, superseded) + legacy breadcrumb/type/time |
 | Long-term memory schema | none (plain string) | `remember-claim` → `{claim, source, source_type, confidence, created_at, session_id, turn_id, atoms_json, supersedes}` |
 | Confidence by source | none | game_state 1.0, tool_result 0.9, user 0.8, knowledge_prior 0.7, **llm 0.55** |
-| Retrieval | similarity only | `query_claims` exposes provenance + filters by source_type / min_confidence / session / turn / time |
+| Retrieval | similarity only | `query_claims` exposes provenance + filters by source_type / min_confidence / session / turn / time; **by default scopes to provenance-bearing records and excludes superseded ones** |
 | Agent skills | `remember`, `query` | + `remember-claim` (agent belief → llm source), `query-claims` (provenance-annotated) |
 
 ## 3. Files changed
@@ -46,20 +46,21 @@ provenance/filter view.
 
 ## 4. KPI results (`benchmarks/memory_provenance_results.md`)
 
-7-fact fixture (game_state, user, knowledge_prior, tool_result, llm, a stale earlier-turn fact, a superseded fact):
+7-fact fixture (game_state, user, knowledge_prior, tool_result, llm, plus two earlier-turn game facts explicitly **superseded** by the current turn):
 
 | Metric | baseline | candidate |
 |---|---|---|
 | Provenance coverage (source+type+confidence+time) | 0/7 | **7/7** |
 | Source-type filter correct | n/a | **yes** |
 | Min-confidence filter correct | n/a | **yes** |
-| Precision@5 proxy (drop stale/superseded/low-confidence) | 0.80 | **1.00** |
+| Supersession exclusion (default) | n/a | **yes** |
+| Precision@5 proxy | 0.80 | **1.00** |
 
-Candidate exposes provenance for every item and filters by source type and confidence; using
-provenance (confidence + supersession + turn recency) to drop the LLM guess, the superseded
-fact, and the stale earlier-turn fact raises precision to 1.00. (Semantic precision@5 with real
-embeddings is validated in-container; the host benchmark proves the schema + filters
-deterministically.)
+Candidate exposes provenance for every item and applies the **implemented** query-path filters
+(`matches_filters`: provenance scoping + supersession exclusion + min_confidence) to drop the
+low-confidence LLM guess and the superseded earlier-turn facts, raising precision to 1.00. The
+benchmark uses the same `matches_filters` logic the production query path uses (no fixture-only
+ranking). Semantic precision@5 with real embeddings is validated in-container.
 
 ## 5. End-to-end validation (in-container)
 
@@ -132,5 +133,12 @@ git diff main --stat
 - Adding tools to `LLM_COMMANDS` requires matching `ARG_SPEC` entries (done) or
   `output_format_block` KeyErrors — covered by the action-protocol tests.
 - chroma metadata is scalar-only → `atoms` stored as a JSON string.
+- **PR #24 review fixes:** (1) `rag.py` imports `memory_schema` via the repo's `try/except`
+  fallback (robust under `import src.rag`, not reliant on a side-effect); (2) RAG chunks now
+  carry the full schema via `build_metadata`; (3) **supersession is implemented in the query
+  path** — `remember_claim(supersedes=old)` marks the old record `superseded=True`, and
+  `query_claims`/`build_where` exclude superseded records and scope to provenance-bearing ones
+  by default (so legacy memories / hash sentinels aren't surfaced). Docs/benchmark describe only
+  the wired filters (no "stale"/recency claims; the benchmark uses the same `matches_filters`).
 - **Deferred:** there is no FreeCiv/game producer in this repo, so `game_state` is supported as
   a source_type/confidence (1.0) for future producers to populate; nothing to wire today.

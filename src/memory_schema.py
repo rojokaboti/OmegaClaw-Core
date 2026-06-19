@@ -74,6 +74,9 @@ def build_metadata(claim, source, source_type, confidence=None, session_id="",
         "session_id": session_id or "",
         "atoms_json": json.dumps(list(atoms) if atoms else [], ensure_ascii=False),
         "supersedes": supersedes or "",
+        # Set True on a record when a later claim supersedes it; excluded from
+        # query_claims by default (see build_where).
+        "superseded": False,
     }
     if turn_id is not None:
         meta["turn_id"] = int(turn_id)
@@ -105,19 +108,34 @@ def claim_id(meta):
     return f"claim_{src}_{turn}_{digest}"
 
 
-def build_where(filters):
+def build_where(filters=None):
     """Build a Chroma ``where`` clause from a filter dict.
 
     Supported filters: ``source_type``, ``min_confidence``, ``session_id``,
-    ``turn_id``, ``since``/``until`` (ISO ``created_at`` bounds), and
-    ``include_superseded`` (default False → exclude records that supersede others...
-    actually exclude records that *have been* superseded; see note). Returns ``None``
-    when no filters apply (Chroma treats that as "no filter").
+    ``turn_id``, ``since``/``until`` (ISO ``created_at`` bounds).
+
+    Two scoping clauses are applied **by default** (the reviewer-flagged behavior):
+
+    * **provenance scoping** — only records whose ``source_type`` is one of the known
+      provenance types are matched, so legacy plain ``remember`` memories and hash
+      sentinels (which lack ``source_type``) are excluded. Pass ``any_source=True`` to
+      disable.
+    * **supersession exclusion** — records marked ``superseded`` are excluded. Pass
+      ``include_superseded=True`` to disable.
+
+    Always returns a clause (the defaults are non-empty).
     """
     filters = filters or {}
     clauses = []
+
     if filters.get("source_type"):
         clauses.append({"source_type": {"$eq": filters["source_type"]}})
+    elif not filters.get("any_source"):
+        clauses.append({"source_type": {"$in": list(SOURCE_TYPES)}})
+
+    if not filters.get("include_superseded"):
+        clauses.append({"superseded": {"$ne": True}})
+
     if filters.get("min_confidence") is not None:
         clauses.append({"confidence": {"$gte": float(filters["min_confidence"])}})
     if filters.get("session_id"):
@@ -128,6 +146,7 @@ def build_where(filters):
         clauses.append({"created_at": {"$gte": filters["since"]}})
     if filters.get("until"):
         clauses.append({"created_at": {"$lte": filters["until"]}})
+
     if not clauses:
         return None
     if len(clauses) == 1:
@@ -135,10 +154,16 @@ def build_where(filters):
     return {"$and": clauses}
 
 
-def matches_filters(meta, filters):
+def matches_filters(meta, filters=None):
     """Host-side mirror of :func:`build_where` for a single metadata record."""
     filters = filters or {}
-    if filters.get("source_type") and meta.get("source_type") != filters["source_type"]:
+    if filters.get("source_type"):
+        if meta.get("source_type") != filters["source_type"]:
+            return False
+    elif not filters.get("any_source"):
+        if meta.get("source_type") not in SOURCE_TYPES:
+            return False
+    if not filters.get("include_superseded") and meta.get("superseded") is True:
         return False
     if filters.get("min_confidence") is not None and float(meta.get("confidence", 0)) < float(filters["min_confidence"]):
         return False
@@ -178,17 +203,26 @@ def remember_claim(claim, embedding, source_type, source=None, confidence=None,
     if err:
         raise ValueError(f"invalid claim metadata: {err}")
     cid = claim_id(meta)
-    _collection().upsert(ids=[cid], embeddings=[embedding], documents=[claim], metadatas=[meta])
+    coll = _collection()
+    coll.upsert(ids=[cid], embeddings=[embedding], documents=[claim], metadatas=[meta])
+    # If this claim supersedes an earlier record, mark that record superseded so it is
+    # excluded from default recall. Best-effort: ignore if the id is absent.
+    if supersedes:
+        try:
+            coll.update(ids=[supersedes], metadatas=[{"superseded": True}])
+        except Exception as exc:  # pragma: no cover - defensive
+            print(f"[memory_schema] WARNING could not mark superseded id={supersedes}: {exc}", flush=True)
     print(f"[memory_schema] REMEMBER_CLAIM id={cid} source_type={source_type} confidence={meta['confidence']}", flush=True)
     return cid
 
 
 def query_claims(embedding, n=5, filters=None):
-    """Similarity query returning provenance metadata, with optional filtering.
+    """Similarity query returning provenance metadata.
 
-    Returns a list of ``{document, metadata, distance}``. By default superseded
-    records are NOT excluded here (supersession is recorded on the superseding
-    claim's ``supersedes`` field); pass an explicit filter to scope results.
+    Returns a list of ``{document, metadata, distance}``. By default only
+    provenance-bearing, non-superseded records are returned (see :func:`build_where`),
+    so legacy memories / hash sentinels and superseded claims are excluded. Pass
+    ``filters={"any_source": True}`` / ``{"include_superseded": True}`` to widen.
     """
     where = build_where(filters)
     kwargs = {"query_embeddings": [embedding], "n_results": int(n)}
@@ -251,13 +285,20 @@ def _selftest():
     # stable id is deterministic
     assert claim_id(m) == claim_id(build_metadata("City A low food", "freeciv.turn_42", "game_state"))
 
-    # where builder
-    assert build_where(None) is None
-    assert build_where({"source_type": "game_state"}) == {"source_type": {"$eq": "game_state"}}
+    # where builder: defaults scope to provenance + non-superseded
+    d = build_where(None)
+    assert {"source_type": {"$in": list(SOURCE_TYPES)}} in d["$and"]
+    assert {"superseded": {"$ne": True}} in d["$and"]
     w = build_where({"source_type": "user", "min_confidence": 0.8})
-    assert "$and" in w and {"confidence": {"$gte": 0.8}} in w["$and"]
+    assert {"source_type": {"$eq": "user"}} in w["$and"] and {"confidence": {"$gte": 0.8}} in w["$and"]
+    # explicit widening
+    assert build_where({"any_source": True, "include_superseded": True}) is None
 
-    # matches_filters parity
+    # matches_filters parity (default provenance + supersession scoping)
+    assert matches_filters(m)                                  # provenance-bearing, not superseded
+    assert not matches_filters({"source_type": "hash"})        # not a provenance source -> excluded
+    superseded = build_metadata("old", "s", "game_state"); superseded["superseded"] = True
+    assert not matches_filters(superseded) and matches_filters(superseded, {"include_superseded": True})
     assert matches_filters(ml, {"min_confidence": 0.5}) and not matches_filters(ml, {"min_confidence": 0.7})
     assert matches_filters(m, {"source_type": "game_state"}) and not matches_filters(m, {"source_type": "llm"})
 

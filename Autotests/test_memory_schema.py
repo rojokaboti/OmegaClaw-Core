@@ -68,15 +68,20 @@ def test_claim_id_stable_and_deterministic():
 
 # --- pure: filters --------------------------------------------------------
 
+def test_build_where_defaults_scope_provenance_and_supersession():
+    # By default: only provenance source_types, and exclude superseded.
+    d = ms.build_where(None)
+    assert {"source_type": {"$in": list(ms.SOURCE_TYPES)}} in d["$and"]
+    assert {"superseded": {"$ne": True}} in d["$and"]
+    # explicit widening yields no clause
+    assert ms.build_where({"any_source": True, "include_superseded": True}) is None
+
+
 def test_build_where_variants():
-    assert ms.build_where(None) is None
-    assert ms.build_where({}) is None
-    assert ms.build_where({"source_type": "game_state"}) == {"source_type": {"$eq": "game_state"}}
-    assert ms.build_where({"min_confidence": 0.7}) == {"confidence": {"$gte": 0.7}}
     w = ms.build_where({"source_type": "user", "min_confidence": 0.8})
-    assert "$and" in w and {"source_type": {"$eq": "user"}} in w["$and"] and {"confidence": {"$gte": 0.8}} in w["$and"]
-    w2 = ms.build_where({"session_id": "g1", "turn_id": 3, "since": "2026-01-01T00:00:00Z"})
-    assert "$and" in w2 and len(w2["$and"]) == 3
+    assert {"source_type": {"$eq": "user"}} in w["$and"] and {"confidence": {"$gte": 0.8}} in w["$and"]
+    # superseded exclusion is added unless opted out
+    assert {"superseded": {"$ne": True}} in w["$and"]
 
 
 def test_matches_filters_parity():
@@ -87,6 +92,26 @@ def test_matches_filters_parity():
     assert ms.matches_filters(gs, {"source_type": "game_state"})
     assert not ms.matches_filters(gs, {"source_type": "llm"})
     assert ms.matches_filters(gs, {"min_confidence": 0.9, "source_type": "game_state"})
+
+
+def test_matches_filters_default_scoping():
+    # default scoping excludes non-provenance records (no/unknown source_type)
+    assert not ms.matches_filters({"source_type": "hash"})
+    assert not ms.matches_filters({})
+    # and excludes superseded unless asked
+    sup = ms.build_metadata("old", "s", "game_state"); sup["superseded"] = True
+    assert not ms.matches_filters(sup)
+    assert ms.matches_filters(sup, {"include_superseded": True})
+
+
+def test_rag_style_metadata_conforms():
+    # RAG chunks (issue blocking-2) now build via build_metadata -> full schema.
+    meta = {**ms.build_metadata(claim="Intro > Setup", source="readme.md",
+                                source_type="knowledge_prior", confidence=ms.KNOWLEDGE_PRIOR_CONFIDENCE),
+            "breadcrumb": "Intro > Setup", "type": "chunk", "time": "knowledge_prior"}
+    assert ms.validate_metadata(meta) is None
+    for k in ("claim", "created_at", "atoms_json", "superseded", "source_type", "confidence"):
+        assert k in meta
 
 
 # --- action protocol round-trip (the new tools) --------------------------
@@ -154,6 +179,34 @@ def test_min_confidence_filter_excludes_low_confidence():
         docs = [r["document"] for r in hi]
         assert "shaky llm guess" not in docs       # filtered out by confidence
         assert "trusted game fact" in docs
+    _with_ephemeral(body)
+
+
+def test_supersession_excludes_old_record():
+    def body(coll):
+        old = ms.remember_claim("City A food unknown (pending)", [1.0, 0.0, 0.0], "game_state",
+                                source="freeciv.turn_41", turn_id=41)
+        # a later claim supersedes the old one
+        ms.remember_claim("City A has low food", [1.0, 0.0, 0.0], "game_state",
+                          source="freeciv.turn_42", turn_id=42, supersedes=old)
+        docs = [r["document"] for r in ms.query_claims([1.0, 0.0, 0.0], n=5)]
+        assert "City A has low food" in docs
+        assert "City A food unknown (pending)" not in docs        # superseded -> excluded by default
+        # opt back in
+        docs_all = [r["document"] for r in ms.query_claims([1.0, 0.0, 0.0], n=5, filters={"include_superseded": True})]
+        assert "City A food unknown (pending)" in docs_all
+    _with_ephemeral(body)
+
+
+def test_query_claims_excludes_non_provenance_records():
+    def body(coll):
+        # a bare doc lacking provenance (like a legacy memory / hash sentinel)
+        coll.upsert(ids=["bare1"], embeddings=[[1.0, 0.0, 0.0]], documents=["legacy memory"],
+                    metadatas=[{"type": "hash", "source": "x"}])
+        ms.remember_claim("a real claim", [1.0, 0.0, 0.0], "game_state", source="g")
+        docs = [r["document"] for r in ms.query_claims([1.0, 0.0, 0.0], n=5)]
+        assert "a real claim" in docs
+        assert "legacy memory" not in docs                        # no source_type -> excluded
     _with_ephemeral(body)
 
 

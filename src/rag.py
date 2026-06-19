@@ -8,7 +8,10 @@ import traceback
 import chromadb
 import openai
 from   lib_llm_ext import initLocalEmbedding, useLocalEmbedding
-from   memory_schema import KNOWLEDGE_PRIOR_CONFIDENCE  # provenance schema (Issue #5)
+try:  # provenance schema (Issue #5) — robust under flat or repo-root package import
+    from memory_schema import KNOWLEDGE_PRIOR_CONFIDENCE, build_metadata
+except ImportError:  # pragma: no cover - package-style import path
+    from src.memory_schema import KNOWLEDGE_PRIOR_CONFIDENCE, build_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -265,16 +268,18 @@ def init_knowledge(embedding_selection):
 
             # Store chunks
             ids = [f"{filename}_chunk_{i}" for i in range(len(chunks))]
+            # Provenance schema (Issue #5): each chunk carries the full common schema
+            # (claim/source/source_type/confidence/created_at/atoms_json/supersedes/superseded)
+            # via build_metadata, plus the legacy breadcrumb/type/time keys for back-compat.
             metadatas = [
                 {
-                    "source": filename,
+                    **build_metadata(
+                        claim=c["breadcrumb"], source=filename, source_type="knowledge_prior",
+                        confidence=KNOWLEDGE_PRIOR_CONFIDENCE,
+                    ),
                     "breadcrumb": c["breadcrumb"],
                     "type": "chunk",
                     "time": "knowledge_prior",
-                    # Provenance schema (Issue #5): knowledge priors are a discounted,
-                    # auditable source so retrieval/filters can distinguish them.
-                    "source_type": "knowledge_prior",
-                    "confidence": KNOWLEDGE_PRIOR_CONFIDENCE,
                 }
                 for c in chunks
             ]

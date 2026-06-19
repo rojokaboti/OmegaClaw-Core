@@ -7,6 +7,7 @@
   },
   "filter_source_type_ok": true,
   "filter_min_confidence_ok": true,
+  "supersession_exclusion_ok": true,
   "precision_at_5": {
     "baseline": 0.8,
     "candidate": 1.0

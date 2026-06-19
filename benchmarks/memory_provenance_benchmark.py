@@ -34,11 +34,14 @@ from memory_provenance_fixtures import FIXTURES  # noqa: E402
 
 
 def _candidate_meta(fx):
-    return ms.build_metadata(
+    meta = ms.build_metadata(
         fx["claim"], fx["source"], fx["source_type"],
         confidence=fx.get("confidence"), turn_id=fx.get("turn_id"),
         created_at=fx.get("created_at"), supersedes=fx.get("supersedes"),
     )
+    # Mirror what remember_claim(..., supersedes=...) sets on the superseded record.
+    meta["superseded"] = bool(fx.get("superseded"))
+    return meta
 
 
 def _baseline_meta(fx):
@@ -60,12 +63,16 @@ def main():
     cand_full, n = _coverage(cand)
     base_full, _ = _coverage(base)
 
-    # filter correctness on the candidate metadata
-    gs = [m for m in cand if ms.matches_filters(m, {"source_type": "game_state"})]
+    # filter correctness on the candidate metadata. Use include_superseded to test the
+    # source_type filter in isolation (default supersession exclusion is checked separately).
+    gs = [m for m in cand if ms.matches_filters(m, {"source_type": "game_state", "include_superseded": True})]
     hi = [m for m in cand if ms.matches_filters(m, {"min_confidence": 0.8})]
     filter_source_type_ok = all(m["source_type"] == "game_state" for m in gs) and len(gs) == sum(
         1 for f in FIXTURES if f["source_type"] == "game_state")
     filter_min_conf_ok = all(m["confidence"] >= 0.8 for m in hi) and ("llm" not in [m["source_type"] for m in hi])
+    # supersession exclusion is active by default (the implemented behavior)
+    superseded_excluded_ok = all(
+        not ms.matches_filters(m) for m, f in zip(cand, FIXTURES) if f.get("superseded"))
 
     # precision@5 proxy:
     #  baseline: no provenance to rank by -> take items in order (first 5).
@@ -79,19 +86,11 @@ def main():
 
     base_rank = list(range(len(FIXTURES)))  # baseline has no provenance signal to reorder/filter
 
-    # Candidate uses provenance to drop untrustworthy/stale/superseded facts:
-    #  - low-confidence LLM guesses (confidence < 0.6),
-    #  - explicitly superseded facts,
-    #  - stale game_state (a non-latest turn for the same subject).
-    latest_gs_turn = max((f.get("turn_id", -1) for f in FIXTURES if f["source_type"] == "game_state"),
-                         default=-1)
-
-    def _stale_gamestate(i):
-        f = FIXTURES[i]
-        return f["source_type"] == "game_state" and f.get("turn_id", latest_gs_turn) < latest_gs_turn
-
-    cand_rank = [i for i, f in enumerate(FIXTURES)
-                 if cand[i]["confidence"] >= 0.6 and not f.get("superseded") and not _stale_gamestate(i)]
+    # Candidate keep-set uses ONLY the implemented query-path filter (matches_filters,
+    # which mirrors build_where): default provenance scoping + supersession exclusion,
+    # plus a min_confidence threshold. This drops the low-confidence LLM guess and the
+    # superseded earlier-turn facts -- exactly what query_claims does in production.
+    cand_rank = [i for i, m in enumerate(cand) if ms.matches_filters(m, {"min_confidence": 0.6})]
     base_p5 = precision_at_5(base_rank)
     cand_p5 = precision_at_5(cand_rank)
 
@@ -100,6 +99,7 @@ def main():
         "provenance_coverage": {"baseline": base_full, "candidate": cand_full, "total": n},
         "filter_source_type_ok": filter_source_type_ok,
         "filter_min_confidence_ok": filter_min_conf_ok,
+        "supersession_exclusion_ok": superseded_excluded_ok,
         "precision_at_5": {"baseline": round(base_p5, 3), "candidate": round(cand_p5, 3)},
     }
     with open(os.path.join(_HERE, "memory_provenance_results.json"), "w", encoding="utf-8") as f:
@@ -109,7 +109,7 @@ def main():
         "# Memory/RAG Provenance KPI Benchmark — Issue #5",
         "",
         f"Fixture dataset: **{n} facts** across game_state / user / knowledge_prior / tool_result / "
-        "llm, including a stale (earlier-turn) fact and a superseded fact.",
+        "llm, including two earlier-turn game facts explicitly superseded by the current turn.",
         "",
         "- **baseline** = pre-change metadata (`source/breadcrumb/type/time`; no source_type/confidence).",
         "- **candidate** = provenance schema (source, source_type, confidence, timestamp + filters).",
@@ -119,12 +119,14 @@ def main():
         f"| Provenance coverage (full source+type+confidence+time) | {base_full}/{n} | {cand_full}/{n} |",
         f"| Source-type filter correct | n/a | {filter_source_type_ok} |",
         f"| Min-confidence filter correct | n/a | {filter_min_conf_ok} |",
-        f"| Precision@5 proxy (filter out stale/superseded/low-confidence) | {base_p5:.2f} | {cand_p5:.2f} |",
+        f"| Supersession exclusion (default) | n/a | {superseded_excluded_ok} |",
+        f"| Precision@5 proxy (drop superseded + low-confidence via the implemented filters) | {base_p5:.2f} | {cand_p5:.2f} |",
         "",
-        "Candidate exposes provenance for every item and filters by source type and confidence, "
-        "raising precision by excluding stale/superseded/low-confidence facts. (Semantic precision@5 "
+        "Candidate exposes provenance for every item and applies the **implemented** query-path "
+        "filters (provenance scoping + supersession exclusion + min_confidence) to drop the superseded "
+        "earlier-turn facts and the low-confidence LLM guess, raising precision. (Semantic precision@5 "
         "with real embeddings is validated in-container; this host benchmark proves the schema + filters "
-        "deterministically.)",
+        "deterministically using the same `matches_filters` logic as production.)",
         "",
         "Reproduce: `python3 benchmarks/memory_provenance_benchmark.py`",
         "",
@@ -140,6 +142,8 @@ def main():
         failures.append("source_type filter incorrect")
     if not filter_min_conf_ok:
         failures.append("min_confidence filter incorrect")
+    if not superseded_excluded_ok:
+        failures.append("supersession exclusion not applied by default")
     if cand_p5 < base_p5:
         failures.append(f"candidate precision proxy {cand_p5} < baseline {base_p5}")
     if failures:
