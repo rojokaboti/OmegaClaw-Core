@@ -64,16 +64,17 @@ ranking). Semantic precision@5 with real embeddings is validated in-container.
 
 ## 5. End-to-end validation (in-container)
 
-- **Chroma-backed `test_memory_schema.py` in the container: 12/12 pass** (the chroma tests
-  execute there — chromadb present; they skip on the host runner). Note: tests use a unique
-  in-memory collection each, since chromadb `EphemeralClient` shares in-process state.
-- **`remember_claim` → `query_claims` round-trip (real chromadb client):** writing a
-  `game_state` claim (conf 1.0) and an `llm` claim (conf 0.55), then `query_claims(..., {min_confidence: 0.8})`
-  returns only the game_state claim with full provenance:
-  `[('City A has low foo', 'game_state', 1.0)]` — the low-confidence guess is filtered out.
-- **`@run_mandatory`: 141 passed, 4 skipped, 0 failed** — was 133; +8 (the 4 skips are the
-  chroma-backed tests skipping on the pytest host runner). Adding `remember-claim`/`query-claims`
-  did not regress the mock suite.
+- **`test_memory_schema.py` in the container: 17/17 pass** (all chroma-backed tests execute —
+  incl. supersession exclusion + provenance scoping; they skip on the host runner). Tests use a
+  unique in-memory collection each (chromadb `EphemeralClient` shares in-process state).
+- **Supersession round-trip (real chromadb client):** `remember_claim(...turn_41)` then
+  `remember_claim(...turn_42, supersedes=turn_41)` → default `query_claims` returns only
+  `['City A low food']` (the superseded turn-41 record is excluded; the current one present).
+- **Provenance filter round-trip:** `query_claims(min_confidence=0.8)` returns the game_state
+  (1.0) claim and excludes the llm (0.55) guess; a bare non-provenance doc is not returned.
+- **`@run_mandatory`: 144 passed, 6 skipped, 0 failed** (the 6 skips are the chroma-backed tests
+  skipping on the pytest host runner). Adding `remember-claim`/`query-claims` and the supersession
+  changes did not regress the mock suite.
 
 ## 6. Reviewer guide — test & compare against the previous version
 
