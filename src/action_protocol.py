@@ -88,8 +88,10 @@ MAX_ACTIONS = _max_actions()
 ARG_SPEC = {
     "send": [("text",)],
     "query": [("text",)],
+    "query-claims": [("text",)],
     "search": [("text",)],
     "remember": [("text",)],
+    "remember-claim": [("claim", "text")],
     "pin": [("text",)],
     "tavily-search": [("text", "query")],
     "technical-analysis": [("ticker", "symbol", "text")],

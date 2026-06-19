@@ -2,6 +2,8 @@
    (;INTERNAL:
     "- Remember a particular string such as skills and memories: remember string"
     "- Query long-term embedding memory for skills and memories with short phrases only: query string"
+    "- Remember a provenance-tagged claim (recorded as your own llm-sourced belief, confidence 0.55): remember-claim string"
+    "- Query memory and get results with source/confidence provenance annotations: query-claims string"
     "- Episodes searches history for episodes around a time stamp, time format is same as in TIME: episodes time_string"
     "- Pin a certain string as short-term working memory item to keep track of task state: pin string"
     ;SHELL AND FILE I/O:
