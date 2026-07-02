@@ -131,6 +131,23 @@ def test_pln_word_form_and_truth_values():
         assert "(stv " in s and s.endswith(")")
 
 
+def test_atoms_are_well_formed_sexprs():
+    """Every generated atom/sentence must parse as a valid PLN S-expression (space-ingestable)."""
+    for fx in FIXTURES:
+        stmts, sents = atoms.atoms_from_state(fx["state"])
+        atoms.assert_well_formed(stmts, sents)  # raises on any malformed atom/sentence
+
+
+def test_atom_validator_rejects_malformed():
+    assert atoms.validate_atom("(Inheritance City_1 LowFood") is not None   # unbalanced
+    assert atoms.validate_atom("(Bogus City_1 LowFood)") is not None        # unknown link
+    assert atoms.validate_atom("(Evaluation (Predicate Gold) Player_0)") is not None  # no (List)
+    assert atoms.validate_atom("(Inheritance City_1)") is not None          # wrong arity
+    assert atoms.validate_atom("(Inheritance City_1 LowFood)") is None      # valid
+    assert atoms.validate_sentence("((Inheritance A B) (stv 1.5 0.9))") is not None   # truth OOR
+    assert atoms.validate_sentence("((Inheritance A B) (stv 1.0 0.99))") is None      # valid
+
+
 def test_game_state_atoms_match_memory_schema_shape():
     """Atoms must be storable as-is in memory_schema.build_metadata(atoms=[...])."""
     try:
