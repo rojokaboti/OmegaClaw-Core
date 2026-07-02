@@ -22,6 +22,14 @@ providers:
     base_url: https://inference.asicloud.cudos.org/v1
     api_style: chat_completions
 
+  SNET:
+    api_key_env: SNET_API_KEY
+    model: openai/gpt-oss-120b
+    base_url: https://llm.c.singularitynet.io/v1
+    api_style: chat_completions
+    # Available models (GET /v1/models): openai/gpt-oss-120b, qwen/qwen3.5-35b-a3b, asi1,
+    # nousresearch/hermes-4-70b, minimax/minimax-m2.5|m2.7|m3-f, z-ai/*. Change `model` to switch.
+
   Anthropic:
     api_key_env: ANTHROPIC_API_KEY
     model: claude-opus-4-8
