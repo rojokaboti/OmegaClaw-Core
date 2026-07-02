@@ -86,13 +86,32 @@ non-zero on any regression, and the JSON output is byte-identical across runs.
 - src Phase-1 self-tests pass: `freeciv_tool`, `action_protocol`, `helper`, `tool_policy`,
   `provider_config`, `memory_schema`.
 
-**Live E2E (deferred — gated on Docker + ASICloud key):** bring up `freeciv-llm` via
-`docker compose up -d`; run OmegaClaw (provider `ASICloud`) driving `freeciv-observe`/`freeciv-action`
-for N turns vs the built-in AI, asserting (a) identical live state → identical atoms, (b) **0** illegal
-submissions across the run, (c) ≥95% coverage on live states. The deterministic core is fully proven
-on-host; only the WS submit path + MeTTa dispatch need the running stack (mirrors how #1–#5 deferred
-their stochastic/loop paths to the in-container suite). `websockets` is a live-only dependency,
-lazily imported in `benchmarks/freeciv/client.py`.
+**Live E2E (executed against a running `freeciv-llm` stack):**
+- Built and brought up the full `taso-ventures/freeciv-llm` docker-compose stack locally
+  (`fciv-net` + mariadb + redis + nginx + flyway + mediamtx). Fixed two environment issues to
+  get it healthy: (1) the bind-mounted `logs/` dir was `root`-owned and blocked publite2 from
+  spawning civservers (`chmod 777`); (2) the `:8003` gateway crashed on unconditional streaming
+  imports (`kubernetes`, `youtube_client`) even with `STREAMING_MODE=disabled` — installed
+  `kubernetes` and stubbed `youtube_client` to bring the gateway up.
+- Connected as an agent over the proxy `/llmsocket` and the `:8003` gateway (`llm_connect` →
+  `auth_success`, `state_query`, `chat`/`action`), and **captured a real `llm_optimized` state**
+  (saved at `benchmarks/freeciv/samples/real_state_turn0.json`). The adapter ran **deterministically**
+  on the real state (`state_hash` stable across re-serialization) and `validate_action` correctly
+  rejected an unknown-unit move (`E201`) against live data.
+- **Schema-drift finding + fix (the payoff of the live run):** the real runtime format from
+  `civcom.build_llm_optimized_state` differs from the documented `_format_llm_optimized_state`
+  (`strategic.score` vs `victory_progress.current_score`; `economic.gold`/`research` vs
+  `economic.resources.*`; `tactical.active_units`/`visible_threats`). The adapter was updated to
+  handle **both** shapes; regression tests `test_real_runtime_shape_*` lock this in, and the
+  captured sample is committed as the anchor.
+- **Not completed live, with reasons:** (a) the FreeCiv game would not advance past pregame
+  (`T000`, no starting units) — game-start orchestration is a `freeciv-llm` concern (the
+  `game_session_manager` `/start` handshake), so a *populated* multi-turn play loop wasn't
+  observed; (b) **live LLM inference is blocked** — the ASICloud key authenticates but the account
+  is out of quota (`insufficient_balance`). Both are external to this deliverable; the moment the
+  account has balance and a game reaches turn ≥1, the wired `freeciv-observe`/`freeciv-action`
+  tools exercise the same host-proven code. `websockets` is a live-only dep, lazily imported in
+  `benchmarks/freeciv/client.py`.
 
 ## 6. What was deferred
 

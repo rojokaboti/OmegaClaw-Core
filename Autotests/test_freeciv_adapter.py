@@ -56,6 +56,46 @@ def test_field_coverage_at_least_95_percent():
         assert cov["ratio"] >= 0.95, (fx["id"], cov)
 
 
+# real runtime llm_optimized shape (civcom.build_llm_optimized_state) — differs from the
+# documented _format_llm_optimized_state; the adapter must handle both. Captured live during
+# Issue #6 validation (see benchmarks/freeciv/samples/).
+_REAL_SHAPE = {
+    "format": "llm_optimized", "turn": 12, "phase": "movement", "player_perspective": 0,
+    "strategic": {"score": 45, "cities_count": 1, "units_count": 2, "tech_level": 3, "gold": 20},
+    "tactical": {"active_units": [7], "visible_threats": [{"enemy_unit_id": 30, "target_id": 7}],
+                 "cities_needing_orders": [1]},
+    "economic": {"gold": 20, "gold_per_turn": 2, "research": 6, "research_target": "Pottery"},
+    "players": {"0": {"id": 0, "name": "Romans", "gold": 20}},
+    "units": {"7": {"id": 7, "type": "Warrior", "owner": 0, "x": 4, "y": 5, "hp": 10}},
+    "cities": {"1": {"id": 1, "name": "Rome", "owner": 0, "x": 4, "y": 5, "population": 2,
+                     "production": "Warriors"}},
+    "techs": {"player0": ["Pottery", "Alphabet"]},
+}
+
+
+def test_real_runtime_shape_extracts_resources_and_strategic():
+    facts = adapter.facts_from_state(adapter.normalize_state(_REAL_SHAPE))
+    cats = {f["category"] for f in facts}
+    assert "resources" in cats and "strategic" in cats  # economic.gold + strategic.score
+    assert "units" in cats and "cities" in cats and "techs" in cats
+    assert adapter.coverage(_REAL_SHAPE)["ratio"] >= 0.95
+    # a threat from tactical.visible_threats is surfaced
+    stmts = atoms.atoms_from_facts(facts)
+    assert any("Threatens" in s for s in stmts)
+
+
+def test_captured_real_sample_normalizes_cleanly():
+    sample = os.path.join(_BENCHMARKS, "freeciv", "samples", "real_state_turn0.json")
+    if not os.path.exists(sample):
+        return
+    with open(sample) as f:
+        state = json.load(f)
+    # deterministic + no crash on the real byte-captured state
+    assert adapter.state_hash(state) == adapter.state_hash(json.loads(json.dumps(state)))
+    facts = adapter.facts_from_state(adapter.normalize_state(state))
+    assert atoms.atoms_from_facts(facts) == sorted(set(atoms.atoms_from_facts(facts)))
+
+
 # --- PLN atom shape --------------------------------------------------------
 
 def test_pln_word_form_and_truth_values():

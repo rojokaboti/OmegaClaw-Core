@@ -76,12 +76,16 @@ def _present(norm, category):
     if category == "techs":
         return bool(_researched_techs(norm))
     if category == "resources":
-        res = _get(norm, "economic", "resources", default={})
-        return isinstance(res, dict) and any(isinstance(res.get(k), (int, float)) for k in ("gold", "science"))
+        econ = norm.get("economic") or {}
+        res = econ.get("resources") if isinstance(econ.get("resources"), dict) else econ
+        return isinstance(res, dict) and any(
+            isinstance(res.get(k), (int, float)) for k in ("gold", "science", "research"))
     if category == "strategic":
-        return bool(_get(norm, "strategic", "victory_progress")) or bool(_get(norm, "strategic", "relative_strength"))
+        strat = norm.get("strategic") or {}
+        return bool(strat.get("victory_progress")) or bool(strat.get("relative_strength")) \
+            or isinstance(strat.get("score"), (int, float))
     if category == "threats":
-        threats = _get(norm, "tactical", "immediate_threats", default=[])
+        threats = _get(norm, "tactical", "immediate_threats") or _get(norm, "tactical", "visible_threats") or []
         if isinstance(threats, list) and threats:
             return True
         # undefended detection is only meaningful if we own cities
@@ -229,31 +233,40 @@ def facts_from_state(norm):
             facts.append(_fact(cid, "Inheritance", "LowFood", CONF_DERIVED, "cities"))
 
     # --- resources: gold / science -----------------------------------------------------
-    resources = _get(norm, "economic", "resources", default={})
-    if isinstance(resources, dict):
-        for res in ("gold", "science"):
-            if isinstance(resources.get(res), (int, float)):
-                facts.append(_fact(_tok("Player", pid), "Evaluation",
-                                   res.capitalize() + ":" + str(int(resources[res])),
-                                   CONF_OBSERVED, "resources"))
+    # Two observed shapes: documented {economic:{resources:{gold,science}}} and the real
+    # runtime {economic:{gold, research}} (civcom.build_llm_optimized_state). Handle both.
+    econ = norm.get("economic") or {}
+    resources = econ.get("resources") if isinstance(econ.get("resources"), dict) else econ
+    _res_vals = {
+        "gold": resources.get("gold"),
+        "science": resources.get("science", resources.get("research")),
+    }
+    for res, val in _res_vals.items():
+        if isinstance(val, (int, float)):
+            facts.append(_fact(_tok("Player", pid), "Evaluation",
+                               res.capitalize() + ":" + str(int(val)),
+                               CONF_OBSERVED, "resources"))
 
     # --- techs: researched -------------------------------------------------------------
     for t in _researched_techs(norm):
         facts.append(_fact(_tok("Tech", t), "Inheritance", "Researched", CONF_OBSERVED, "techs"))
 
     # --- strategic: score + relative strength ------------------------------------------
-    vp = _get(norm, "strategic", "victory_progress", default={})
-    if isinstance(vp, dict) and isinstance(vp.get("current_score"), (int, float)):
-        facts.append(_fact(_tok("Player", pid), "Evaluation",
-                           "Score:" + str(int(vp["current_score"])),
+    # Documented {strategic:{victory_progress:{current_score}}} vs real {strategic:{score}}.
+    strat = norm.get("strategic") or {}
+    vp = strat.get("victory_progress") if isinstance(strat.get("victory_progress"), dict) else {}
+    score = vp.get("current_score", strat.get("score"))
+    if isinstance(score, (int, float)):
+        facts.append(_fact(_tok("Player", pid), "Evaluation", "Score:" + str(int(score)),
                            CONF_OBSERVED, "strategic"))
-    rs = _get(norm, "strategic", "relative_strength")
+    rs = strat.get("relative_strength")
     if isinstance(rs, str) and rs:
         facts.append(_fact(_tok("Player", pid), "Inheritance", _tok("", rs.capitalize()),
                            CONF_DERIVED, "strategic"))
 
     # --- threats: immediate threats + undefended owned cities --------------------------
-    threats = _get(norm, "tactical", "immediate_threats", default=[])
+    threats = (_get(norm, "tactical", "immediate_threats")
+               or _get(norm, "tactical", "visible_threats") or [])
     if isinstance(threats, list):
         for th in threats:
             if not isinstance(th, dict):
