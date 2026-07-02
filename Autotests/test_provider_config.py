@@ -90,7 +90,7 @@ def test_no_env_does_not_fail_closed():
     try:
         cfg = pc.load_config()
         assert cfg is not pc.FAIL_CLOSED
-        assert pc.config_model("OpenAI", cfg) == "gpt-5.4"
+        assert pc.config_model("OpenAI", cfg) == "gpt-5.5"
     finally:
         pc.reset_cache()
 
@@ -135,7 +135,7 @@ def test_fail_open_opt_in_restores_builtin():
     try:
         cfg = pc.load_config()
         assert cfg is not pc.FAIL_CLOSED
-        assert pc.config_model("OpenAI", cfg) == "gpt-5.4"  # builtin
+        assert pc.config_model("OpenAI", cfg) == "gpt-5.5"  # builtin
     finally:
         os.environ.pop("OMEGACLAW_LLM_CONFIG_PATH", None)
         os.environ.pop("OMEGACLAW_LLM_CONFIG_FAIL_OPEN", None)
@@ -149,7 +149,7 @@ def test_relative_path_resolves_against_repo_root():
     pc.reset_cache()
     try:
         cfg = pc.load_config()
-        assert pc.config_model("OpenAI", cfg) == "gpt-5.4"  # shipped file found, not CWD-relative
+        assert pc.config_model("OpenAI", cfg) == "gpt-5.5"  # shipped file found, not CWD-relative
     finally:
         os.environ.pop("OMEGACLAW_LLM_CONFIG_PATH", None)
         pc.reset_cache()
@@ -175,14 +175,14 @@ def test_openrouter_reasoning_from_config():
 
 
 def test_effective_model_matches_config():
-    assert llm.effective_model("Anthropic") == "claude-opus-4-6"
-    assert llm.effective_model("OpenAI") == "gpt-5.4"
+    assert llm.effective_model("Anthropic") == "claude-opus-4-8"
+    assert llm.effective_model("OpenAI") == "gpt-5.5"
     assert llm.effective_model("Nonexistent") == ""
 
 
 def test_describe_effective_config_shows_provider_and_model():
     desc = llm.describe_effective_config("Anthropic")
-    assert "provider=Anthropic" in desc and "model=claude-opus-4-6" in desc
+    assert "provider=Anthropic" in desc and "model=claude-opus-4-8" in desc
 
 
 def test_describe_unknown_provider_is_clear():
