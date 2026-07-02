@@ -96,6 +96,29 @@ def test_captured_real_sample_normalizes_cleanly():
     assert atoms.atoms_from_facts(facts) == sorted(set(atoms.atoms_from_facts(facts)))
 
 
+def test_captured_populated_real_game_state():
+    """Byte-real state from a *started* live game (turn 1, 7 starting units)."""
+    sample = os.path.join(_BENCHMARKS, "freeciv", "samples", "real_state_turn1.json")
+    if not os.path.exists(sample):
+        return
+    with open(sample) as f:
+        state = json.load(f)
+    norm = adapter.normalize_state(state)
+    assert norm["turn"] == 1
+    mine = [u for u in norm["units"] if u.get("owner") == norm["player_perspective"]]
+    assert len(mine) >= 1
+    facts = adapter.facts_from_state(norm)
+    cats = {f["category"] for f in facts}
+    # real populated game yields unit + resource + strategic facts, all deterministic
+    assert "units" in cats and "resources" in cats and "strategic" in cats
+    assert adapter.coverage(state)["ratio"] >= 0.95
+    assert adapter.state_hash(state) == adapter.state_hash(json.loads(json.dumps(state)))
+    # a real owned unit validates for a simple action; an unknown unit does not
+    uid = mine[0]["id"]
+    assert actions.validate_action({"type": "unit_fortify", "unit_id": uid}, state).is_valid
+    assert not actions.validate_action({"type": "unit_fortify", "unit_id": 10**9}, state).is_valid
+
+
 # --- PLN atom shape --------------------------------------------------------
 
 def test_pln_word_form_and_truth_values():

@@ -34,6 +34,10 @@ _BUILTIN_DEFAULTS = {
             "api_key_env": "ASI_API_KEY", "model": "minimax/minimax-m2.5",
             "base_url": "https://inference.asicloud.cudos.org/v1", "api_style": "chat_completions",
         },
+        "SNET": {
+            "api_key_env": "SNET_API_KEY", "model": "openai/gpt-oss-120b",
+            "base_url": "https://llm.c.singularitynet.io/v1", "api_style": "chat_completions",
+        },
         "Anthropic": {
             "api_key_env": "ANTHROPIC_API_KEY", "model": "claude-opus-4-6",
             "base_url": "https://api.anthropic.com/v1/", "api_style": "chat_completions",

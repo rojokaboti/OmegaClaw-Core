@@ -104,14 +104,22 @@ non-zero on any regression, and the JSON output is byte-identical across runs.
   `economic.resources.*`; `tactical.active_units`/`visible_threats`). The adapter was updated to
   handle **both** shapes; regression tests `test_real_runtime_shape_*` lock this in, and the
   captured sample is committed as the anchor.
-- **Not completed live, with reasons:** (a) the FreeCiv game would not advance past pregame
-  (`T000`, no starting units) — game-start orchestration is a `freeciv-llm` concern (the
-  `game_session_manager` `/start` handshake), so a *populated* multi-turn play loop wasn't
-  observed; (b) **live LLM inference is blocked** — the ASICloud key authenticates but the account
-  is out of quota (`insufficient_balance`). Both are external to this deliverable; the moment the
-  account has balance and a game reaches turn ≥1, the wired `freeciv-observe`/`freeciv-action`
-  tools exercise the same host-proven code. `websockets` is a live-only dep, lazily imported in
-  `benchmarks/freeciv/client.py`.
+- **Game-start solved → full E2E on a populated game.** The game stayed at `T000` because
+  freeciv-llm civservers default to `minplayers=2` (`Not enough human players … game will not
+  start`), so one agent + aifill never leaves pregame. Fix: while in pregame, send
+  `/set minplayers 1` then `/start` (server commands via the `chat` message type). With that, the
+  game reaches **turn 1 with the player's 7 starting units** (`startunits "cccwwwx"`). The adapter
+  then produced **18 deterministic PLN atoms** from the real state (per-unit `Type`/`At`,
+  `Gold`/`Science`/`Score`, researched tech), coverage **1.00**, hash stable; it **validated and
+  submitted** a legal `unit_fortify` and **blocked an illegal unknown-unit move pre-submit**
+  (`E201`). Reproduce with `python3 benchmarks/freeciv/live_play.py` (against the running stack).
+  Captured states are committed at `benchmarks/freeciv/samples/real_state_turn{0,1}.json` and
+  regression-tested. `websockets` is a live-only dep, lazily imported.
+- **Still blocked (external):** live *LLM inference* — a funded provider key is required. ASICloud
+  was out of quota (`insufficient_balance`); the repo now also supports **SNET**
+  (`SNET_API_KEY`, `https://llm.c.singularitynet.io/v1`, OpenAI-compatible) as a provider. Once a
+  funded key is set and the provider selected, the agent's decision layer drives the same
+  host-proven `freeciv-observe`/`freeciv-action` tools.
 
 ## 6. What was deferred
 
