@@ -291,6 +291,12 @@ def authorize_actions(actions):
     for a in actions:
         if a["tool"] in disabled:
             errors.append(_err("tool_disabled", f"tool {a['tool']!r} is disabled by policy"))
+            try:  # reasoning trace (Issue #7); best-effort
+                import tracing
+                tracing.trace_policy(a["tool"], allowed=False,
+                                     reason="disabled by OMEGACLAW_DISABLED_TOOLS", risk="n/a")
+            except Exception:  # noqa: BLE001
+                pass
             continue
         decision = tool_policy.check_action(a["tool"], a["values"])
         if not decision.allowed:
@@ -362,6 +368,18 @@ def _log_warnings(errors):
             print(f"[action_protocol] WARNING {e['code']}: {e['message']}", flush=True)
 
 
+def _emit_parse_trace(result):
+    """Emit an ``action_parse`` reasoning-trace event (Issue #7). Best-effort."""
+    try:
+        import tracing
+        tools = [a.get("tool") for a in (result.actions or [])]
+        codes = [e.get("code") for e in (result.errors or []) if not e.get("warning")]
+        tracing.trace_parse(ok=result.ok, source=result.source, version=result.version,
+                            tools=tools, error_codes=codes)
+    except Exception:  # noqa: BLE001 - tracing must never break the action pipeline
+        pass
+
+
 def parse_and_render_metta(raw):
     """MeTTa entry point: turn raw provider output into an s-expression string.
 
@@ -380,6 +398,7 @@ def parse_and_render_metta(raw):
         return balance_parentheses(raw)
 
     result = parse_actions(raw)
+    _emit_parse_trace(result)
 
     if result.ok:
         _log_warnings(result.errors)

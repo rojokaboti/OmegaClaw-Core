@@ -22,3 +22,6 @@ Autotests/logs/
 
 # IDE
 .idea/
+
+# reasoning traces (runtime, Issue #7)
+memory/traces/

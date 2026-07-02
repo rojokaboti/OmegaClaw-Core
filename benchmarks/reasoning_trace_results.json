@@ -1,0 +1,36 @@
+{
+  "n_iterations": 12,
+  "events": 62,
+  "trace_id_coverage": {
+    "baseline": 0.0,
+    "candidate": 1.0
+  },
+  "full_linkage_rate": {
+    "baseline": 0.0,
+    "candidate": 1.0
+  },
+  "jsonl_parseable_rate": {
+    "baseline": 0.0,
+    "candidate": 1.0
+  },
+  "summary_metrics_present": {
+    "baseline": false,
+    "candidate": true
+  },
+  "trace_summary": {
+    "parse_errors": 2,
+    "policy_denials": 2,
+    "invalid_actions": 2,
+    "avg_llm_latency_ms": 139.17,
+    "actions_by_type": {
+      "send": 3,
+      "metta": 1,
+      "remember": 1,
+      "shell": 2,
+      "search": 1,
+      "write-file": 1,
+      "pin": 1,
+      "query-claims": 1
+    }
+  }
+}

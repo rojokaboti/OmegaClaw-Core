@@ -261,6 +261,11 @@ def log_denial(tool, decision):
         f"[tool_policy] POLICY_DENIAL tool={tool} risk={decision.risk} reason={decision.reason!r}",
         flush=True,
     )
+    try:  # reasoning trace (Issue #7); best-effort, never breaks the policy gate
+        import tracing
+        tracing.trace_policy(tool, allowed=False, reason=decision.reason, risk=decision.risk)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _selftest():
