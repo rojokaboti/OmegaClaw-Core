@@ -17,7 +17,7 @@ for _p in (_SRC, _BENCHMARKS, _REPO_ROOT):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from freeciv import adapter, atoms, actions  # noqa: E402
+from freeciv import adapter, atoms, actions, schemas  # noqa: E402
 from freeciv_fixtures import FIXTURES  # noqa: E402
 import action_protocol as ap  # noqa: E402
 import freeciv_tool  # noqa: E402
@@ -162,6 +162,35 @@ def test_legal_actions_membership_filter():
     assert actions.validate_action({"type": "unit_move", "unit_id": 3, "dest_x": 3, "dest_y": 2}, st, legal).is_valid
     # a well-formed action for a *different* type is not among the advertised legal actions
     assert not actions.validate_action({"type": "unit_sentry", "unit_id": 3}, st, legal).is_valid
+
+
+def test_legal_actions_reject_same_actor_different_payload():
+    """A legal move for a unit must NOT authorize a *different* move for that unit.
+
+    Regression for the pre-submit safety hole: _matches_legal compared only type + actor id.
+    """
+    st = {"player_perspective": 0, "units": {"7": {"id": 7, "owner": 0, "x": 1, "y": 1}},
+          "cities": {"1": {"id": 1, "owner": 0, "x": 1, "y": 1, "production": "Warriors"}},
+          "players": {}, "techs": {}, "economic": {}, "strategic": {}, "tactical": {}}
+
+    # unit_move: same unit, wrong destination -> rejected (E230), exact -> accepted
+    legal = [{"type": "unit_move", "unit_id": 7, "target": {"x": 2, "y": 2}}]
+    bad = actions.validate_action({"type": "unit_move", "unit_id": 7, "dest_x": 999, "dest_y": 999}, st, legal)
+    assert not bad.is_valid and bad.error_code == schemas.E_NOT_LEGAL, bad.to_dict()
+    assert actions.validate_action({"type": "unit_move", "unit_id": 7, "dest_x": 2, "dest_y": 2}, st, legal).is_valid
+    # wire-form target on the candidate side also matches the advertised tile
+    assert actions.validate_action({"type": "unit_move", "unit_id": 7, "target": {"x": 2, "y": 2}}, st, legal).is_valid
+
+    # city_production: same city, wrong production -> rejected; exact -> accepted
+    legalc = [{"type": "city_production", "city_id": 1, "production_type": "Granary"}]
+    assert not actions.validate_action(
+        {"type": "city_production", "city_id": 1, "production_type": "Colosseum"}, st, legalc).is_valid
+    assert actions.validate_action(
+        {"type": "city_production", "city_id": 1, "production_type": "Granary"}, st, legalc).is_valid
+
+    # unit-simple action: unit_id is the identifying payload
+    legalf = [{"type": "unit_fortify", "unit_id": 7}]
+    assert actions.validate_action({"type": "unit_fortify", "unit_id": 7}, st, legalf).is_valid
 
 
 def test_wire_form_action_variant_normalized():

@@ -144,14 +144,21 @@ def validate_action(action, state, legal_actions=None):
 
 
 def _matches_legal(act, legal_actions):
+    """Whether `act` matches a server-advertised legal action by its FULL payload.
+
+    Matching type + actor id is not enough: a legal move for unit 7 must not authorize a
+    *different* move for unit 7. We compare every identifying field for the action type
+    (``ACTION_REQUIRED_FIELDS`` is exactly that payload: unit_move -> unit_id/dest_x/dest_y,
+    city_production -> city_id/production_type, tech_research -> tech_id, unit-simple ->
+    unit_id, end_turn -> type only). Both sides are normalized first so wire variants
+    (``target:{x,y}`` vs ``dest_x``/``dest_y``) compare equal.
+    """
     atype = act.get("type")
+    keys = schemas.ACTION_REQUIRED_FIELDS.get(atype, ())
     for la in legal_actions:
         la = normalize_action(la)
         if la.get("type") != atype:
             continue
-        if atype in schemas.UNIT_ACTIONS and str(la.get("unit_id")) != str(act.get("unit_id")):
-            continue
-        if atype in schemas.CITY_ACTIONS and str(la.get("city_id")) != str(act.get("city_id")):
-            continue
-        return True
+        if all(str(la.get(k)) == str(act.get(k)) for k in keys):
+            return True
     return False
