@@ -3,6 +3,7 @@ test_tool_policy.py
 test_llm_logging.py
 test_provider_config.py
 test_memory_schema.py
+test_freeciv_adapter.py
 mock/test_actions_equivalence.py
 mock/test_comm.py
 mock/test_convert_format_mock.py

@@ -10,7 +10,8 @@ repos/
 .env
 
 # venv
-.venv 
+.venv
+.venv-fc/
 
 # editor backup files
 *~
