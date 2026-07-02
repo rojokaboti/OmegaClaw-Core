@@ -6,12 +6,12 @@
 (= (maxOutputToken) (empty))
 (= (reasoningMode) (empty))
 (= (wakeupInterval) (empty))
-(= (spamShield) (empty))
+(= (spamShield) (empty)) ; TODO: this parameter is considered deprecated
 
 (= (initLoop)
    (progn (configure maxNewInputLoops 50) ;20
           (configure maxWakeLoops 1)
-          (configure spamShield True)
+          (configure spamShield False)
           (configure sleepInterval 1) ;10
           (configure provider Anthropic) ;Anthropic or OpenAI or ASICloud or ASIOne or Test
           (configure LLM (py-call (lib_llm_ext.effective_model (provider)))) ;reflects the model from profile/llm_providers.yaml
@@ -29,7 +29,7 @@
               (println! (py-call (rag.init_knowledge "Local"))))))
 
 (= (getContext)
-   (string-safe (py-str ("PROMPT: " (getPrompt) " SKILLS: " (getSkills)
+   (string-safe (py-str ("PROMPT: " (getPrompt (provider)) " SKILLS: " (getSkills)
                          " " (py-call (action_protocol.output_format_block)) " "
                          " LAST_SKILL_USE_RESULTS: " (last_chars (get-state &lastresults) (maxFeedback)) " HISTORY: " (getHistory) " TIME: " (get_time_as_string)))))
 
