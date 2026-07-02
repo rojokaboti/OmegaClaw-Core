@@ -123,10 +123,10 @@ non-zero on any regression, and the JSON output is byte-identical across runs.
   build-road / sentry actions, **every one validated and submitted, 0 illegal reached the game**.
   This is the Issue #6 pipeline end-to-end with a real LLM: symbolic state in → validated actions
   out. (Earlier ASICloud attempts hit `insufficient_balance`; SNET with a funded key works.)
-- **Known nuance (not this deliverable):** multi-turn *advancement* depends on freeciv-web's
-  turn-cycle (the LLM-proxy player's phase-done / AI-phase handshake); on the direct-proxy path the
-  server can hold the turn, so successive cycles may re-decide over the same turn. The
-  validate→submit pipeline and atom generation are unaffected.
+- **Known nuance (not this deliverable — tracked in #25):** multi-turn *advancement* depends on
+  freeciv-web's turn-cycle (the LLM-proxy player's phase-done / AI-phase handshake); on the
+  direct-proxy path the server can hold the turn, so successive cycles may re-decide over the same
+  turn. The validate→submit pipeline and atom generation are unaffected.
 
 ## 6. What was deferred
 
