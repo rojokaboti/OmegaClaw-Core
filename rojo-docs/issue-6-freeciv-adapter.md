@@ -115,11 +115,18 @@ non-zero on any regression, and the JSON output is byte-identical across runs.
   (`E201`). Reproduce with `python3 benchmarks/freeciv/live_play.py` (against the running stack).
   Captured states are committed at `benchmarks/freeciv/samples/real_state_turn{0,1}.json` and
   regression-tested. `websockets` is a live-only dep, lazily imported.
-- **Still blocked (external):** live *LLM inference* — a funded provider key is required. ASICloud
-  was out of quota (`insufficient_balance`); the repo now also supports **SNET**
-  (`SNET_API_KEY`, `https://llm.c.singularitynet.io/v1`, OpenAI-compatible) as a provider. Once a
-  funded key is set and the provider selected, the agent's decision layer drives the same
-  host-proven `freeciv-observe`/`freeciv-action` tools.
+- **Live LLM in the loop (SNET) — validated.** Added a **SNET** provider (`SNET_API_KEY`,
+  `https://llm.c.singularitynet.io/v1`, OpenAI-compatible, model `openai/gpt-oss-120b`) and ran
+  the full neural-symbolic loop against the live game (`benchmarks/freeciv/llm_play.py`): the LLM
+  reasons over the adapter's PLN atoms + unit list, emits JSON actions, and the adapter validates
+  each before submission. Result across cycles: the model proposed found-city / unit-move /
+  build-road / sentry actions, **every one validated and submitted, 0 illegal reached the game**.
+  This is the Issue #6 pipeline end-to-end with a real LLM: symbolic state in → validated actions
+  out. (Earlier ASICloud attempts hit `insufficient_balance`; SNET with a funded key works.)
+- **Known nuance (not this deliverable):** multi-turn *advancement* depends on freeciv-web's
+  turn-cycle (the LLM-proxy player's phase-done / AI-phase handshake); on the direct-proxy path the
+  server can hold the turn, so successive cycles may re-decide over the same turn. The
+  validate→submit pipeline and atom generation are unaffected.
 
 ## 6. What was deferred
 
