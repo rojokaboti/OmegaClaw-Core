@@ -24,39 +24,10 @@ import provider_config  # noqa: E402 (declarative provider/model config, Issue #
 # possible secret is caught -- OMEGACLAW_DEBUG_LLM_RAW is an explicit opt-in for
 # debugging, so callers should treat debug logs as potentially sensitive.
 
-_REDACTION_PATTERNS = [
-    # Anthropic keys (check before the generic sk- rule).
-    ("anthropic_key", re.compile(r"sk-ant-[A-Za-z0-9_\-]{8,}")),
-    # OpenAI keys, incl. project keys (sk-, sk-proj-).
-    ("openai_key", re.compile(r"sk-(?:proj-)?[A-Za-z0-9_\-]{16,}")),
-    # GitHub tokens: ghp_/gho_/ghu_/ghs_/ghr_ and fine-grained github_pat_.
-    ("github_token", re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b")),
-    # AWS access key id.
-    ("aws_key", re.compile(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b")),
-    # HTTP bearer tokens (redact the token, keep the scheme).
-    ("bearer", re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._\-]{12,}")),
-    # Long high-entropy-ish base64/hex runs (>=40 chars). Conservative: requires a
-    # contiguous token of base64 alphabet, so normal prose is not mangled.
-    ("secret", re.compile(r"\b[A-Za-z0-9+/_\-]{40,}={0,2}\b")),
-]
-
-
-def redact_secrets(text: str) -> str:
-    """Replace secret-looking substrings with a typed ``[REDACTED:<kind>]`` marker.
-
-    Best-effort: detects common secret/token formats (known key/token shapes plus
-    long base64-ish runs) and leaves ordinary text intact. It does not guarantee
-    that every possible secret is caught.
-    """
-    if not text:
-        return text
-    out = text
-    for kind, pattern in _REDACTION_PATTERNS:
-        if kind == "bearer":
-            out = pattern.sub(lambda m: f"{m.group(1)}[REDACTED:bearer]", out)
-        else:
-            out = pattern.sub(f"[REDACTED:{kind}]", out)
-    return out
+# redact_secrets + patterns live in src/redaction.py (stdlib-only) so tracing (Issue #7)
+# can reuse them without importing this module (which pulls in openai). Re-exported here
+# for backward compatibility with existing callers/tests.
+from redaction import redact_secrets, _REDACTION_PATTERNS  # noqa: F401,E402
 
 
 def _raw_logging_enabled() -> bool:
@@ -392,7 +363,15 @@ def callProvider(provider_name: str, content: str, max_tokens: int = 6000, reaso
     provider = _get_provider(provider_name)
     if not provider or not provider.is_available:
         raise RuntimeError(f"Provider '{provider_name}' not available")
-    return provider.chat(content=content, max_tokens=max_tokens, reasoning=reasoning)
+    started = time.time()
+    response = provider.chat(content=content, max_tokens=max_tokens, reasoning=reasoning)
+    try:  # reasoning trace (Issue #7); best-effort, never breaks the chat path
+        import tracing
+        tracing.trace_llm(provider_name, getattr(provider, "_model_name", ""), content, response,
+                          latency_ms=int((time.time() - started) * 1000))
+    except Exception:  # noqa: BLE001
+        pass
+    return response
 
 
 

@@ -8,6 +8,7 @@
 !(import! &self (library OmegaClaw-Core ./src/utils))
 !(import! &self (library OmegaClaw-Core ./src/helper.py))
 !(import! &self (library OmegaClaw-Core ./src/action_protocol.py))
+!(import! &self (library OmegaClaw-Core ./src/tracing.py))
 !(import! &self (library OmegaClaw-Core ./src/memory_schema.py))
 !(import! &self (library OmegaClaw-Core ./src/freeciv_tool.py))
 !(import! &self (library OmegaClaw-Core ./src/agentverse.py))
