@@ -32,7 +32,13 @@
     "You can also use PLN:"
     "metta (|~ ((Implication (Inheritance $1 (IntSet Feathered))"
     "           (Inheritance $1 Bird)) (stv 1.0 0.9))"
-    "          ((Inheritance Pingu (IntSet Feathered)) (stv 1.0 0.9)))"))
+    "          ((Inheritance Pingu (IntSet Feathered)) (stv 1.0 0.9)))"
+    ;REASONING SESSIONS (persist premises across turns; isolated per session id):
+    "- Create a named reasoning session: metta-session-create session_id"
+    "- Add a premise (a sentence like ((--> a b) (stv 1.0 0.9))) to a session: metta-session-add session_id expr"
+    "- Infer: combine a query premise with every stored session premise via |-: metta-session-infer session_id expr"
+    "- Clear a session's stored premises: metta-session-clear session_id"
+    "- Snapshot a session's state to disk for reproducibility: metta-session-snapshot session_id"))
 
 
 (= (read-file $file)

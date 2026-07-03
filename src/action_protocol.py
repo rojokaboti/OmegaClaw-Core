@@ -105,6 +105,13 @@ ARG_SPEC = {
     # action takes a single JSON string describing the candidate move.
     "freeciv-observe": [],
     "freeciv-action": [("action", "action_json", "text")],
+    # Session-scoped reasoning (Issue #8). create/clear/snapshot take a session id;
+    # add/infer take a session id + a premise/query expression.
+    "metta-session-create": [("session", "sid", "text")],
+    "metta-session-clear": [("session", "sid", "text")],
+    "metta-session-snapshot": [("session", "sid", "text")],
+    "metta-session-add": [("session", "sid"), ("expr", "code", "text")],
+    "metta-session-infer": [("session", "sid"), ("expr", "code", "text")],
 }
 
 DEFAULT_MODE = "json"
@@ -470,6 +477,14 @@ def _selftest():
 
     # metta requires expr.
     r = parse_actions('{"actions":[{"tool":"metta","args":{}}]}')
+    assert not r.ok and "expr" in msgs(r), r
+
+    # metta-session-* (Issue #8): create takes a session; add takes session + expr.
+    r = parse_actions('{"actions":[{"tool":"metta-session-create","args":{"session":"g1"}}]}')
+    assert r.ok and actions_to_metta(r.actions) == '((metta-session-create "g1"))', actions_to_metta(r.actions)
+    r = parse_actions('{"actions":[{"tool":"metta-session-add","args":{"session":"g1","expr":"(f)"}}]}')
+    assert r.ok and actions_to_metta(r.actions) == '((metta-session-add "g1" "(f)"))', actions_to_metta(r.actions)
+    r = parse_actions('{"actions":[{"tool":"metta-session-add","args":{"session":"g1"}}]}')
     assert not r.ok and "expr" in msgs(r), r
 
     # freeciv-observe: zero-arg tool renders bare (no args required).

@@ -1,0 +1,16 @@
+{
+  "games": 2,
+  "fact_preservation": {
+    "baseline": 0.0,
+    "candidate": 1.0
+  },
+  "cross_session_leakage": {
+    "baseline": 3,
+    "candidate": 0
+  },
+  "premise_transmissions": {
+    "baseline": 14,
+    "candidate": 8
+  },
+  "premise_resend_reduction": 0.4286
+}
