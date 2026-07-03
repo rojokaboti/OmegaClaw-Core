@@ -31,11 +31,15 @@ _BUILTIN_DEFAULTS = {
     "default_provider": "Anthropic",
     "providers": {
         "ASICloud": {
-            "api_key_env": "ASI_API_KEY", "model": "minimax/minimax-m2.5",
+            "api_key_env": "ASI_API_KEY", "model": "minimax/minimax-m3",
             "base_url": "https://inference.asicloud.cudos.org/v1", "api_style": "chat_completions",
         },
+        "SNET": {
+            "api_key_env": "SNET_API_KEY", "model": "openai/gpt-oss-120b",
+            "base_url": "https://llm.c.singularitynet.io/v1", "api_style": "chat_completions",
+        },
         "Anthropic": {
-            "api_key_env": "ANTHROPIC_API_KEY", "model": "claude-opus-4-6",
+            "api_key_env": "ANTHROPIC_API_KEY", "model": "claude-opus-4-8",
             "base_url": "https://api.anthropic.com/v1/", "api_style": "chat_completions",
         },
         "Ollama-local": {
@@ -47,12 +51,17 @@ _BUILTIN_DEFAULTS = {
             "base_url": "https://api.asi1.ai/v1", "api_style": "asione",
         },
         "OpenRouter": {
-            "api_key_env": "OPENROUTER_API_KEY", "model": "z-ai/glm-5.1",
+            "api_key_env": "OPENROUTER_API_KEY", "model": "z-ai/glm-5.2",
+            "base_url": "https://openrouter.ai/api/v1", "api_style": "chat_completions",
+            "reasoning": {"enabled": True, "max_tokens": 6000, "exclude": True},
+        },
+        "MiniMaxM3": {
+            "api_key_env": "OPENROUTER_API_KEY", "model": "minimax/minimax-m3",
             "base_url": "https://openrouter.ai/api/v1", "api_style": "chat_completions",
             "reasoning": {"enabled": True, "max_tokens": 6000, "exclude": True},
         },
         "OpenAI": {
-            "api_key_env": "OPENAI_API_KEY", "model": "gpt-5.4",
+            "api_key_env": "OPENAI_API_KEY", "model": "gpt-5.5",
             "base_url": "https://api.openai.com/v1", "api_style": "responses",
         },
     },
@@ -206,8 +215,8 @@ if __name__ == "__main__":
     base = load_config(_DEFAULT_POLICY_PATH) if os.path.exists(_DEFAULT_POLICY_PATH) else builtin_defaults()
     assert validate_config(builtin_defaults()) is None
     assert default_provider(builtin_defaults()) == "Anthropic"
-    assert config_model("OpenAI", builtin_defaults()) == "gpt-5.4"
-    assert config_model("Anthropic", builtin_defaults()) == "claude-opus-4-6"
+    assert config_model("OpenAI", builtin_defaults()) == "gpt-5.5"
+    assert config_model("Anthropic", builtin_defaults()) == "claude-opus-4-8"
 
     # invalid configs caught
     assert validate_config({"providers": {}}) is not None
@@ -250,7 +259,7 @@ if __name__ == "__main__":
     try:
         if os.path.exists(_DEFAULT_POLICY_PATH):
             cfg = load_config()
-            assert "providers" in cfg and config_model("OpenAI", cfg) == "gpt-5.4"
+            assert "providers" in cfg and config_model("OpenAI", cfg) == "gpt-5.5"
     finally:
         os.environ.pop("OMEGACLAW_LLM_CONFIG_PATH", None)
         reset_cache()

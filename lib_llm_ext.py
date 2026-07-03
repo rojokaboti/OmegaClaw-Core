@@ -169,6 +169,21 @@ class OpenRouterProvider(AIProvider):
         super().__init__(name, var_name, model_name, base_url)
         self._reasoning = reasoning or {"enabled": True, "max_tokens": 6000, "exclude": True}
 
+    def _create_client(self) -> Optional[openai.OpenAI]:
+        """Create OpenRouter client from environment."""
+        proxy_url = os.environ.get("GATEWAY_URL")
+        if proxy_url:
+            base_url = f"{proxy_url.rstrip('/')}/openrouter/"
+            print(f"[lib_llm_ext.OpenRouterProvider._create_client] Connecting via proxy: {base_url}")
+            return openai.OpenAI(
+                    api_key="proxy",
+                    base_url=base_url,
+                    )
+        if self._var_name in os.environ:
+            return openai.OpenAI(api_key=os.environ.get(self._var_name), base_url=self._base_url)
+
+        return None
+
     def chat(self, content: str, max_tokens: int = 6000, reasoning: str = "medium", **kwargs) -> str:
         return super().chat(content, max_tokens, reasoning, extra_body={"reasoning": self._reasoning}, **kwargs)
 
@@ -220,6 +235,9 @@ class OpenAIProvider(AIProvider):
             raise RuntimeError(f"{self.name} not configured (set {self._var_name})")
 
         sysmsg, usermsg = split_system_user(content)
+        usermsg = usermsg.strip()
+        if not usermsg:
+            usermsg = "EMPTY / NO NEW USER INPUT."
         try:
             response = self._client.responses.create(
                 model=self._model_name,

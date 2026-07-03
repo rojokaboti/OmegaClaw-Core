@@ -8,9 +8,11 @@ repos/
 
 # secrets
 .env
+memory/.channel/
 
 # venv
-.venv 
+.venv
+.venv-fc/
 
 # editor backup files
 *~
