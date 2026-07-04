@@ -87,7 +87,13 @@ def create(sid):
 
 
 def add_fact(sid, expr):
-    """Append a premise expression to a session (auto-creates). FIFO-caps facts."""
+    """Append a premise expression to a session (auto-creates). FIFO-caps facts.
+
+    Idempotent: re-adding an expression already in the session is a no-op (returns FACT-DUP).
+    This keeps "each fact added once" true even when a producer re-seeds unchanged premises
+    every turn (e.g. FreeCiv ``observe`` on an unchanged state), so it never doubles the store
+    or evicts genuine history under the fact cap.
+    """
     sid = str(sid)
     expr = "" if expr is None else str(expr).strip()
     if not expr:
@@ -95,6 +101,9 @@ def add_fact(sid, expr):
     if sid not in _sessions:
         create(sid)
     facts = _sessions[sid]["facts"]
+    if expr in facts:
+        _touch(sid)
+        return "FACT-DUP:{}:{}".format(sid, len(facts))
     facts.append(expr)
     cap = _max_facts()
     if len(facts) > cap:
@@ -191,6 +200,7 @@ def _selftest():
     assert add_fact("a", "((--> x y) (stv 1.0 0.9))").startswith("FACT-ADDED:a:1")
     add_fact("a", "((--> y z) (stv 1.0 0.9))")
     assert len(facts("a")) == 2
+    assert add_fact("a", "((--> x y) (stv 1.0 0.9))").startswith("FACT-DUP") and len(facts("a")) == 2
 
     # infer pairs the query with each stored fact
     prog = infer_program("a", "((--> z w) (stv 1.0 0.9))")

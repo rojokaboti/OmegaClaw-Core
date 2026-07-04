@@ -40,6 +40,12 @@ def test_add_fact_auto_creates_and_ignores_empty():
     assert ms.add_fact("z", "   ") == "FACT-EMPTY:z" and len(ms.facts("z")) == 1
 
 
+def test_add_fact_is_idempotent():
+    assert ms.add_fact("d", "((--> a b) (stv 1.0 0.9))").startswith("FACT-ADDED:d:1")
+    assert ms.add_fact("d", "((--> a b) (stv 1.0 0.9))").startswith("FACT-DUP:d:1")  # no-op
+    assert len(ms.facts("d")) == 1
+
+
 # --- infer program ---------------------------------------------------------
 
 def test_infer_program_pairs_query_with_each_fact():
@@ -129,6 +135,11 @@ def test_freeciv_observe_seeds_session():
             assert "(stv" in out
             seeded = ms.facts("freeciv:gtest")
             assert seeded and all("(stv" in s for s in seeded)
+            # re-observing the SAME state must not double the session (dedup)
+            n1 = len(seeded)
+            freeciv_tool.observe(state=state)
+            n2 = len(ms.facts("freeciv:gtest"))
+            assert n2 == n1, (n1, n2)
         finally:
             os.environ.pop("OMEGACLAW_SESSION_SNAPSHOT_DIR", None)
             os.environ.pop("FREECIV_GAME_ID", None)

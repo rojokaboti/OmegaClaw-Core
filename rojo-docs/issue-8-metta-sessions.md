@@ -125,6 +125,19 @@ git ls-tree main -- src/metta_sessions.metta   # absent
 git diff main --stat
 ```
 
+## 7b. PR #29 review fixes
+- **Evaluator tools share metta's control surface.** `metta-session-infer` (and
+  `metta-session-add`, which stores expressions infer later evaluates) reach the same
+  `sread`/`eval` path as `metta`, so they are now in `HIGH_RISK_TOOLS` and in
+  `tool_policy._DEFAULT_RISK` (high), and **disabling `metta` (`OMEGACLAW_DISABLED_TOOLS=metta`)
+  now also disables them** — closing a bypass where a metta-gated deployment could still reach
+  evaluation. Non-evaluator session tools (create/clear/snapshot) stay available. Covered by an
+  `action_protocol` self-test.
+- **`add_fact` is idempotent.** Re-adding an expression already in a session is a no-op
+  (`FACT-DUP`), so re-seeding an unchanged FreeCiv state every `observe` no longer doubles the
+  store or evicts genuine history under the fact cap (reviewer probe: was 4→8, now 4→4). Covered
+  by `test_add_fact_is_idempotent` + a double-observe assertion.
+
 ## 8. Risk / rollback
 - Additive: `(metta ...)` and all existing tools/skills unchanged; new skills sit alongside. The
   store is process-local with best-effort IO (a store/snapshot failure never breaks the loop) and
