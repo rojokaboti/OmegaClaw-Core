@@ -1,0 +1,20 @@
+{
+  "conditionals_to_add_channel": {
+    "baseline": 3,
+    "candidate": 0
+  },
+  "lines_to_add_channel": {
+    "baseline": 9,
+    "candidate": 2
+  },
+  "dispatchers_edited": {
+    "baseline": 3,
+    "candidate": 0
+  },
+  "candidate_new_channel_dispatches": true,
+  "existing_channels_resolve": {
+    "count": 5,
+    "total": 5
+  },
+  "unknown_channel_falls_back_to_mock": true
+}
