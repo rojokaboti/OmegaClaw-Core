@@ -34,6 +34,9 @@ import yaml
 _DEFAULT_RISK = {
     "shell": "high",
     "metta": "high",
+    # session evaluator tools share metta's sread/eval risk surface (Issue #8)
+    "metta-session-infer": "high",
+    "metta-session-add": "high",
     "write-file": "medium",
     "append-file": "medium",
     "read-file": "low",

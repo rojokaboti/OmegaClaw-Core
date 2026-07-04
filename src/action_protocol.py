@@ -63,7 +63,10 @@ ALLOWED_TOOLS = set(LLM_COMMANDS)
 # Escape-hatch tools that bypass much of the structured-action safety benefit.
 # They remain available by default but are flagged in the prompt and are the
 # primary candidates for OMEGACLAW_DISABLED_TOOLS in restricted deployments.
-HIGH_RISK_TOOLS = {"shell", "metta"}
+# The session tools reach the same sread/eval path as `metta` (infer evaluates,
+# add stores expressions that infer later evaluates), so they share metta's risk.
+_METTA_EVAL_TOOLS = {"metta-session-infer", "metta-session-add"}
+HIGH_RISK_TOOLS = {"shell", "metta"} | _METTA_EVAL_TOOLS
 
 
 def _max_actions():
@@ -105,6 +108,13 @@ ARG_SPEC = {
     # action takes a single JSON string describing the candidate move.
     "freeciv-observe": [],
     "freeciv-action": [("action", "action_json", "text")],
+    # Session-scoped reasoning (Issue #8). create/clear/snapshot take a session id;
+    # add/infer take a session id + a premise/query expression.
+    "metta-session-create": [("session", "sid", "text")],
+    "metta-session-clear": [("session", "sid", "text")],
+    "metta-session-snapshot": [("session", "sid", "text")],
+    "metta-session-add": [("session", "sid"), ("expr", "code", "text")],
+    "metta-session-infer": [("session", "sid"), ("expr", "code", "text")],
 }
 
 DEFAULT_MODE = "json"
@@ -291,6 +301,11 @@ def authorize_actions(actions):
     Returns ``(authorized_actions, errors)``.
     """
     disabled = _disabled_tools()
+    # Disabling `metta` also disables the evaluator-bearing session tools: they reach the
+    # same sread/eval surface, so a deployment that gates `metta` must not be bypassed
+    # through metta-session-infer / metta-session-add.
+    if "metta" in disabled:
+        disabled = disabled | _METTA_EVAL_TOOLS
     errors = []
     for a in actions:
         if a["tool"] in disabled:
@@ -472,6 +487,14 @@ def _selftest():
     r = parse_actions('{"actions":[{"tool":"metta","args":{}}]}')
     assert not r.ok and "expr" in msgs(r), r
 
+    # metta-session-* (Issue #8): create takes a session; add takes session + expr.
+    r = parse_actions('{"actions":[{"tool":"metta-session-create","args":{"session":"g1"}}]}')
+    assert r.ok and actions_to_metta(r.actions) == '((metta-session-create "g1"))', actions_to_metta(r.actions)
+    r = parse_actions('{"actions":[{"tool":"metta-session-add","args":{"session":"g1","expr":"(f)"}}]}')
+    assert r.ok and actions_to_metta(r.actions) == '((metta-session-add "g1" "(f)"))', actions_to_metta(r.actions)
+    r = parse_actions('{"actions":[{"tool":"metta-session-add","args":{"session":"g1"}}]}')
+    assert not r.ok and "expr" in msgs(r), r
+
     # freeciv-observe: zero-arg tool renders bare (no args required).
     r = parse_actions('{"actions":[{"tool":"freeciv-observe","args":{}}]}')
     assert r.ok and actions_to_metta(r.actions) == '((freeciv-observe))', actions_to_metta(r.actions)
@@ -522,6 +545,22 @@ def _selftest():
         r = parse_actions('{"actions":[{"tool":"shell","args":{"command":"ls"}}]}')
         authd, errs = authorize_actions(r.actions)
         assert authd == [] and errs and errs[0]["code"] == "tool_disabled", (authd, errs)
+    finally:
+        os.environ.pop("OMEGACLAW_DISABLED_TOOLS", None)
+
+    # Disabling `metta` also disables the evaluator-bearing session tools (Issue #8):
+    # they must not be a bypass of the metta sread/eval gate.
+    os.environ["OMEGACLAW_DISABLED_TOOLS"] = "metta"
+    try:
+        for tool, args in (("metta-session-infer", {"session": "g", "expr": "(f)"}),
+                           ("metta-session-add", {"session": "g", "expr": "(f)"})):
+            r = parse_actions(json.dumps({"actions": [{"tool": tool, "args": args}]}))
+            authd, errs = authorize_actions(r.actions)
+            assert authd == [] and errs and errs[0]["code"] == "tool_disabled", (tool, authd, errs)
+        # non-evaluator session tools remain available (no eval surface)
+        r = parse_actions('{"actions":[{"tool":"metta-session-create","args":{"session":"g"}}]}')
+        authd, errs = authorize_actions(r.actions)
+        assert errs == [] and len(authd) == 1, (authd, errs)
     finally:
         os.environ.pop("OMEGACLAW_DISABLED_TOOLS", None)
 

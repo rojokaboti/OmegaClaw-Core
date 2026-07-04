@@ -47,12 +47,31 @@ def observe(state=None):
     """Return the current game state as newline-joined PLN sentences (a reasoning premise set).
 
     ``state`` may be supplied (tests / replay); otherwise it is fetched from the live proxy.
+    Also seeds a per-game reasoning session with these premises (Issue #8), so subsequent
+    ``metta-session-infer`` reuses them across turns without re-sending the whole state.
     """
     if state is None:
         state = _get_client().get_state()
     facts = adapter.facts_from_state(adapter.normalize_state(state))
     sentences = atoms.sentences_from_facts(facts)
+    _seed_session(state, sentences)
     return "\n".join(sentences) if sentences else "(no facts)"
+
+
+def _seed_session(state, sentences):
+    """Best-effort: add this turn's premises to the game's reasoning session + snapshot it.
+
+    Keyed on FREECIV_GAME_ID so all turns of a game share one session. Never raises — a
+    session/snapshot failure must not break observation.
+    """
+    try:
+        import metta_sessions
+        sid = "freeciv:" + os.environ.get("FREECIV_GAME_ID", "freeciv")
+        for s in sentences:
+            metta_sessions.add_fact(sid, s)
+        metta_sessions.snapshot(sid)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def act(action_json, state=None, legal_actions=None):
