@@ -53,6 +53,14 @@ try:  # tool/action policy gate (Issue #2). Lazy-safe: no circular import at loa
 except ImportError:  # pragma: no cover - alternate import path under pytest
     from src import tool_policy
 
+try:  # structured error recovery events (Issue #10). Best-effort: never required.
+    import errors as _errors
+except ImportError:  # pragma: no cover - alternate import path under pytest
+    try:
+        from src import errors as _errors
+    except ImportError:
+        _errors = None
+
 
 # Protocol envelope version understood by this implementation.
 PROTOCOL_VERSION = 1
@@ -325,6 +333,10 @@ def authorize_actions(actions):
                 f"{a['tool']}: {decision.reason} (risk={decision.risk})",
             ))
     if errors:
+        # Record structured error events (Issue #10) at this single choke point —
+        # check_action/log_denial are only reached from here, so recording once
+        # here covers every policy denial without double-counting.
+        _record_errors(errors)
         return [], errors
     return actions, []
 
@@ -424,7 +436,8 @@ def parse_and_render_metta(raw):
         authorized, auth_errors = authorize_actions(result.actions)
         if auth_errors:
             # Authorization failures are never leaked to the legacy parser.
-            return _error_string(_messages(auth_errors))
+            # authorize_actions already recorded the structured errors.
+            return _error_string(_messages(auth_errors), _dominant_type(auth_errors))
         return actions_to_metta(authorized)
 
     if result.source == "none":
@@ -433,7 +446,8 @@ def parse_and_render_metta(raw):
         if mode == "auto":
             _log_fallback(raw)
             return balance_parentheses(raw)
-        return _error_string("no JSON actions found")
+        _record_code("no_json", "no JSON actions found", failed_action=(raw or "")[:200])
+        return _error_string("no JSON actions found", "parse_error")
 
     # JSON *was* detected but yielded no valid batch. Honor JSON semantics in both
     # json and auto mode -- never fall back to legacy here, otherwise an unknown
@@ -441,12 +455,53 @@ def parse_and_render_metta(raw):
     if not result.errors:
         # Well-formed JSON with an explicit empty actions list: nothing to do.
         return "()"
-    return _error_string(_messages(result.errors))
+    _record_errors(result.errors)
+    return _error_string(_messages(result.errors), _dominant_type(result.errors))
 
 
-def _error_string(detail):
-    """Non-``(``-prefixed string so the loop's else-branch re-prompts the model."""
-    return f"ACTION_PROTOCOL_ERROR: {detail}. Reply with ONLY valid JSON: " + output_format_block()
+def _record_code(code, message, failed_action=None):
+    """Best-effort: record a structured error event (Issue #10) for one code."""
+    if _errors is None:
+        return None
+    try:
+        return _errors.record_code(code, message, failed_action=failed_action)["error_type"]
+    except Exception:  # noqa: BLE001 - error bookkeeping must never break the pipeline
+        return None
+
+
+def _record_errors(errors):
+    """Record every non-warning structured error; returns their categories."""
+    types = []
+    for e in errors:
+        if e.get("warning"):
+            continue
+        t = _record_code(e.get("code"), e.get("message"))
+        if t:
+            types.append(t)
+    return types
+
+
+def _dominant_type(errors):
+    """Category of the first non-warning error, for the concise repair hint."""
+    if _errors is None:
+        return None
+    for e in errors:
+        if not e.get("warning"):
+            return _errors.type_for_code(e.get("code"))
+    return None
+
+
+def _error_string(detail, error_type=None):
+    """Non-``(``-prefixed string so the loop's else-branch re-prompts the model.
+
+    The trailing guidance is the concise, category-specific repair hint (Issue
+    #10) when the error category is known, else the full OUTPUT_FORMAT block.
+    """
+    if error_type is not None and _errors is not None:
+        hint = _errors.format_error_for_llm(error_type)
+    else:
+        hint = "Reply with ONLY valid JSON: " + output_format_block()
+    return f"ACTION_PROTOCOL_ERROR: {detail}. {hint}"
 
 
 def _selftest():

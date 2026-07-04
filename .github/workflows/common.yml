@@ -114,6 +114,7 @@ jobs:
           python ../src/memory_schema.py
           python ../src/redaction.py
           python ../src/tracing.py
+          python ../src/errors.py
           python ../src/metta_sessions.py
           python ../src/channel_registry.py
           pytest -s -v @run_mandatory

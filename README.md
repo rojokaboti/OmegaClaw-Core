@@ -235,6 +235,21 @@ leakage, so treat debug logs as potentially sensitive. Set
 
 ---
 
+## Error recovery events
+
+When an action fails, OmegaClaw does not just feed the model an opaque string. Each
+failure is classified into one of five **machine-readable categories** — `parse_error`,
+`unknown_tool`, `schema_validation_error`, `tool_policy_denied`, `tool_runtime_error` —
+and recorded as a structured event (`src/errors.py`) carrying the failed action, a
+`retryable` flag, and a **concise, category-specific repair hint** that is what the model
+sees on its next turn (instead of the old `…NOTHING_WAS_DONE…` token). Events are emitted
+into the reasoning trace under the current iteration's `trace_id` (no new env var — they
+ride the existing `OMEGACLAW_TRACE_*` file), so `scripts/omegaclaw-trace-summary` reports
+error counts **by category** across a run. This makes recovery reliable and error rates
+comparable across benchmark runs.
+
+---
+
 ## Security: two layers
 
 OmegaClaw applies defense-in-depth around tool use:

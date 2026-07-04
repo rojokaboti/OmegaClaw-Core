@@ -56,6 +56,11 @@ def summarize(events, malformed=0):
     invalid_actions = sum(1 for e in events if e.get("phase") == "action_parse" and e.get("ok") is False)
     policy_denials = sum(1 for e in events if e.get("phase") == "policy_decision" and e.get("allowed") is False)
 
+    # Structured error recovery events (Issue #10): count phase=="error" events by
+    # their machine-readable category (code == error_type).
+    errors_by_type = Counter(e.get("code") for e in events if e.get("phase") == "error")
+    error_events = sum(errors_by_type.values())
+
     actions_by_type = Counter()
     for e in events:
         if e.get("phase") == "action_parse":
@@ -84,6 +89,8 @@ def summarize(events, malformed=0):
         "parse_errors": parse_errors,
         "invalid_actions": invalid_actions,
         "policy_denials": policy_denials,
+        "error_events": error_events,
+        "errors_by_type": dict(errors_by_type),
         "actions_by_type": dict(actions_by_type),
         "avg_llm_latency_ms": avg_latency_ms,
         "fully_linked_iterations": linked,
@@ -100,6 +107,8 @@ def render(summary, path):
         f"  parse errors           : {summary['parse_errors']}",
         f"  invalid actions        : {summary['invalid_actions']}",
         f"  policy denials         : {summary['policy_denials']}",
+        f"  structured errors      : {summary['error_events']}",
+        "  errors by type         : " + (", ".join(f"{k}={v}" for k, v in sorted(summary["errors_by_type"].items())) or "(none)"),
         f"  avg LLM latency (ms)   : {summary['avg_llm_latency_ms']}",
         "  events by phase        : " + ", ".join(f"{k}={v}" for k, v in sorted(summary["events_by_phase"].items())),
         "  actions by type        : " + (", ".join(f"{k}={v}" for k, v in sorted(summary["actions_by_type"].items())) or "(none)"),
