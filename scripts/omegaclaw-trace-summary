@@ -57,8 +57,10 @@ def summarize(events, malformed=0):
     policy_denials = sum(1 for e in events if e.get("phase") == "policy_decision" and e.get("allowed") is False)
 
     # Structured error recovery events (Issue #10): count phase=="error" events by
-    # their machine-readable category (code == error_type).
-    errors_by_type = Counter(e.get("code") for e in events if e.get("phase") == "error")
+    # their machine-readable category (error_type), falling back to code for events
+    # written before error_type was emitted.
+    errors_by_type = Counter((e.get("error_type") or e.get("code"))
+                             for e in events if e.get("phase") == "error")
     error_events = sum(errors_by_type.values())
 
     actions_by_type = Counter()

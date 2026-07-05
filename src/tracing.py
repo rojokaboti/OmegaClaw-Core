@@ -197,9 +197,32 @@ def trace_policy(tool="", allowed=None, reason=None, risk=None):
                 reason=(reason or None), risk=(risk or None))
 
 
-def trace_error(stage="", code=None, message=None):
-    return emit("error", stage=stage or None, code=(code or None),
-                message=(redact_secrets(message) if message else None))
+def trace_error(stage="", code=None, message=None, error_type=None,
+                failed_action=None, repair_hint=None, retryable=None):
+    """Structured error recovery event (Issue #10).
+
+    The classification fields — ``error_type`` (category), the original protocol
+    ``code`` (e.g. ``missing_arg``), ``retryable`` and ``repair_hint`` — are not
+    sensitive and are ALWAYS emitted, so downstream analytics can recover the full
+    schema from the durable trace. The failed action is body-like content (it can
+    embed file contents or echoed user text), so it follows the same privacy gate
+    as prompt/result bodies: ``failed_action_sha`` + ``failed_action_chars`` are
+    always emitted (correlatable by default), and the redacted ``failed_action``
+    body only when ``OMEGACLAW_TRACE_BODIES`` is set.
+    """
+    fa = None
+    if failed_action is not None:
+        fa = failed_action if isinstance(failed_action, str) else json.dumps(
+            failed_action, ensure_ascii=False, default=str)
+    return emit("error", stage=stage or None,
+                error_type=(error_type or None),
+                code=(code or None),
+                retryable=retryable,
+                repair_hint=(repair_hint or None),
+                message=(redact_secrets(message) if message else None),
+                failed_action_sha=(_sha256(fa) if fa else None),
+                failed_action_chars=(len(fa) if fa is not None else None),
+                failed_action=(_body(fa) if fa else None))
 
 
 def trace_result(result_text=""):

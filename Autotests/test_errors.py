@@ -129,11 +129,47 @@ def test_record_error_emits_trace_and_counts():
         errors.record_code("policy_denied", "shell: denied (risk=high)")
         evs = [e for e in _read(path) if e["phase"] == "error"]
         assert len(evs) == 2
-        assert {e["code"] for e in evs} == {"unknown_tool", "tool_policy_denied"}
+        # categories under error_type; original protocol code preserved under code
+        assert {e["error_type"] for e in evs} == {"unknown_tool", "tool_policy_denied"}
+        by_type = {e["error_type"]: e for e in evs}
+        assert by_type["tool_policy_denied"]["code"] == "policy_denied"  # granular, not the category
         assert all(e.get("trace_id") for e in evs)  # linked to the iteration
         assert errors.counts() == {"unknown_tool": 1, "tool_policy_denied": 1}
         tracing.reset()
         os.environ.pop("OMEGACLAW_TRACE_PATH", None)
+
+
+def test_emitted_event_carries_full_schema():
+    """The DURABLE trace event (not just build_error) must carry the schema fields."""
+    with tempfile.TemporaryDirectory() as d:
+        path = _fresh_trace(d)
+        errors.record_code("missing_arg", "write-file: missing required arg 'content'",
+                           failed_action={"tool": "write-file", "values": ["/tmp/x"]})
+        ev = [e for e in _read(path) if e["phase"] == "error"][0]
+        assert ev["error_type"] == "schema_validation_error"  # category
+        assert ev["code"] == "missing_arg"                    # original granular code preserved
+        assert ev["retryable"] is True
+        assert ev["repair_hint"] and not ev["repair_hint"].startswith("(")
+        # failed action referenceable by default (privacy: sha, not body)
+        assert ev.get("failed_action_sha") and ev.get("failed_action_chars")
+        assert "failed_action" not in ev  # body withheld unless bodies mode
+        tracing.reset()
+        os.environ.pop("OMEGACLAW_TRACE_PATH", None)
+
+
+def test_failed_action_body_recoverable_under_bodies_mode():
+    with tempfile.TemporaryDirectory() as d:
+        path = _fresh_trace(d)
+        os.environ["OMEGACLAW_TRACE_BODIES"] = "1"
+        try:
+            errors.record_runtime_error('(write-file "/tmp/x" "secret-ish content")')
+            ev = [e for e in _read(path) if e["phase"] == "error"][0]
+            assert ev["error_type"] == "tool_runtime_error"
+            assert ev.get("failed_action") and "write-file" in ev["failed_action"]
+        finally:
+            os.environ.pop("OMEGACLAW_TRACE_BODIES", None)
+            tracing.reset()
+            os.environ.pop("OMEGACLAW_TRACE_PATH", None)
 
 
 def test_metta_bridges_record_and_return_hint():
@@ -163,7 +199,7 @@ def _categories_from_render(raw):
         finally:
             os.environ.pop("OMEGACLAW_ACTION_PROTOCOL", None)
         evs = [e for e in _read(path) if e["phase"] == "error"]
-        cats = [e["code"] for e in evs]
+        cats = [e["error_type"] for e in evs]
         tracing.reset()
         os.environ.pop("OMEGACLAW_TRACE_PATH", None)
         return out, cats

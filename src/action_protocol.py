@@ -315,9 +315,15 @@ def authorize_actions(actions):
     if "metta" in disabled:
         disabled = disabled | _METTA_EVAL_TOOLS
     errors = []
+    # Record structured error events (Issue #10) per denied action at this single
+    # choke point — check_action/log_denial are only reached from here, so recording
+    # here covers every policy denial exactly once (no double-counting) and captures
+    # the specific failed action for the durable trace.
     for a in actions:
         if a["tool"] in disabled:
-            errors.append(_err("tool_disabled", f"tool {a['tool']!r} is disabled by policy"))
+            msg = f"tool {a['tool']!r} is disabled by policy"
+            errors.append(_err("tool_disabled", msg))
+            _record_code("tool_disabled", msg, failed_action=_action_repr(a))
             try:  # reasoning trace (Issue #7); best-effort
                 import tracing
                 tracing.trace_policy(a["tool"], allowed=False,
@@ -328,15 +334,10 @@ def authorize_actions(actions):
         decision = tool_policy.check_action(a["tool"], a["values"])
         if not decision.allowed:
             tool_policy.log_denial(a["tool"], decision)
-            errors.append(_err(
-                "policy_denied",
-                f"{a['tool']}: {decision.reason} (risk={decision.risk})",
-            ))
+            msg = f"{a['tool']}: {decision.reason} (risk={decision.risk})"
+            errors.append(_err("policy_denied", msg))
+            _record_code("policy_denied", msg, failed_action=_action_repr(a))
     if errors:
-        # Record structured error events (Issue #10) at this single choke point —
-        # check_action/log_denial are only reached from here, so recording once
-        # here covers every policy denial without double-counting.
-        _record_errors(errors)
         return [], errors
     return actions, []
 
@@ -446,7 +447,7 @@ def parse_and_render_metta(raw):
         if mode == "auto":
             _log_fallback(raw)
             return balance_parentheses(raw)
-        _record_code("no_json", "no JSON actions found", failed_action=(raw or "")[:200])
+        _record_code("no_json", "no JSON actions found", failed_action=_raw_repr(raw))
         return _error_string("no JSON actions found", "parse_error")
 
     # JSON *was* detected but yielded no valid batch. Honor JSON semantics in both
@@ -455,8 +456,20 @@ def parse_and_render_metta(raw):
     if not result.errors:
         # Well-formed JSON with an explicit empty actions list: nothing to do.
         return "()"
-    _record_errors(result.errors)
+    # The raw output is the best available failed-action context for parse/validate
+    # failures (parse_actions errors are not tied to a single rendered action).
+    _record_errors(result.errors, failed_action=_raw_repr(raw))
     return _error_string(_messages(result.errors), _dominant_type(result.errors))
+
+
+def _raw_repr(raw):
+    """Bounded string form of raw model output for the failed_action field."""
+    return (raw if isinstance(raw, str) else str(raw))[:2000]
+
+
+def _action_repr(action):
+    """Compact dict form of a validated action for the failed_action field."""
+    return {"tool": action.get("tool"), "values": action.get("values")}
 
 
 def _record_code(code, message, failed_action=None):
@@ -469,13 +482,13 @@ def _record_code(code, message, failed_action=None):
         return None
 
 
-def _record_errors(errors):
+def _record_errors(errors, failed_action=None):
     """Record every non-warning structured error; returns their categories."""
     types = []
     for e in errors:
         if e.get("warning"):
             continue
-        t = _record_code(e.get("code"), e.get("message"))
+        t = _record_code(e.get("code"), e.get("message"), failed_action=failed_action)
         if t:
             types.append(t)
     return types

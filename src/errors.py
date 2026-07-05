@@ -190,8 +190,17 @@ def record_error(error_type, message, failed_action=None, code=None):
             tracing = None
     if tracing is not None:
         try:
-            tracing.trace_error(stage=err["error_type"], code=err["error_type"],
-                                message=err["message"])
+            tracing.trace_error(
+                stage=err["error_type"],
+                error_type=err["error_type"],
+                # preserve the original granular protocol code (e.g. missing_arg);
+                # fall back to the category when no finer code was supplied.
+                code=(err.get("code") or err["error_type"]),
+                message=err["message"],
+                failed_action=err.get("failed_action"),
+                repair_hint=err["repair_hint"],
+                retryable=err["retryable"],
+            )
         except Exception:  # noqa: BLE001 - tracing must never break the pipeline
             pass
     return err
@@ -298,7 +307,13 @@ def _selftest():
         events = [json.loads(x) for x in open(os.environ["OMEGACLAW_TRACE_PATH"], encoding="utf-8") if x.strip()]
         errs = [e for e in events if e["phase"] == "error"]
         assert len(errs) == 2, errs
-        assert {e["code"] for e in errs} == {UNKNOWN_TOOL, PARSE_ERROR}, errs
+        # durable event carries the full schema: category + retryable + repair_hint
+        assert {e["error_type"] for e in errs} == {UNKNOWN_TOOL, PARSE_ERROR}, errs
+        for e in errs:
+            assert "retryable" in e and e.get("repair_hint"), e
+        # parse_error captured the raw failed action (referenceable by sha)
+        pe = next(e for e in errs if e["error_type"] == PARSE_ERROR)
+        assert pe.get("failed_action_sha"), pe
         # trace_id linkage: error events carry the iteration's trace_id
         assert all(e.get("trace_id") for e in errs), errs
         assert counts()[UNKNOWN_TOOL] == 1 and counts()[PARSE_ERROR] == 1, counts()

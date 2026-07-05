@@ -44,12 +44,13 @@ The five categories: `parse_error`, `unknown_tool`, `schema_validation_error`,
 | File | Change |
 |---|---|
 | `src/errors.py` *(new)* | The vocabulary + engine. `ERROR_TYPES`, `CODE_TO_TYPE` (maps every action_protocol/tool_policy code → category), `REPAIR_HINTS`, `RETRYABLE`. `build_error` (Issue #10 schema: `error_type, message, failed_action, repair_hint, trace_id, retryable, code`; `trace_id` read from `tracing.current()`, never minted), `record_error`/`record_code` (build + `tracing.trace_error` + in-process counter, all best-effort), `format_error_for_llm`, `counts()`. MeTTa bridges `record_parse_error`/`record_runtime_error` return the concise hint. Self-test. |
-| `src/action_protocol.py` | Best-effort `import errors`. Every failure site now records a structured event mapped through `CODE_TO_TYPE`: `authorize_actions` records at its single choke point (covers every policy denial, no double count); `parse_and_render_metta` records `no_json`/validation errors. `_error_string` now appends the **concise repair hint** for the known category (falls back to the full OUTPUT_FORMAT block otherwise). Loop re-prompt contract preserved: the string stays non-`(`-prefixed and keeps the `ACTION_PROTOCOL_ERROR:` sentinel. |
+| `src/tracing.py` | `trace_error` extended (was `stage/code/message` only) to persist the **full schema**: `error_type` (category), the original granular `code` (e.g. `missing_arg`), `retryable`, `repair_hint` — all non-sensitive, always emitted. The `failed_action` is body-like (can embed file contents/echoed text), so it follows the same privacy gate as prompt/result bodies: `failed_action_sha`+`failed_action_chars` always, redacted body only under `OMEGACLAW_TRACE_BODIES`. |
+| `src/action_protocol.py` | Best-effort `import errors`. Every failure site records a structured event mapped through `CODE_TO_TYPE`, **passing the failed action**: `authorize_actions` records per denied action at its single choke point (covers every policy denial, no double count, precise `failed_action`); `parse_and_render_metta` records `no_json`/validation errors with the bounded raw output. `_error_string` appends the **concise repair hint** for the known category (falls back to the full OUTPUT_FORMAT block otherwise). Loop re-prompt contract preserved: the string stays non-`(`-prefixed and keeps the `ACTION_PROTOCOL_ERROR:` sentinel. |
 | `src/loop.metta` | `HandleError` gains a `$kind`; inside the `(Error …)` branch only, `recordErrorHint` runs a `py-call` (`errors.record_parse_error` / `errors.record_runtime_error`) that emits the structured event and returns the concise hint stored into `&error` (so `ERROR_FEEDBACK` now carries an actionable hint, not the opaque token). Call sites pass `parse_error` / `tool_runtime_error`. A successful action never records. |
 | `lib_omegaclaw.metta` | Registers `./src/errors.py`. |
-| `scripts/omegaclaw-trace-summary` | Adds `error_events` + `errors_by_type` (counts `phase=="error"` events by category) and renders them. |
-| `Autotests/test_errors.py` *(new)* | 14 host tests: schema, exhaustive `CODE_TO_TYPE` drift guard, per-category classification through the real pipeline, concise/non-`(` repair hints, retryability, `trace_error` emission + counters, summary aggregation, and the "valid action records no error" guard. Added to `run_mandatory` + CI phase-1. |
-| `benchmarks/error_recovery_{fixtures,benchmark}.py` + `_results.{md,json}` *(new)* | KPI A/B (string-only baseline vs candidate) with a `sys.exit(1)` gate; committed results. |
+| `scripts/omegaclaw-trace-summary` | Adds `error_events` + `errors_by_type` (counts `phase=="error"` events by `error_type` category) and renders them. |
+| `Autotests/test_errors.py` *(new)* | 16 host tests: schema, exhaustive `CODE_TO_TYPE` drift guard, per-category classification through the real pipeline, **assertions on the actually-emitted JSONL event** (category + original code + retryable + repair_hint + failed_action ref), failed-action body recoverability under `OMEGACLAW_TRACE_BODIES`, counters, summary aggregation, and the "valid action records no error" guard. Added to `run_mandatory` + CI phase-1. |
+| `benchmarks/error_recovery_{fixtures,benchmark}.py` + `_results.{md,json}` *(new)* | KPI A/B (string-only baseline vs candidate) with a `sys.exit(1)` gate. **Metrics are read off the actual emitted trace event** (production path), not a locally-built dict, so a payload regression is caught. Committed results. |
 | `.github/workflows/common.yml` | Phase-1 runs `python ../src/errors.py`. |
 | `README.md`, `benchmarks/README.md` | Document the feature (no new env var — it rides the existing `OMEGACLAW_TRACE_*` file). |
 | `benchmarks/results.json` | Regenerated: the #1 corpus snapshots the rendered error string, which now shows the concise repair hint. **KPI counts unchanged** (`results.md` untouched). |
@@ -59,32 +60,47 @@ The five categories: `parse_error`, `unknown_tool`, `schema_validation_error`,
 5 fixtures, one per category, driven through the real `src/errors.py` +
 `src/action_protocol.py`:
 
+5 fixtures, driven through the real production paths; **metrics read off the actual
+emitted JSONL event**:
+
 | Metric | baseline (string-only) | candidate |
 |---|---|---|
 | Machine-readable error_type (one of 5) | 0.00 | **1.00** |
 | Correct category | 0.00 | **1.00** |
-| Failed action captured | 0.00 | **1.00** |
+| Original protocol code preserved (e.g. `missing_arg`) | 0.00 | **1.00** |
 | Retryable flag present | 0.00 | **1.00** |
 | Concise repair hint | 0.00 | **1.00** |
+| Failed action ref in trace (sha, privacy-default) | 0.00 | **1.00** |
+| Failed action body recoverable (`OMEGACLAW_TRACE_BODIES`) | 0.00 | **1.00** |
 | Trace id present | 0.00 | **1.00** |
 | Next-turn recovery (corrected input parses) | 0.00 | **1.00** |
 | **Unknown / unclassified bucket** | **1.00** | **0.00** |
 
 Structured error events emitted to the trace: **5** (one per fixture; counts by
-type `{parse_error:1, unknown_tool:1, schema_validation_error:1,
+category `{parse_error:1, unknown_tool:1, schema_validation_error:1,
 tool_policy_denied:1, tool_runtime_error:1}`). The gate asserts the candidate
-classifies every fixture (0 unknown vs baseline 100%), attaches a concise repair
-hint, categorizes correctly, and emits one event per fixture; exits non-zero on
+classifies every fixture (0 unknown vs baseline 100%), preserves the original code,
+carries retryable + concise repair hint + failed-action reference **on the emitted
+event**, and recovers the failed-action body under bodies mode; exits non-zero on
 regression. Satisfies the issue's KPI acceptance gate.
+
+### Post-review fix (PR #31)
+A reviewer found that `trace_error` originally persisted only `stage/code/message`
+and overwrote `code` with the category, so the durable JSONL lost `failed_action`,
+`repair_hint`, `retryable`, and the granular code — and the benchmark masked it by
+asserting on a locally-built dict. Fixed: `trace_error` now emits the full schema
+(privacy-gating only the failed-action body), the recording sites pass the failed
+action, the summary counts by `error_type`, and the benchmark + unit tests now assert
+against the **actually-emitted event**.
 
 ## 5. End-to-end validation
 
 **Host (pure-Python — the committed gate):**
 - `python3 src/errors.py` → self-tests pass.
-- `python3 Autotests/test_errors.py` → 14/14. Under pytest, the affected suites
-  (`test_errors`, `test_action_protocol`, `test_tool_policy`, `test_tracing`) → **75 passed**;
-  full host-runnable subset (+ `test_channel_registry`, `test_metta_sessions`,
-  `mock/test_actions_equivalence`) → **93 passed**.
+- `python3 Autotests/test_errors.py` → 16/16 (incl. emitted-event schema + bodies
+  recoverability). Full host-runnable subset (`test_errors`, `test_action_protocol`,
+  `test_tool_policy`, `test_tracing`, `test_channel_registry`, `test_metta_sessions`,
+  `mock/test_actions_equivalence`) under pytest → **95 passed**.
 - All module self-tests green (helper/action_protocol/tool_policy/provider_config/
   memory_schema/redaction/tracing/errors/metta_sessions/channel_registry).
 - `python3 benchmarks/error_recovery_benchmark.py` → `KPI GATE: PASSED`. All other KPI
