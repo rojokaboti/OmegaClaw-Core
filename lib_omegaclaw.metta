@@ -9,6 +9,7 @@
 !(import! &self (library OmegaClaw-Core ./src/helper.py))
 !(import! &self (library OmegaClaw-Core ./src/action_protocol.py))
 !(import! &self (library OmegaClaw-Core ./src/tracing.py))
+!(import! &self (library OmegaClaw-Core ./src/errors.py))
 !(import! &self (library OmegaClaw-Core ./src/memory_schema.py))
 !(import! &self (library OmegaClaw-Core ./src/metta_sessions.py))
 !(import! &self (library OmegaClaw-Core ./src/channel_registry.py))

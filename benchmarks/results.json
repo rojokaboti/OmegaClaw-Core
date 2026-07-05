@@ -883,7 +883,7 @@
       "outcome": "fail",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "lt_query",
@@ -892,7 +892,7 @@
       "outcome": "fail",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "lt_pin",
@@ -901,7 +901,7 @@
       "outcome": "fail",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "lt_search",
@@ -910,7 +910,7 @@
       "outcome": "fail",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "lt_shell",
@@ -919,7 +919,7 @@
       "outcome": "fail",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "lt_parened",
@@ -928,7 +928,7 @@
       "outcome": "fail",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "lt_multi",
@@ -937,7 +937,7 @@
       "outcome": "fail",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "lt_remember",
@@ -946,7 +946,7 @@
       "outcome": "fail",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "lt_tavily",
@@ -955,7 +955,7 @@
       "outcome": "fail",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "lt_ta",
@@ -964,7 +964,7 @@
       "outcome": "fail",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "ms_json_planets",
@@ -995,7 +995,7 @@
       "outcome": "fail",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "ms_legacy_then_pin",
@@ -1004,7 +1004,7 @@
       "outcome": "fail",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "fo_write_json",
@@ -1046,7 +1046,7 @@
       "outcome": "fail",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "fo_append_legacy",
@@ -1055,7 +1055,7 @@
       "outcome": "fail",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "fo_write_newline_content",
@@ -1108,7 +1108,7 @@
       "outcome": "fail",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "mj_truncated",
@@ -1117,7 +1117,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "mj_garbage",
@@ -1126,7 +1126,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "mj_unquoted_keys",
@@ -1135,7 +1135,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "mj_trailing_comma",
@@ -1144,7 +1144,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "mj_not_object_action",
@@ -1153,7 +1153,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: action is not an object: 'send hello'. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no c..."
+      "rendered": "ACTION_PROTOCOL_ERROR: action is not an object: 'send hello'. An action had wrong or missing arguments. Provide every required arg for the tool as strings, e..."
     },
     {
       "id": "mj_actions_not_list",
@@ -1162,7 +1162,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "mj_empty",
@@ -1171,7 +1171,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "mj_only_braces",
@@ -1180,7 +1180,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "ut_json_rmrf",
@@ -1189,7 +1189,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'rm-rf'. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'rm-rf'. You named a tool that does not exist. Use only an allowed tool name, and keep the JSON action shape."
     },
     {
       "id": "ut_json_delete",
@@ -1198,7 +1198,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'delete-everything'. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code ..."
+      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'delete-everything'. You named a tool that does not exist. Use only an allowed tool name, and keep the JSON action shape."
     },
     {
       "id": "ut_json_exec",
@@ -1207,7 +1207,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'exec'. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at mo..."
+      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'exec'. You named a tool that does not exist. Use only an allowed tool name, and keep the JSON action shape."
     },
     {
       "id": "ut_json_email",
@@ -1216,7 +1216,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'send-email'. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences,..."
+      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'send-email'. You named a tool that does not exist. Use only an allowed tool name, and keep the JSON action shape."
     },
     {
       "id": "ut_legacy_rmrf",
@@ -1225,7 +1225,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "ut_legacy_delete",
@@ -1234,7 +1234,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "ut_legacy_drop",
@@ -1243,7 +1243,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: no JSON actions found. Your output was not valid. Reply with ONLY one JSON object: {\"actions\":[{\"tool\":\"<name>\",\"args\":{...}}]} \u2014 no p..."
     },
     {
       "id": "ut_json_mixed",
@@ -1252,7 +1252,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'sudo'. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at mo..."
+      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'sudo'. You named a tool that does not exist. Use only an allowed tool name, and keep the JSON action shape."
     }
   ],
   "candidate_auto_rows": [
@@ -1736,7 +1736,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: action is not an object: 'send hello'. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no c..."
+      "rendered": "ACTION_PROTOCOL_ERROR: action is not an object: 'send hello'. An action had wrong or missing arguments. Provide every required arg for the tool as strings, e..."
     },
     {
       "id": "mj_actions_not_list",
@@ -1780,7 +1780,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'rm-rf'. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at m..."
+      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'rm-rf'. You named a tool that does not exist. Use only an allowed tool name, and keep the JSON action shape."
     },
     {
       "id": "ut_json_delete",
@@ -1789,7 +1789,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'delete-everything'. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code ..."
+      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'delete-everything'. You named a tool that does not exist. Use only an allowed tool name, and keep the JSON action shape."
     },
     {
       "id": "ut_json_exec",
@@ -1798,7 +1798,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'exec'. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at mo..."
+      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'exec'. You named a tool that does not exist. Use only an allowed tool name, and keep the JSON action shape."
     },
     {
       "id": "ut_json_email",
@@ -1807,7 +1807,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'send-email'. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences,..."
+      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'send-email'. You named a tool that does not exist. Use only an allowed tool name, and keep the JSON action shape."
     },
     {
       "id": "ut_legacy_rmrf",
@@ -1855,7 +1855,7 @@
       "outcome": "ok",
       "tools": [],
       "unknown_leaked": [],
-      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'sudo'. Reply with ONLY valid JSON: OUTPUT_FORMAT: Reply with ONLY a single JSON object, no prose, no code fences, at mo..."
+      "rendered": "ACTION_PROTOCOL_ERROR: unknown tool: 'sudo'. You named a tool that does not exist. Use only an allowed tool name, and keep the JSON action shape."
     }
   ]
 }

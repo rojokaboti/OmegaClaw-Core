@@ -33,9 +33,19 @@
                          " " (py-call (action_protocol.output_format_block)) " "
                          " LAST_SKILL_USE_RESULTS: " (last_chars (get-state &lastresults) (maxFeedback)) " HISTORY: " (getHistory) " TIME: " (get_time_as_string)))))
 
-(= (HandleError $msg $cmd $sexpr)
-   (case $sexpr (((Error $a $b) (let $new (append (get-state &error) (($msg $cmd)))
-                                          (change-state! &error $new)))
+; Structured error recovery events (Issue #10). The recorder runs a py-call that
+; emits a machine-readable trace_error event under the current iteration's
+; trace_id and returns the concise, category-specific repair hint that is stored
+; into &error (and thus fed back to the model as ERROR_FEEDBACK) instead of the
+; old opaque symbolic token. It is evaluated ONLY inside the (Error ...) branch
+; of HandleError, so a successful action never records a spurious error.
+(= (recordErrorHint parse_error $cmd) (py-call (errors.record_parse_error $cmd)))
+(= (recordErrorHint tool_runtime_error $cmd) (py-call (errors.record_runtime_error (repr $cmd))))
+
+(= (HandleError $kind $cmd $sexpr)
+   (case $sexpr (((Error $a $b) (let $hint (recordErrorHint $kind $cmd)
+                                     (let $new (append (get-state &error) (($hint $cmd)))
+                                          (change-state! &error $new))))
                  ($else $sexpr))))
 
 (= (omegaclaw)
@@ -69,9 +79,9 @@
                                        ($response (if (== "(" (first_char $resp)) $resp (progn (println! $resp) (repr (REMEMBER:REPLY_ONLY_WITH_JSON: (actions ((tool send) (args ((text ...))))))))))
                                        ($sexpr (catch (sread $response)))
                                        ($_ (change-state! &error ()))
-                                       ($_ (HandleError MULTI_COMMAND_FAILURE_NOTHING_WAS_DONE_PLEASE_REPLY_WITH_VALID_JSON_ACTIONS_AND_RETRY $response $sexpr))
+                                       ($_ (HandleError parse_error $response $sexpr))
                                        ($_ (println! (RESPONSE: $sexpr)))
-                                       ($results (RESULTS: (collapse (let $s (superpose $sexpr) (COMMAND_RETURN: ($s (HandleError SINGLE_ACTION_EXECUTION_ERROR_NOTHING_WAS_DONE_PLEASE_FIX_AND_RETRY $s (catch (let $R (eval $s) (py-call (helper.normalize_string $R)))))))))))
+                                       ($results (RESULTS: (collapse (let $s (superpose $sexpr) (COMMAND_RETURN: ($s (HandleError tool_runtime_error $s (catch (let $R (eval $s) (py-call (helper.normalize_string $R)))))))))))
                                        ($_ (println! $results))
                                        ($_ (py-call (tracing.end_iteration (repr $results)))))
                                       (progn (if (or $msgnew  (not (== $sexpr ()))) (addToHistory $msg $response $sexpr $msgnew) _)

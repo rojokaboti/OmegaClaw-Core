@@ -49,3 +49,18 @@ for non-JSON output.
 > Note: the in-container mock integration suite (`Autotests/mock/`) is the
 > end-to-end gate and runs in CI under Docker. This benchmark and the
 > `action_protocol` unit tests are pure Python and run on any host.
+
+---
+
+## Structured Error Recovery (Issue #10)
+
+`python3 benchmarks/error_recovery_benchmark.py` — compares the original
+string-only error feedback against structured error recovery events. Drives one
+fixture per canonical category (`error_recovery_fixtures.py`:
+`parse_error`, `unknown_tool`, `schema_validation_error`, `tool_policy_denied`,
+`tool_runtime_error`) through the real `src/errors.py` + `src/action_protocol.py`.
+Records, per fixture, whether the feedback is a machine-readable category with a
+failed action, retryability, a concise repair hint, and a trace id, plus next-turn
+recovery on the corrected input. The gate requires the candidate to classify every
+fixture (0 unknown bucket vs the baseline's 100%), attach a concise repair hint,
+and emit one structured error event per fixture. See `error_recovery_results.md`.

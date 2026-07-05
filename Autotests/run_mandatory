@@ -5,6 +5,7 @@ test_provider_config.py
 test_memory_schema.py
 test_freeciv_adapter.py
 test_tracing.py
+test_errors.py
 test_metta_sessions.py
 test_channel_registry.py
 mock/test_actions_equivalence.py

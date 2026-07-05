@@ -1,0 +1,112 @@
+{
+  "n_fixtures": 5,
+  "emitted_error_events": 5,
+  "baseline": {
+    "classified": 0.0,
+    "correct_category": 0.0,
+    "original_code": 0.0,
+    "retryable_present": 0.0,
+    "repair_hint": 0.0,
+    "failed_action_ref": 0.0,
+    "failed_action_body_recoverable": 0.0,
+    "trace_id": 0.0,
+    "recovers": 0.0,
+    "unknown_bucket": 1.0
+  },
+  "candidate": {
+    "classified": 1.0,
+    "correct_category": 1.0,
+    "original_code": 1.0,
+    "retryable_present": 1.0,
+    "repair_hint": 1.0,
+    "failed_action_ref": 1.0,
+    "failed_action_body_recoverable": 1.0,
+    "trace_id": 1.0,
+    "recovers": 1.0,
+    "unknown_bucket": 0.0
+  },
+  "per_fixture": [
+    {
+      "category_expected": "parse_error",
+      "error_type": "parse_error",
+      "code": "no_json",
+      "emitted": true,
+      "classified": true,
+      "correct_category": true,
+      "original_code": true,
+      "retryable_present": true,
+      "repair_hint": true,
+      "failed_action_ref": true,
+      "failed_action_body_recoverable": true,
+      "trace_id": true,
+      "recovers": true
+    },
+    {
+      "category_expected": "unknown_tool",
+      "error_type": "unknown_tool",
+      "code": "unknown_tool",
+      "emitted": true,
+      "classified": true,
+      "correct_category": true,
+      "original_code": true,
+      "retryable_present": true,
+      "repair_hint": true,
+      "failed_action_ref": true,
+      "failed_action_body_recoverable": true,
+      "trace_id": true,
+      "recovers": true
+    },
+    {
+      "category_expected": "schema_validation_error",
+      "error_type": "schema_validation_error",
+      "code": "missing_arg",
+      "emitted": true,
+      "classified": true,
+      "correct_category": true,
+      "original_code": true,
+      "retryable_present": true,
+      "repair_hint": true,
+      "failed_action_ref": true,
+      "failed_action_body_recoverable": true,
+      "trace_id": true,
+      "recovers": true
+    },
+    {
+      "category_expected": "tool_policy_denied",
+      "error_type": "tool_policy_denied",
+      "code": "tool_disabled",
+      "emitted": true,
+      "classified": true,
+      "correct_category": true,
+      "original_code": true,
+      "retryable_present": true,
+      "repair_hint": true,
+      "failed_action_ref": true,
+      "failed_action_body_recoverable": true,
+      "trace_id": true,
+      "recovers": true
+    },
+    {
+      "category_expected": "tool_runtime_error",
+      "error_type": "tool_runtime_error",
+      "code": "tool_runtime_error",
+      "emitted": true,
+      "classified": true,
+      "correct_category": true,
+      "original_code": true,
+      "retryable_present": true,
+      "repair_hint": true,
+      "failed_action_ref": true,
+      "failed_action_body_recoverable": true,
+      "trace_id": true,
+      "recovers": true
+    }
+  ],
+  "counts_by_type": {
+    "parse_error": 2,
+    "unknown_tool": 2,
+    "schema_validation_error": 2,
+    "tool_policy_denied": 2,
+    "tool_runtime_error": 2
+  }
+}
