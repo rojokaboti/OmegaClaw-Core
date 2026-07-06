@@ -27,7 +27,7 @@ for _p in (_BENCH, _REPO_ROOT):
         sys.path.insert(0, _p)
 
 from freeciv import client, turncycle  # noqa: E402
-from freeciv_turn_cycle_fixtures import MockProxyWS  # noqa: E402  (shared with the benchmark)
+from freeciv.turn_cycle_fixtures import MockProxyWS  # noqa: E402  (shared with the benchmark)
 
 
 def _run(coro):

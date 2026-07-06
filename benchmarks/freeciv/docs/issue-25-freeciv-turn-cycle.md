@@ -1,5 +1,9 @@
 # Change Report — Issue #25: FreeCiv game does not advance past turn 1
 
+> **Relocated (consolidation):** all FreeCiv code + docs now live under `benchmarks/freeciv/`.
+> Paths in this historical report reflect their **original** locations at the time of the change
+> (e.g. `benchmarks/freeciv_turn_cycle_benchmark.py` is now `benchmarks/freeciv/turn_cycle_benchmark.py`).
+
 **Branch:** `feat/freeciv-turn-cycle` (off `main`, which has #1–#10 merged)
 **Issue:** #25 — "FreeCiv benchmark: game does not advance past turn 1 (turn-cycle / end_turn handshake)"
 

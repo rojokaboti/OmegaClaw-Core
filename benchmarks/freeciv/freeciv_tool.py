@@ -13,15 +13,15 @@ The heavy/deterministic logic lives in the benchmark-local package (the "produce
 benchmark-local" decision); this shim only puts it on ``sys.path`` and wires it to the loop.
 Importing this module pulls in no network/websocket deps — those load lazily on live submit.
 Self-test runs fully offline (fixture state + a fake client), so it satisfies the CI
-Phase-1 ``python3 src/freeciv_tool.py`` self-test convention.
+Phase-1 ``python3 benchmarks/freeciv/freeciv_tool.py`` self-test convention.
 """
 
 import json
 import os
 import sys
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_BENCHMARKS = os.path.join(os.path.dirname(_HERE), "benchmarks")
+_HERE = os.path.dirname(os.path.abspath(__file__))          # benchmarks/freeciv
+_BENCHMARKS = os.path.dirname(_HERE)                        # benchmarks (has the `freeciv` package)
 if _BENCHMARKS not in sys.path:
     sys.path.insert(0, _BENCHMARKS)
 

@@ -15,23 +15,21 @@ Metrics:
 - invalid-action rate: share of *illegal* candidate actions that would be submitted
   (baseline submits all; candidate must submit none) and legal-action acceptance.
 
-Writes `freeciv_results.{md,json}`. Exit non-zero if the KPI gate fails.
-Run: `python3 benchmarks/freeciv_benchmark.py`
+Writes `results.{md,json}` (next to this file). Exit non-zero if the KPI gate fails.
+Run: `python3 benchmarks/freeciv/benchmark.py`
 """
 
 import json
 import os
 import sys
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_REPO_ROOT = os.path.dirname(_HERE)
-_SRC = os.path.join(_REPO_ROOT, "src")
-for _p in (_SRC, _REPO_ROOT, _HERE):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+_HERE = os.path.dirname(os.path.abspath(__file__))          # benchmarks/freeciv
+_BENCH = os.path.dirname(_HERE)                             # benchmarks (has the `freeciv` package)
+if _BENCH not in sys.path:
+    sys.path.insert(0, _BENCH)
 
 from freeciv import adapter, atoms, actions  # noqa: E402
-from freeciv_fixtures import FIXTURES  # noqa: E402
+from freeciv.fixtures import FIXTURES  # noqa: E402
 
 COVERAGE_GATE = 0.95
 
@@ -146,7 +144,7 @@ def render_md(rows, summary):
         "The baseline (raw text, no gate) would submit every illegal action. Live win-rate/score KPIs "
         "require a running game and are measured in the live E2E phase (report §5).",
         "",
-        "Reproduce: `python3 benchmarks/freeciv_benchmark.py`",
+        "Reproduce: `python3 benchmarks/freeciv/benchmark.py`",
         "",
     ]
     return "\n".join(lines)
@@ -155,10 +153,10 @@ def render_md(rows, summary):
 def main():
     rows, summary = evaluate()
     results = {"summary": summary, "rows": rows}
-    with open(os.path.join(_HERE, "freeciv_results.json"), "w", encoding="utf-8") as f:
+    with open(os.path.join(_HERE, "results.json"), "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)
     md = render_md(rows, summary)
-    with open(os.path.join(_HERE, "freeciv_results.md"), "w", encoding="utf-8") as f:
+    with open(os.path.join(_HERE, "results.md"), "w", encoding="utf-8") as f:
         f.write(md)
     print(md)
 

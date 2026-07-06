@@ -121,7 +121,7 @@ def test_snapshot_writes_file_and_respects_size_cap():
 # --- freeciv auto-session seed --------------------------------------------
 
 def test_freeciv_observe_seeds_session():
-    import freeciv_tool
+    from freeciv import freeciv_tool
     with tempfile.TemporaryDirectory() as d:
         os.environ["OMEGACLAW_SESSION_SNAPSHOT_DIR"] = d
         os.environ["FREECIV_GAME_ID"] = "gtest"

@@ -14,4 +14,4 @@ Attempts: **5** end_turn sends against `MockProxyWS` (models the proxy's `messag
 
 The candidate advances the turn on **every** attempt (1→2→3→…); the baseline stays stuck on turn 1 (0 advances), reproducing the Issue #25 symptom and proving the envelope is the cause.
 
-Reproduce: `python3 benchmarks/freeciv_turn_cycle_benchmark.py`
+Reproduce: `python3 benchmarks/freeciv/turn_cycle_benchmark.py`

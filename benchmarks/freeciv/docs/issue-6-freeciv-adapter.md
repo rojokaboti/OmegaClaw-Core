@@ -1,5 +1,10 @@
 # Change Report — Issue #6: Deterministic FreeCiv State-to-Atoms & Action Adapter
 
+> **Relocated (consolidation):** all FreeCiv code + docs now live under `benchmarks/freeciv/`.
+> Paths in this historical report reflect their **original** locations at the time of the change
+> (e.g. `src/freeciv_tool.py` is now `benchmarks/freeciv/freeciv_tool.py`; `benchmarks/freeciv_benchmark.py`
+> is now `benchmarks/freeciv/benchmark.py`).
+
 **Branch:** `feat/freeciv-adapter` (off `main`, which has #1–#5 merged)
 **Issue:** #6 — "Build deterministic FreeCiv state-to-atoms and action adapter for benchmark runs"
 
