@@ -1,0 +1,31 @@
+{
+  "attempts": 5,
+  "baseline": {
+    "shape": {
+      "type": "action",
+      "action_type": "end_turn"
+    },
+    "turns_advanced": 0,
+    "turns_seen": [],
+    "monotonic": true,
+    "reached_turn": 1
+  },
+  "candidate": {
+    "shape": {
+      "type": "action",
+      "action": {
+        "action_type": "end_turn"
+      }
+    },
+    "turns_advanced": 5,
+    "turns_seen": [
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "monotonic": true,
+    "reached_turn": 6
+  }
+}

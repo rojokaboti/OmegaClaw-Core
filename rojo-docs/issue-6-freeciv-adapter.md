@@ -123,10 +123,13 @@ non-zero on any regression, and the JSON output is byte-identical across runs.
   build-road / sentry actions, **every one validated and submitted, 0 illegal reached the game**.
   This is the Issue #6 pipeline end-to-end with a real LLM: symbolic state in → validated actions
   out. (Earlier ASICloud attempts hit `insufficient_balance`; SNET with a funded key works.)
-- **Known nuance (not this deliverable — tracked in #25):** multi-turn *advancement* depends on
-  freeciv-web's turn-cycle (the LLM-proxy player's phase-done / AI-phase handshake); on the
-  direct-proxy path the server can hold the turn, so successive cycles may re-decide over the same
-  turn. The validate→submit pipeline and atom generation are unaffected.
+- **Known nuance (tracked in #25 — now RESOLVED):** multi-turn *advancement* did not tick past
+  turn 1. Root cause (fixed in #25, `feat/freeciv-turn-cycle`): the client sent `end_turn` with a
+  top-level `action_type`, which the proxy's `message_validator` rejects (`E220`, requires a
+  top-level `action` dict) — so `PACKET_PLAYER_PHASE_DONE` was never produced. The fix is the
+  correct envelope `{"type":"action","action":{"action_type":"end_turn"}}` + turn-increment
+  detection; live-verified turns 1→2→3→4. Purely client-side (no freeciv-llm change). The
+  validate→submit pipeline and atom generation were unaffected. See `issue-25-freeciv-turn-cycle.md`.
 
 ## 6. What was deferred
 

@@ -21,6 +21,43 @@ class FreecivClientError(Exception):
     pass
 
 
+# Fields copied into the action payload, with the unit_id -> actor_id rename the proxy's
+# agent format uses (freeciv-proxy/llm_handler.py:_normalize_agent_action).
+_ACTION_FIELD_KEYS = ("unit_id", "dest_x", "dest_y", "city_id", "production_type", "tech_id", "name")
+
+
+def action_message(action):
+    """Build the freeciv-proxy ``action`` message envelope (Issue #25).
+
+    Two proxy gates constrain the shape (both verified against the live stack):
+
+    1. ``message_validator`` requires the ``action`` message to carry a top-level ``action``
+       **dict** (schema ``required_fields: [type, action]``). A bare top-level ``action_type``
+       — or nesting under ``data`` — fails with ``E220: Missing required field: action``, so no
+       packet is ever produced and the turn is stuck on 1 (the Issue #25 bug).
+    2. ``_handle_action`` then reads that dict, and ``_normalize_agent_action`` maps the agent
+       format (``action_type`` + ``actor_id``) to the internal action, which becomes
+       ``PACKET_PLAYER_PHASE_DONE`` (pid 52) for end_turn.
+
+    So the correct, live-verified envelope is
+    ``{"type":"action","action":{"action_type":..,<fields>}}``. This is the single place the
+    envelope is built so the runners and ``submit_action`` can never drift into divergent wire
+    dialects again.
+    """
+    atype = action.get("type") or action.get("action_type")
+    inner = {"action_type": atype}
+    for k in _ACTION_FIELD_KEYS:
+        v = action.get(k)
+        if v is not None:
+            inner["actor_id" if k == "unit_id" else k] = v
+    return {"type": "action", "action": inner}
+
+
+def end_turn_message():
+    """The turn-advancing action message: ``{"type":"action","action":{"action_type":"end_turn"}}``."""
+    return action_message({"type": "end_turn"})
+
+
 class FreecivClient:
     def __init__(self, proxy_url, ws_url, api_token, game_id, player_id,
                  agent_id="omegaclaw", civserver_port=6001, timeout=15):
@@ -65,14 +102,16 @@ class FreecivClient:
 
     # ---- WS (gateway :8003) ----------------------------------------------------------
     def submit_action(self, action):
-        """Submit a (normalized) action: llm_connect then action_submit. Returns the reply."""
-        action_type = action.get("type") or action.get("action_type")
-        data = {k: v for k, v in action.items() if k not in ("type", "action_type")}
-        data["action_type"] = action_type
+        """Submit a (normalized) action: llm_connect then an ``action`` message. Returns the reply.
+
+        Uses :func:`action_message` — the proxy dispatch only recognizes ``type:"action"``
+        (``llm_handler.py:387-406``); the old ``type:"action_submit"`` fell through to the
+        raw-forward path and was silently dropped (Issue #25).
+        """
         messages = [
             {"type": "llm_connect", "agent_id": self.agent_id,
              "data": {"api_token": self.api_token, "port": self.civserver_port}},
-            {"type": "action_submit", "data": data},
+            action_message(action),
         ]
         return self._ws_roundtrip(messages)
 
