@@ -13,11 +13,12 @@ of the host test suite; the deterministic adapter it drives is host-tested.
 Uses the repo's own provider config (`src/provider_config.py`) so the endpoint/model/key match
 what OmegaClaw uses. Default provider SNET (`SNET_API_KEY`, OpenAI-compatible).
 
-Caveat: multi-turn *advancement* depends on freeciv-web's turn-cycle (the LLM-proxy player's
-phase-done / AI-phase handshake); on this direct-proxy path the server may hold the turn, so
-successive cycles can re-decide over the same turn. The validate->submit pipeline is unaffected.
+Turn advancement (Issue #25): end_turn is now sent as a proper ``action`` message
+(``client.action_message`` / the ``data`` envelope) so the proxy emits PACKET_PLAYER_PHASE_DONE
+and the server ticks the turn; the loop then waits for the turn to actually increment
+(``turncycle.await_turn_advance``) instead of a blind sleep, and is driven by *observed* turns.
 
-Config (env): FREECIV_PROXY_WS, FREECIV_API_TOKEN, FREECIV_GAME_ID, FREECIV_CYCLES,
+Config (env): FREECIV_PROXY_WS, FREECIV_API_TOKEN, FREECIV_GAME_ID, FREECIV_TURNS,
 FREECIV_PROVIDER (default SNET). Run: python3 benchmarks/freeciv/llm_play.py
 """
 import asyncio
@@ -33,13 +34,13 @@ for _p in (_BENCH, _SRC):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from freeciv import adapter, atoms, actions  # noqa: E402
+from freeciv import adapter, atoms, actions, client, turncycle  # noqa: E402
 import provider_config as pc  # noqa: E402
 
 WS = os.environ.get("FREECIV_PROXY_WS", "ws://localhost:8002/llmsocket/8002")
 TOKEN = os.environ.get("FREECIV_API_TOKEN", "test-token-fc3d-001")
 GAME = os.environ.get("FREECIV_GAME_ID", "omega_llm")
-CYCLES = int(os.environ.get("FREECIV_CYCLES", "3"))
+TURNS = int(os.environ.get("FREECIV_TURNS", os.environ.get("FREECIV_CYCLES", "3")))
 PROVIDER = os.environ.get("FREECIV_PROVIDER", "SNET")
 
 _P = pc.provider_entry(PROVIDER)
@@ -78,32 +79,14 @@ def llm_decide(sentences, units):
         return []
 
 
-async def _nxt(ws, types, timeout=20, drain=500):
-    for _ in range(drain):
-        try:
-            m = json.loads(await asyncio.wait_for(ws.recv(), timeout=timeout))
-        except asyncio.TimeoutError:
-            return None
-        if isinstance(m, dict) and m.get("type") in types:
-            return m
-    return None
-
-
-async def _get_state(ws):
-    await ws.send(json.dumps({"type": "state_query", "format": "llm_optimized"}))
-    m = await _nxt(ws, {"state_response", "state_update"}, timeout=15)
-    if not m:
-        return None
-    return m.get("data") if isinstance(m.get("data"), dict) and "turn" in m.get("data", {}) else m
+# State polling + typed-message waiting are shared with live_play via turncycle (Issue #25).
+_nxt = turncycle.recv_until
+_get_state = turncycle.get_state
 
 
 def _to_packet(action):
-    na = actions.normalize_action(action)
-    pkt = {"type": "action", "action_type": na.get("type")}
-    for k in ("unit_id", "dest_x", "dest_y", "city_id", "production_type", "tech_id"):
-        if k in na:
-            pkt["actor_id" if k == "unit_id" else k] = na[k]
-    return pkt
+    """Build the proxy action message for a validated action (agent/data envelope)."""
+    return client.action_message(actions.normalize_action(action))
 
 
 async def run():
@@ -130,14 +113,18 @@ async def run():
             print("[llm] no populated state")
             return 1
 
-        totals = {"proposed": 0, "submitted": 0, "blocked": 0, "cycles": 0}
-        for _ in range(CYCLES):
-            st = await _get_state(ws)
+        totals = {"proposed": 0, "submitted": 0, "blocked": 0, "turns_advanced": 0, "turns_seen": []}
+        cur = turncycle.turn_of(st)
+        # Drive by OBSERVED turn advances, not a fixed cycle count: re-deciding over a held
+        # turn must not count. Cap attempts so a genuinely stuck game still terminates.
+        for _ in range(TURNS * 3):
+            st = await _get_state(ws) or st
+            cur = turncycle.turn_of(st) if st else cur
             norm = adapter.normalize_state(st)
             facts = adapter.facts_from_state(norm)
             sents = atoms.sentences_from_facts(facts)
             mine = [u for u in norm["units"] if u.get("owner") == norm["player_perspective"]]
-            print("\n=== cycle %d | turn %s | %d atoms | %d units ===" % (totals["cycles"] + 1, st.get("turn"), len(sents), len(mine)))
+            print("\n=== turn %s | %d atoms | %d units ===" % (cur, len(sents), len(mine)))
             for a in llm_decide(sents, mine):
                 totals["proposed"] += 1
                 v = actions.validate_action(a, st)
@@ -148,14 +135,22 @@ async def run():
                 else:
                     totals["blocked"] += 1
                     print("   BLOCK  %s (%s)" % (json.dumps(a), v.error_code))
-            await ws.send(json.dumps({"type": "action", "action_type": "end_turn"}))
-            totals["cycles"] += 1
-            await asyncio.sleep(3)
+            await turncycle.send_end_turn(ws)
+            nt = await turncycle.await_turn_advance(ws, cur, timeout=40)
+            if nt is None:
+                print("   [warn] turn did not advance past %s within timeout" % cur)
+                break
+            totals["turns_advanced"] += 1
+            totals["turns_seen"].append(nt)
+            print("   -> advanced to turn %s" % nt)
+            if totals["turns_advanced"] >= TURNS:
+                break
 
         print("\n=== LLM-DRIVEN LIVE RUN ===")
         print(json.dumps(totals, indent=2))
         print("illegal actions that reached the game: 0 (all %d blocked pre-submit)" % totals["blocked"])
-        return 0
+        print("turns advanced: %d (%s)" % (totals["turns_advanced"], totals["turns_seen"]))
+        return 0 if totals["turns_advanced"] >= TURNS else 1
 
 
 def main():

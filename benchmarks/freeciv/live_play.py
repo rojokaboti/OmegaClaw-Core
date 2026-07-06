@@ -1,21 +1,23 @@
-"""Live E2E runner against a running taso-ventures/freeciv-llm stack (Issue #6).
+"""Live E2E runner against a running taso-ventures/freeciv-llm stack (Issues #6 + #25).
 
 Connects to the freeciv-proxy LLM socket, ensures a game is started, pulls a real
-`llm_optimized` state, converts it to deterministic PLN atoms, and does a validate->submit
-action round-trip (submitting only legal actions; blocking illegal ones pre-submit).
+`llm_optimized` state, converts it to deterministic PLN atoms, blocks an illegal move
+pre-submit, then **drives >=3 real turns** (Issue #25): each turn submit a trivial legal
+action (unit_fortify) via the correct `action` envelope, send end_turn, and wait for the turn
+to actually increment. Needs NO LLM/provider key — it is the deterministic acceptance runner
+for turn advancement. `llm_play.py` is the LLM-in-the-loop variant.
 
 This is a demo/validation runner, not part of the host test suite (it needs the live stack
-and the `websockets` package). The deterministic adapter it exercises is host-tested in
-`Autotests/test_freeciv_adapter.py` and `benchmarks/freeciv_benchmark.py`.
+and the `websockets` package). The deterministic adapter it exercises and the turn-advance
+logic are host-tested (`Autotests/test_freeciv_adapter.py`, `Autotests/test_freeciv_turn_cycle.py`).
 
 Game-start note: freeciv-llm civservers default to `minplayers=2`, so a single agent + aifill
 never leaves pregame (turn 0, no units). While in pregame this runner issues
 `/set minplayers 1` then `/start` (server commands via the `chat` message type).
 
 Config (env): FREECIV_PROXY_WS (default ws://localhost:8002/llmsocket/8002),
-FREECIV_API_TOKEN (default test-token-fc3d-001), FREECIV_AGENT_ID, FREECIV_GAME_ID.
-
-Run: python3 benchmarks/freeciv/live_play.py
+FREECIV_API_TOKEN (default test-token-fc3d-001), FREECIV_AGENT_ID, FREECIV_GAME_ID,
+FREECIV_TURNS (default 3). Run: python3 benchmarks/freeciv/live_play.py
 """
 import asyncio
 import json
@@ -27,35 +29,17 @@ _BENCH = os.path.dirname(_HERE)
 if _BENCH not in sys.path:
     sys.path.insert(0, _BENCH)
 
-from freeciv import adapter, atoms, actions  # noqa: E402
+from freeciv import adapter, atoms, actions, client, turncycle  # noqa: E402
 
 WS_URL = os.environ.get("FREECIV_PROXY_WS", "ws://localhost:8002/llmsocket/8002")
 TOKEN = os.environ.get("FREECIV_API_TOKEN", "test-token-fc3d-001")
 AGENT = os.environ.get("FREECIV_AGENT_ID", "omega")
 GAME = os.environ.get("FREECIV_GAME_ID", "omega_e2e")
+TURNS = int(os.environ.get("FREECIV_TURNS", "3"))
 
-
-async def _next(ws, types, timeout=20, drain=400):
-    for _ in range(drain):
-        try:
-            m = json.loads(await asyncio.wait_for(ws.recv(), timeout=timeout))
-        except asyncio.TimeoutError:
-            return None
-        if isinstance(m, dict) and m.get("type") in types:
-            return m
-    return None
-
-
-def _state_body(m):
-    if not m:
-        return None
-    d = m.get("data")
-    return d if isinstance(d, dict) and "turn" in d else m
-
-
-async def _get_state(ws):
-    await ws.send(json.dumps({"type": "state_query", "format": "llm_optimized"}))
-    return _state_body(await _next(ws, {"state_response", "state_update"}, timeout=15))
+# State polling + typed-message waiting shared with llm_play via turncycle (Issue #25).
+_next = turncycle.recv_until
+_get_state = turncycle.get_state
 
 
 async def run():
@@ -93,20 +77,36 @@ async def run():
         for s in atoms.sentences_from_facts(facts)[:12]:
             print("   ", s)
 
-        mine = [u for u in norm["units"] if u.get("owner") == norm["player_perspective"]]
         illegal = {"type": "unit_move", "unit_id": 99999, "dest_x": 1, "dest_y": 1}
         vb = actions.validate_action(illegal, state)
         print("[live] illegal unknown-unit blocked pre-submit: is_valid=%s code=%s" % (vb.is_valid, vb.error_code))
-        if mine:
-            uid = mine[0]["id"]
-            v = actions.validate_action({"type": "unit_fortify", "unit_id": uid}, state)
-            print("[live] legal fortify unit %s valid=%s" % (uid, v.is_valid))
-            if v.is_valid:
-                await ws.send(json.dumps({"type": "action", "action_type": "unit_fortify", "actor_id": uid}))
-                res = await _next(ws, {"action_accepted", "action_rejected"}, timeout=10)
-                print("[live] submit reply: %s" % (res.get("type") if res else "(none within timeout)"))
-        print("[live] E2E OK")
-        return 0
+
+        # --- Issue #25: drive >=TURNS real turns, asserting monotonic advancement -----------
+        turns_seen = []
+        cur = turncycle.turn_of(state)
+        for _ in range(TURNS * 3):  # attempt cap so a stuck game still terminates
+            state = await _get_state(ws) or state
+            cur = turncycle.turn_of(state) if state else cur
+            norm = adapter.normalize_state(state)
+            mine = [u for u in norm["units"] if u.get("owner") == norm["player_perspective"]]
+            if mine:  # submit a trivial legal action so the turn does real work
+                uid = mine[0]["id"]
+                if actions.validate_action({"type": "unit_fortify", "unit_id": uid}, state).is_valid:
+                    await ws.send(json.dumps(client.action_message({"type": "unit_fortify", "unit_id": uid})))
+            await turncycle.send_end_turn(ws)
+            nt = await turncycle.await_turn_advance(ws, cur, timeout=40)
+            if nt is None:
+                print("[live] turn did NOT advance past %s within timeout" % cur)
+                break
+            turns_seen.append(nt)
+            print("[live] turn %s -> %s" % (cur, nt))
+            if len(turns_seen) >= TURNS:
+                break
+
+        ok = len(turns_seen) >= TURNS and turns_seen == sorted(set(turns_seen)) and len(set(turns_seen)) == len(turns_seen)
+        print("[live] turns advanced: %d (%s) monotonic=%s" % (len(turns_seen), turns_seen, ok))
+        print("[live] E2E %s" % ("OK" if ok else "INCOMPLETE"))
+        return 0 if ok else 1
 
 
 def main():
