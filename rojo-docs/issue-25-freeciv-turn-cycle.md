@@ -144,4 +144,7 @@ grep -n 'action_type.*end_turn' main:benchmarks/freeciv/llm_play.py 2>/dev/null 
   `freeciv-llm` proxy was diagnosed read-only and needs no patch (per the confirmed scope).
 - **Single envelope source** (`client.action_message`) prevents the three-dialect drift that
   caused this.
-- Not pushed; open a PR when ready (convention: PR + follow-up `docs: reviewer report …` commit).
+- Merged as **PR #32** (GitHub build/common passed). Follow-up: a post-merge review found the
+  foundational `freeciv-action` tool path (`FreecivClient.submit_action`) still sent an invalid
+  `llm_connect` (nested `api_token` → upstream `E220`) and targeted the wrong WS route; fixed on
+  branch `fix/freeciv-client-ws-auth` (see `rojo-docs/issue-25-freeciv-client-ws-followup.md`).

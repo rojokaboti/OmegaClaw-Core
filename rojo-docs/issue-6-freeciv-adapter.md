@@ -34,8 +34,13 @@ so benchmark runs are reproducible and illegal moves are rejected.
   `{turn, phase, strategic{…}, tactical{…}, economic{…}, players, units, cities, techs, …}` where
   `players/units/cities` are **dicts keyed by string id** (`freeciv-proxy/state_extractor.py`).
 - **Legal actions** (HTTP `:8002`): `GET /api/game/{id}/legal_actions?player_id=N`.
-- **Acting** (WS `:8003`): `llm_connect` → `state_query` → `action_submit {action_type, …}`;
-  canonical legality in `freeciv-proxy/action_validator.py`, ids in `action_constants.py`.
+- **Acting** (WS proxy `/llmsocket/<port>` on `:8002`): `llm_connect` (with **top-level**
+  `api_token`) → `action {type:"action", action:{action_type, …}}`. (Issue #25 established the
+  dispatched envelope is `type:"action"` with the nested `action` dict — the earlier
+  `action_submit` shape was silently dropped; the `llm_connect` top-level `api_token` +
+  `/llmsocket` endpoint were corrected in the #25 follow-up, see
+  `rojo-docs/issue-25-freeciv-client-ws-followup.md`.) Canonical legality in
+  `freeciv-proxy/action_validator.py`, ids in `action_constants.py`.
 
 ## 2. Before → after
 
