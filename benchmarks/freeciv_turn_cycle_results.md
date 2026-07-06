@@ -1,9 +1,9 @@
 # FreeCiv Turn-Cycle KPI Benchmark — Issue #25
 
-Attempts: **5** end_turn sends against `MockProxyWS` (replicates the freeciv-proxy action-extraction rule at `llm_handler.py:1936`).
+Attempts: **5** end_turn sends against `MockProxyWS` (models the proxy's `message_validator` action-required gate + the extract/normalize rule).
 
-- **baseline** = pre-#25 client shape `{"type":"action","action_type":"end_turn"}` (top-level `action_type`, silently dropped → empty action → no pid 52).
-- **candidate** = `{"type":"action","data":{"action_type":"end_turn"}}` (`client.end_turn_message()`), normalized to `PACKET_PLAYER_PHASE_DONE`.
+- **baseline** = pre-#25 client shape `{"type":"action","action_type":"end_turn"}` (top-level `action_type` — rejected by `message_validator` with `E220`, no pid 52).
+- **candidate** = `{"type":"action","action":{"action_type":"end_turn"}}` (`client.end_turn_message()`) — nested under `action`, normalized to `PACKET_PLAYER_PHASE_DONE`.
 
 | Metric | baseline | candidate |
 | --- | --- | --- |

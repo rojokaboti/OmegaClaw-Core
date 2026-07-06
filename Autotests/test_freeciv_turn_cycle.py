@@ -4,15 +4,16 @@ Pure-Python, no Docker/LLM. Runs under pytest and standalone
 (`python3 Autotests/test_freeciv_turn_cycle.py`).
 
 The game got stuck on turn 1 because the client sent end_turn with a top-level `action_type`,
-which the proxy ignores (it extracts the action from `msg['data']`/`msg['action']`) — so no
-PACKET_PLAYER_PHASE_DONE was emitted — AND the loop never checked that the turn incremented.
+which the proxy's `message_validator` rejects with `E220` (its `action` schema requires a
+top-level `action` dict) — so no PACKET_PLAYER_PHASE_DONE was emitted — AND the loop never
+checked that the turn incremented.
 
-A tiny in-process `MockProxyWS` replicates the proxy's exact extraction rule
-(`freeciv-proxy/llm_handler.py:1936`: `msg.get('data') if 'data' in msg else msg.get('action', {})`)
-and only advances the turn when it receives a correctly-shaped end_turn. The tests assert:
-  (a) `client.action_message` builds the `data` envelope the proxy accepts;
+A tiny in-process `MockProxyWS` models both proxy gates (the `E220` action-required validator +
+the extract/normalize→advance rule) and only advances the turn for a correctly-shaped end_turn.
+The tests assert:
+  (a) `client.action_message` builds the `action`-nested envelope the proxy accepts;
   (b) `turncycle.await_turn_advance` detects the increment and drives >=3 turns;
-  (c) the OLD top-level-`action_type` shape does NOT advance (regression guard).
+  (c) the OLD top-level-`action_type` shape AND the `data`-nested shape do NOT advance (E220 regression guard).
 """
 import asyncio
 import json

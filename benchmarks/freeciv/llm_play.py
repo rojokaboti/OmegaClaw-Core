@@ -14,9 +14,10 @@ Uses the repo's own provider config (`src/provider_config.py`) so the endpoint/m
 what OmegaClaw uses. Default provider SNET (`SNET_API_KEY`, OpenAI-compatible).
 
 Turn advancement (Issue #25): end_turn is now sent as a proper ``action`` message
-(``client.action_message`` / the ``data`` envelope) so the proxy emits PACKET_PLAYER_PHASE_DONE
-and the server ticks the turn; the loop then waits for the turn to actually increment
-(``turncycle.await_turn_advance``) instead of a blind sleep, and is driven by *observed* turns.
+(``client.action_message`` -> ``{"type":"action","action":{"action_type":"end_turn"}}``) so the
+proxy passes validation, emits PACKET_PLAYER_PHASE_DONE, and the server ticks the turn; the loop
+then waits for the turn to actually increment (``turncycle.await_turn_advance``) instead of a blind
+sleep, and is driven by *observed* turns.
 
 Config (env): FREECIV_PROXY_WS, FREECIV_API_TOKEN, FREECIV_GAME_ID, FREECIV_TURNS,
 FREECIV_PROVIDER (default SNET). Run: python3 benchmarks/freeciv/llm_play.py
@@ -85,7 +86,7 @@ _get_state = turncycle.get_state
 
 
 def _to_packet(action):
-    """Build the proxy action message for a validated action (agent/data envelope)."""
+    """Build the proxy action message for a validated action (action-nested agent format)."""
     return client.action_message(actions.normalize_action(action))
 
 

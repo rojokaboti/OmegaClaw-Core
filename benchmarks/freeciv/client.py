@@ -54,7 +54,7 @@ def action_message(action):
 
 
 def end_turn_message():
-    """The turn-advancing action message: ``{"type":"action","data":{"action_type":"end_turn"}}``."""
+    """The turn-advancing action message: ``{"type":"action","action":{"action_type":"end_turn"}}``."""
     return action_message({"type": "end_turn"})
 
 

@@ -5,10 +5,10 @@ loop against `MockProxyWS`, which replicates the freeciv-proxy's exact action-ex
 measures how many turns advance in K attempts:
 
 * **baseline** = the pre-#25 client shape `{"type":"action","action_type":"end_turn"}` (top-level
-  action_type). The proxy extracts the action from `data`/`action`, so this is an empty action →
-  no PACKET_PLAYER_PHASE_DONE → the turn never advances (stuck on turn 1).
-* **candidate** = `client.end_turn_message()` → `{"type":"action","data":{"action_type":"end_turn"}}`,
-  which the proxy normalizes and converts to pid 52 → the turn advances every attempt.
+  action_type). The proxy's `message_validator` requires a top-level `action` dict, so this is
+  rejected with E220 → no PACKET_PLAYER_PHASE_DONE → the turn never advances (stuck on turn 1).
+* **candidate** = `client.end_turn_message()` → `{"type":"action","action":{"action_type":"end_turn"}}`,
+  which passes validation, is normalized, and converts to pid 52 → the turn advances every attempt.
 
 Writes `freeciv_turn_cycle_results.{md,json}`. Exit non-zero if the KPI gate fails.
 Run: `python3 benchmarks/freeciv_turn_cycle_benchmark.py`
@@ -54,16 +54,20 @@ def evaluate():
 
 def render_md(s):
     b, c = s["baseline"], s["candidate"]
+    # Render the envelope shapes from the ACTUAL benchmarked payloads (not hardcoded) so the
+    # report can never drift from what the code sends.
+    b_shape = json.dumps(b["shape"], separators=(",", ":"))
+    c_shape = json.dumps(c["shape"], separators=(",", ":"))
     return "\n".join([
         "# FreeCiv Turn-Cycle KPI Benchmark — Issue #25",
         "",
-        f"Attempts: **{s['attempts']}** end_turn sends against `MockProxyWS` (replicates the "
-        "freeciv-proxy action-extraction rule at `llm_handler.py:1936`).",
+        f"Attempts: **{s['attempts']}** end_turn sends against `MockProxyWS` (models the proxy's "
+        "`message_validator` action-required gate + the extract/normalize rule).",
         "",
-        "- **baseline** = pre-#25 client shape `{\"type\":\"action\",\"action_type\":\"end_turn\"}` "
-        "(top-level `action_type`, silently dropped → empty action → no pid 52).",
-        "- **candidate** = `{\"type\":\"action\",\"data\":{\"action_type\":\"end_turn\"}}` "
-        "(`client.end_turn_message()`), normalized to `PACKET_PLAYER_PHASE_DONE`.",
+        f"- **baseline** = pre-#25 client shape `{b_shape}` "
+        "(top-level `action_type` — rejected by `message_validator` with `E220`, no pid 52).",
+        f"- **candidate** = `{c_shape}` "
+        "(`client.end_turn_message()`) — nested under `action`, normalized to `PACKET_PLAYER_PHASE_DONE`.",
         "",
         "| Metric | baseline | candidate |",
         "| --- | --- | --- |",
