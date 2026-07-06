@@ -640,6 +640,12 @@ def _selftest():
     authd, errs = authorize_actions(r.actions)
     assert errs == [] and len(authd) == 1, (authd, errs)
 
+    # use-skill tool (Issue #11) validates + renders end-to-end, incl. its alias.
+    assert "use-skill" in ALLOWED_TOOLS and "use-skill" in ARG_SPEC
+    assert parse_and_render_metta('{"actions":[{"tool":"use-skill","args":{"name":"demo"}}]}') == '((use-skill "demo"))'
+    assert parse_and_render_metta('{"actions":[{"tool":"use-skill","args":{"skill":"x"}}]}') == '((use-skill "x"))'
+    assert "use-skill{name}" in output_format_block()
+
     print("action_protocol self-tests passed")
 
 

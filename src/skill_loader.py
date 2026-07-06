@@ -377,26 +377,55 @@ def catalogue_line(name: str, description: str, limit: int) -> str:
     return redact_secrets(f"- {name}: {desc}")
 
 
+# Max invalid-bundle errors surfaced inline in the prompt (the rest are counted;
+# the full list is always in the operator log). Keeps prompt overhead bounded.
+_MAX_PROMPT_ERRORS = 5
+
+
+def _error_segment(errors: List["SkillError"]) -> str:
+    """Compact, bounded ``SKILL_LOAD_ERRORS`` prompt segment (redacted)."""
+    shown = errors[:_MAX_PROMPT_ERRORS]
+    parts = [redact_secrets("{}: {}".format(e.path, e.message)) for e in shown]
+    extra = len(errors) - len(shown)
+    if extra > 0:
+        parts.append("(+{} more; see logs)".format(extra))
+    return "SKILL_LOAD_ERRORS: {} bundle(s) skipped — ".format(len(errors)) + "; ".join(parts)
+
+
 def catalogue_block(cfg: Optional[Dict[str, Any]] = None) -> str:
-    """Render the ``LOADED_SKILLS`` prompt segment (empty string when none).
+    """Render the ``LOADED_SKILLS`` (+ ``SKILL_LOAD_ERRORS``) prompt segment.
 
     Called from ``getContext`` in ``src/loop.metta`` via ``py-call``, mirroring how
     ``action_protocol.output_format_block()`` is injected. Best-effort: any failure
     yields an empty string so the loop is never broken.
+
+    Invalid bundles are **never silently dropped** from the runtime path (Issue #11):
+    every :class:`SkillError` is logged (operator channel, deduped by ``_warn_once``)
+    AND, when any exist, summarized in a bounded ``SKILL_LOAD_ERRORS`` segment so the
+    failure is visible in-band. Returns ``""`` only when there are no skills AND no
+    errors (the empty-config no-op).
     """
     try:
         cfg = cfg if cfg is not None else load_config()
-        skills, _errors = load_skills(cfg)
-        if not skills:
-            return ""
-        limit = _max_description_chars(cfg)
-        header = (
-            "LOADED_SKILLS: filesystem skills available (procedural playbooks you follow "
-            "using your existing tools). To read a skill's full instructions before using "
-            "it, call use-skill with its name."
-        )
-        lines = [catalogue_line(s.name, s.description, limit) for s in sorted(skills.values(), key=lambda s: s.name)]
-        return header + " " + " ".join(lines)
+        skills, errors = load_skills(cfg)
+        # Operator-visible log for every invalid bundle (deduped), so a malformed skill
+        # is surfaced even when nothing valid loaded.
+        for e in errors:
+            _warn_once("SKILL_LOAD_ERROR " + redact_secrets(str(e)))
+        segments = []
+        if skills:
+            limit = _max_description_chars(cfg)
+            header = (
+                "LOADED_SKILLS: filesystem skills available (procedural playbooks you follow "
+                "using your existing tools). To read a skill's full instructions before using "
+                "it, call use-skill with its name."
+            )
+            lines = [catalogue_line(s.name, s.description, limit)
+                     for s in sorted(skills.values(), key=lambda s: s.name)]
+            segments.append(header + " " + " ".join(lines))
+        if errors:
+            segments.append(_error_segment(errors))
+        return "  ".join(segments)
     except Exception as exc:  # noqa: BLE001 - never break the prompt build
         _warn_once(f"WARNING catalogue_block failed: {exc}")
         return ""
@@ -495,6 +524,8 @@ def _selftest() -> None:
     block = catalogue_block(cfg)
     assert "- pdf-fill: Fill PDF forms" in block, block
     assert "PDF_LICENSE_KEY" not in block  # only names+descriptions are advertised
+    # Invalid bundles are surfaced in the runtime path, not silently dropped.
+    assert "SKILL_LOAD_ERRORS:" in block and "broken/SKILL.md" in block, block
 
     # Per-skill overhead within 20% of the bare name/description formula.
     name, desc = "pdf-fill", "Fill PDF forms from a data file"

@@ -168,6 +168,42 @@ def test_secret_in_body_is_redacted():
         sl.reset_cache()
 
 
+def test_catalogue_block_surfaces_invalid_skills():
+    """The RUNTIME prompt path (catalogue_block) must not silently drop invalid bundles.
+
+    Regression for the PR #33 review: the direct load_skills() tests pass errors back, but
+    catalogue_block() — the function injected into getContext — previously discarded them,
+    so a malformed bundle vanished from the operator/agent view.
+    """
+    sl.reset_cache()
+    root = _root()
+    _mk(root, "bad", "# just markdown, no frontmatter\n")
+    block = sl.catalogue_block({"version": 1, "roots": [root]})
+    assert block, "malformed-only root must not yield an empty (silent) catalogue"
+    assert "SKILL_LOAD_ERRORS:" in block
+    assert "bad/SKILL.md" in block and "frontmatter" in block, block
+
+
+def test_catalogue_block_shows_valid_and_invalid_together():
+    sl.reset_cache()
+    root = _root()
+    _mk(root, "good", "---\nname: good\ndescription: a valid skill\n---\nbody\n")
+    _mk(root, "bad", "---\nname: bad\n---\nno description\n")
+    block = sl.catalogue_block({"version": 1, "roots": [root]})
+    assert "- good: a valid skill" in block                           # valid catalogue present
+    assert "SKILL_LOAD_ERRORS:" in block and "bad/SKILL.md" in block   # and errors surfaced
+
+
+def test_use_skill_renders_through_action_protocol():
+    """Drift guard: the use-skill tool validates + renders end-to-end (Issue #11)."""
+    try:
+        import action_protocol as ap
+    except ImportError:
+        from src import action_protocol as ap
+    out = ap.parse_and_render_metta('{"actions":[{"tool":"use-skill","args":{"name":"demo"}}]}')
+    assert out == '((use-skill "demo"))', out
+
+
 def test_empty_config_is_noop():
     sl.reset_cache()
     assert sl.catalogue_block({"version": 1, "roots": []}) == ""

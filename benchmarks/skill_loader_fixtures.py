@@ -33,8 +33,9 @@ INVALID_CASES = [
     ("dot-dot-traversal", "name/dir attempting '..' traversal is contained"),
 ]
 
-# A body that embeds a secret-looking token, to prove redaction on rendered output.
-_SECRET_TOKEN = "sk-ant-DEADBEEFdeadbeef01234567"
+# A realistic (but fake) Anthropic-shaped key embedded in a body, to prove redaction on
+# rendered output. Not a real credential — a dummy that matches redaction's sk-ant- rule.
+_SECRET_TOKEN = "sk-ant-api03-7f3aQ2vXpL9mKjR4nB8sT1wZ0cY6hD5eG2uF"
 
 
 def _write(path, content):

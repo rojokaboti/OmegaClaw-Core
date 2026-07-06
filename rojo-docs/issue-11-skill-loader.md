@@ -96,13 +96,28 @@ skill-dependent tasks" half is exercised by the Docker-gated mock test, §5.)
 
 **Host (pure-Python — the committed gate):**
 - `python3 src/skill_loader.py` → self-tests pass.
-- `python3 Autotests/test_skill_loader.py` → 11/11.
+- `python3 Autotests/test_skill_loader.py` → 14/14.
 - `python3 benchmarks/skill_loader_benchmark.py` → `KPI GATE: PASSED`.
 - Regression sweep: `pytest` over the host-runnable unit suites
   (`test_skill_loader, test_action_protocol, test_tool_policy, test_errors,
-  test_tracing, test_channel_registry, test_provider_config`) → **119 passed**. All prior
+  test_tracing, test_channel_registry, test_provider_config`) → green. All prior
   KPI gates still pass (`run`, `tool_policy`, `reasoning_trace`, `error_recovery`,
   `channel_registry`, `metta_sessions`). No committed result files drifted.
+
+### Post-review fix (PR #33 review)
+A reviewer found the blocker that **`catalogue_block()` — the function actually injected into
+`getContext` — discarded the `SkillError` list**, so in the real runtime prompt path an invalid
+bundle was *silently omitted* even though direct `load_skills()` calls surfaced it. That
+contradicted the "actionable errors, never silent" claim and the issue KPI. Fixed:
+`catalogue_block()` now (a) logs every `SkillError` via `_warn_once(redact_secrets(…))`
+(operator channel, deduped) and (b) appends a bounded `SKILL_LOAD_ERRORS:` prompt segment when
+any exist — so a malformed bundle is surfaced in-band, and `""` is returned only when there are
+no skills **and** no errors. Regression tests added
+(`test_catalogue_block_surfaces_invalid_skills`, `…_shows_valid_and_invalid_together`) that
+assert the runtime path, not just `load_skills()`. Non-blockers also addressed: `use-skill`
+added to `profile/tool_policy.hardened.yaml` (advertised but was denied under default-deny; it
+is read-only), a `use-skill` round-trip assertion added to the `action_protocol` self-test
+(drift guard), and the fixture secret replaced with a more realistic Anthropic-shaped dummy.
 
 **In-container (Docker — live MeTTa wiring; documented, gated):** build `omegaclaw:local`,
 start with a skill root, drive a task that calls `use-skill "<name>"`, and confirm the
