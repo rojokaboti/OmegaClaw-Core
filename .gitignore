@@ -27,3 +27,9 @@ Autotests/logs/
 
 # reasoning traces (runtime, Issue #7)
 memory/traces/
+
+# FreeCiv A/B run artifacts (keep only the final comparison)
+benchmarks/freeciv/ab_runs/**/*.jsonl
+benchmarks/freeciv/ab_runs/**/*.heartbeat
+benchmarks/freeciv/ab_runs/**/*_summary.json
+benchmarks/freeciv/ab_runs/LATEST

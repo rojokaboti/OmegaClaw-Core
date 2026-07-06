@@ -25,6 +25,7 @@
 !(import! &self (library OmegaClaw-Core ./src/memory))
 !(import! &self (library OmegaClaw-Core ./src/metta_sessions))
 !(import! &self (library OmegaClaw-Core ./benchmarks/freeciv/freeciv))
+!(import! &self (library OmegaClaw-Core ./benchmarks/freeciv/rules))
 !(import! &self (library OmegaClaw-Core ./src/context))
 !(import! &self (library OmegaClaw-Core ./profile/policy))
 !(import! &self (library OmegaClaw-Core ./src/loop))
