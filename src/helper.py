@@ -26,6 +26,7 @@ LLM_COMMANDS = {
     "shell",
     "tavily-search",
     "technical-analysis",
+    "use-skill",
     "write-file",
 }
 

@@ -110,6 +110,9 @@ ARG_SPEC = {
     "read-file": [("path", "file", "filename")],
     "shell": [("command", "cmd", "text")],
     "metta": [("expr", "code", "text")],
+    # Progressive disclosure for filesystem SKILL.md bundles (Issue #11): return a
+    # loaded skill's full instructions on demand. One static tool, not one-per-skill.
+    "use-skill": [("name", "skill", "text")],
     "write-file": [("path", "file", "filename"), ("content", "text", "str")],
     "append-file": [("path", "file", "filename"), ("content", "text", "str")],
     # FreeCiv benchmark tools (Issue #6). observe takes no args (reads current game state);

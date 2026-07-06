@@ -187,6 +187,8 @@ If you want to skip preloading the knowledge then run `export IMPORT_KB_ON_START
 | `OMEGACLAW_LLM_LOG_PATH` | Optional path to append per-response JSONL log records (metadata always; redacted raw only when `OMEGACLAW_DEBUG_LLM_RAW` is set). |
 | `OMEGACLAW_LLM_CONFIG_PATH` | Path to the provider/model config YAML (default `profile/llm_providers.yaml`). Relative values resolve against the install root. **Failure model:** an absent *shipped default* (no env set) fails open to built-in defaults; an **explicit** path that is missing/invalid **fails closed** (no external provider registered) so prompts can't silently route to a cloud default. |
 | `OMEGACLAW_LLM_CONFIG_FAIL_OPEN` | `1`/`true` to opt an explicit `OMEGACLAW_LLM_CONFIG_PATH` back into fail-open (fall back to built-in defaults instead of failing closed). |
+| `OMEGACLAW_SKILLS_CONFIG_PATH` | Path to the filesystem-skill loader config YAML (default `profile/skills.yaml`) listing skill roots + allow/deny lists. Relative values resolve against the install root. Fails open to a safe empty set, so a missing/invalid file simply loads no external skills. |
+| `OMEGACLAW_SKILL_BODY_MAX_CHARS` | Max characters of a skill's instructions returned by `use-skill` (default `20000`); longer bodies are truncated. |
 
 ---
 
@@ -247,6 +249,26 @@ into the reasoning trace under the current iteration's `trace_id` (no new env va
 ride the existing `OMEGACLAW_TRACE_*` file), so `scripts/omegaclaw-trace-summary` reports
 error counts **by category** across a run. This makes recovery reliable and error rates
 comparable across benchmark runs.
+
+---
+
+## Filesystem skills (SKILL.md bundles)
+
+Beyond the built-in MeTTa skills, OmegaClaw loads portable **OpenClaw/Hermes-style
+`SKILL.md` bundles** from disk with no code edits (`src/skill_loader.py`). A bundle is a
+directory with a `SKILL.md` (YAML frontmatter — `name`, `description`, `version`,
+`metadata`, `platforms`, `required_environment_variables` — plus Markdown instructions)
+and optional `scripts/` / `references/` / `templates/` support files. A `SKILL.md` is a
+*procedural playbook the agent follows using its existing tools*, not a new native tool.
+
+Discovered skills appear in the prompt as a compact `LOADED_SKILLS:` catalogue
+(name + description); the agent reads a skill's full instructions on demand with the
+`use-skill <name>` tool (progressive disclosure), with `{baseDir}`/`{skillDir}` resolved
+so it can reference support files. Drop bundles under a root listed in
+`profile/skills.yaml` (default `skills/`). Validation is fail-safe: a malformed, unsafe,
+duplicate, or root-escaping bundle is skipped with an **actionable error**, never
+silently, and secret-shaped tokens in a skill body are redacted before they reach the
+prompt.
 
 ---
 

@@ -1,0 +1,29 @@
+# Filesystem SKILL.md loader configuration (Issue #11).
+#
+# Selected via OMEGACLAW_SKILLS_CONFIG_PATH (a relative value resolves against the
+# install root, not the process CWD). A missing/invalid file fails OPEN to the
+# built-in defaults below — an empty external-skill set is a safe no-op, so the agent
+# never bricks on a misconfiguration.
+#
+# A SKILL.md is a procedural instruction playbook the agent follows using its existing
+# tools (shell / read-file / send / metta / …), not a new callable tool. The compact
+# name+description catalogue is injected into the prompt as LOADED_SKILLS; the agent
+# calls the `use-skill <name>` tool to read a skill's full instructions on demand.
+version: 1
+
+# Directories scanned (recursively) for SKILL.md / skill.md bundles. Relative paths
+# resolve against the install root. Add OpenClaw/Hermes skill directories here; a
+# path that does not exist is simply skipped.
+roots:
+  - skills
+
+# Optional allowlist of skill names. When null, every discovered skill is eligible
+# (subject to `disabled`). When a list, ONLY these names are loaded.
+enabled: null
+
+# Denylist of skill names to hide even when discovered.
+disabled: []
+
+# Max characters of each skill's description rendered into the compact catalogue
+# (keeps per-skill prompt overhead within the KPI's 20% band).
+max_description_chars: 220

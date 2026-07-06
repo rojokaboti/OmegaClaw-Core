@@ -1,0 +1,27 @@
+{
+  "baseline": {
+    "external_bundles_loaded": 0,
+    "invalid_with_actionable_error": 0,
+    "invalid_expected": 6,
+    "silent_omissions": 6,
+    "path_escapes": 0,
+    "worst_per_skill_overhead_ratio": 0.0,
+    "secret_in_catalogue": false,
+    "secret_in_use_skill_body": false,
+    "basedir_resolved": false,
+    "unknown_skill_actionable": false
+  },
+  "candidate": {
+    "external_bundles_loaded": 26,
+    "invalid_with_actionable_error": 6,
+    "invalid_expected": 6,
+    "silent_omissions": 0,
+    "path_escapes": 0,
+    "worst_per_skill_overhead_ratio": 1.035,
+    "secret_in_catalogue": false,
+    "secret_in_use_skill_body": false,
+    "basedir_resolved": true,
+    "unknown_skill_actionable": true
+  },
+  "n_valid_expected": 26
+}
