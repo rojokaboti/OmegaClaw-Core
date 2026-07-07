@@ -249,7 +249,10 @@ def _parse_skill(skill_file: str, root_abs: str) -> Tuple[Optional[Skill], Optio
     try:
         fm = yaml.safe_load(fm_text)
     except Exception as exc:  # noqa: BLE001
-        return None, SkillError(rel, f"unparseable YAML frontmatter: {exc}")
+        # The YAML parser echoes the offending line, which can carry secret-shaped content
+        # from the malformed frontmatter — redact at the source so every consumer (prompt,
+        # logs, `skills doctor`) is safe, not just the prompt path.
+        return None, SkillError(rel, redact_secrets(f"unparseable YAML frontmatter: {exc}"))
     if not isinstance(fm, dict):
         return None, SkillError(rel, "frontmatter is not a YAML mapping")
 
@@ -302,28 +305,23 @@ def _discovery_signature(cfg: Dict[str, Any]) -> Tuple:
 
 
 def load_skills(cfg: Optional[Dict[str, Any]] = None) -> Tuple[Dict[str, Skill], List[SkillError]]:
-    """Discover + validate all configured skills.
+    """Discover + validate ALL configured skills (no allow/deny filtering here).
 
-    Returns ``(skills_by_name, errors)``. First-wins on duplicate names (a second
-    bundle claiming a taken name becomes an actionable ``SkillError``, not a silent
-    overwrite). Respects the ``enabled`` allowlist / ``disabled`` denylist. Cached by
-    an mtime signature over the config + every discovered SKILL.md.
+    Returns ``(skills_by_name, errors)`` for every valid discovered bundle. First-wins on
+    duplicate names (a second bundle claiming a taken name becomes an actionable
+    ``SkillError``, not a silent overwrite). Cached by an mtime signature over the config +
+    every discovered SKILL.md.
+
+    NB (Issue #13): allow/deny/eligibility is the SINGLE responsibility of
+    ``skill_policy`` — ``load_skills`` deliberately does **not** pre-filter by
+    ``enabled``/``disabled``, so ``skill_policy`` sees the full set and can (a) honor
+    ``entries`` overrides that force-include a skill past an allowlist miss, and (b) report
+    ``disabled``/``not_allowlisted`` skills with remediation via ``skills doctor``.
     """
     cfg = cfg if cfg is not None else load_config()
-    # Cache key folds in the policy fields of the (possibly in-memory) cfg — roots,
-    # allowlist, denylist — so two different cfgs over the same files don't collide.
-    policy_fp = (
-        tuple(cfg.get("roots") or []),
-        tuple(sorted(cfg.get("enabled"))) if isinstance(cfg.get("enabled"), list) else None,
-        tuple(sorted(cfg.get("disabled") or [])),
-    )
-    key = ("skills", policy_fp, _discovery_signature(cfg))
+    key = ("skills", tuple(_roots(cfg)), _discovery_signature(cfg))
     if key in _CACHE:
         return _CACHE[key]
-
-    enabled = cfg.get("enabled")
-    enabled_set = set(enabled) if isinstance(enabled, list) else None
-    disabled_set = set(cfg.get("disabled") or [])
 
     skills: Dict[str, Skill] = {}
     errors: List[SkillError] = []
@@ -342,10 +340,6 @@ def load_skills(cfg: Optional[Dict[str, Any]] = None) -> Tuple[Dict[str, Skill],
                     f"duplicate skill name {skill.name!r} (first-wins; kept "
                     f"{os.path.relpath(skills[skill.name].skill_file, root_abs)})",
                 ))
-                continue
-            if skill.name in disabled_set:
-                continue
-            if enabled_set is not None and skill.name not in enabled_set:
                 continue
             skills[skill.name] = skill
 
@@ -392,6 +386,54 @@ def _error_segment(errors: List["SkillError"]) -> str:
     return "SKILL_LOAD_ERRORS: {} bundle(s) skipped — ".format(len(errors)) + "; ".join(parts)
 
 
+def _classify(skills, cfg):
+    """Best-effort eligibility classification (Issue #13). Returns list[Eligibility] or
+    None when skill_policy is unavailable (fail-open: everything is treated eligible)."""
+    try:
+        import skill_policy
+    except ImportError:  # pragma: no cover
+        try:
+            from src import skill_policy
+        except ImportError:
+            return None
+    try:
+        return skill_policy.classify(list(skills.values()), cfg)
+    except Exception as exc:  # noqa: BLE001 - eligibility must never break the prompt
+        _warn_once("WARNING eligibility classification failed: {}".format(exc))
+        return None
+
+
+def eligible_skills(cfg: Optional[Dict[str, Any]] = None):
+    """Return ``(eligible_by_name, blocked, errors)`` for the configured skills.
+
+    ``blocked`` is a list of ``skill_policy.Eligibility`` (secret-free reasons + remediation).
+    Fail-open: if eligibility can't be evaluated, every loaded skill is treated as eligible.
+    """
+    cfg = cfg if cfg is not None else load_config()
+    skills, errors = load_skills(cfg)
+    elig = _classify(skills, cfg)
+    if elig is None:
+        return dict(skills), [], errors
+    eligible_names = {e.name for e in elig if e.eligible}
+    eligible = {n: s for n, s in skills.items() if n in eligible_names}
+    blocked = [e for e in elig if not e.eligible]
+    return eligible, blocked, errors
+
+
+def _unavailable_segment(blocked) -> str:
+    """Compact, bounded ``SKILL_UNAVAILABLE`` note (kinds only — never secret values)."""
+    shown = blocked[:_MAX_PROMPT_ERRORS]
+    parts = []
+    for e in shown:
+        kinds = ", ".join(dict.fromkeys(r.kind for r in e.reasons)) or "blocked"
+        parts.append(redact_secrets("{} ({})".format(e.name, kinds)))
+    extra = len(blocked) - len(shown)
+    if extra > 0:
+        parts.append("(+{} more)".format(extra))
+    return ("SKILL_UNAVAILABLE: {} skill(s) need setup — ".format(len(blocked))
+            + "; ".join(parts) + " — run 'skills doctor' for remediation")
+
+
 def catalogue_block(cfg: Optional[Dict[str, Any]] = None) -> str:
     """Render the ``LOADED_SKILLS`` (+ ``SKILL_LOAD_ERRORS``) prompt segment.
 
@@ -412,8 +454,15 @@ def catalogue_block(cfg: Optional[Dict[str, Any]] = None) -> str:
         # is surfaced even when nothing valid loaded.
         for e in errors:
             _warn_once("SKILL_LOAD_ERROR " + redact_secrets(str(e)))
+
+        # Eligibility gating (Issue #13): only advertise skills that can actually run
+        # here, unless OMEGACLAW_SKILLS_DEBUG is set (then show all, incl. blocked).
+        eligible, blocked, _ = eligible_skills(cfg)
+        debug = (os.environ.get("OMEGACLAW_SKILLS_DEBUG") or "").strip().lower() in {"1", "true", "yes", "on"}
+        shown = skills if debug else eligible
+
         segments = []
-        if skills:
+        if shown:
             limit = _max_description_chars(cfg)
             header = (
                 "LOADED_SKILLS: filesystem skills available (procedural playbooks you follow "
@@ -421,8 +470,10 @@ def catalogue_block(cfg: Optional[Dict[str, Any]] = None) -> str:
                 "it, call use-skill with its name."
             )
             lines = [catalogue_line(s.name, s.description, limit)
-                     for s in sorted(skills.values(), key=lambda s: s.name)]
+                     for s in sorted(shown.values(), key=lambda s: s.name)]
             segments.append(header + " " + " ".join(lines))
+        if blocked:
+            segments.append(_unavailable_segment(blocked))
         if errors:
             segments.append(_error_segment(errors))
         return "  ".join(segments)
@@ -510,6 +561,8 @@ def _selftest() -> None:
         "---\n"
         "# PDF fill\nRun the helper at {baseDir}/scripts/fill.py to populate the form.\n"
     ))
+    # A no-requirement skill — always eligible, so it appears in the catalogue.
+    _write("greet", "---\nname: greet\ndescription: Greet the user\n---\n# greet\nSay hi.\n")
     # A malformed skill (no frontmatter) — must produce an actionable error, not vanish.
     _write("broken", "# no frontmatter here\njust text\n")
 
@@ -520,12 +573,23 @@ def _selftest() -> None:
     assert skills["pdf-fill"].required_environment_variables == ["PDF_LICENSE_KEY"]
     assert any("broken" in e.path and "frontmatter" in e.message for e in errors), errors
 
-    # Catalogue: compact line present, secret env-var *value* never rendered.
+    # Catalogue (Issue #13 eligibility): the always-eligible skill is advertised; pdf-fill
+    # (needs PDF_LICENSE_KEY, unset) is NOT advertised but flagged as needing setup; the
+    # secret env-var value is never rendered; invalid bundles are surfaced (never silent).
     block = catalogue_block(cfg)
-    assert "- pdf-fill: Fill PDF forms" in block, block
-    assert "PDF_LICENSE_KEY" not in block  # only names+descriptions are advertised
-    # Invalid bundles are surfaced in the runtime path, not silently dropped.
+    assert "- greet: Greet the user" in block, block
+    assert "- pdf-fill:" not in block, block                       # blocked -> not advertised
+    assert "SKILL_UNAVAILABLE:" in block and "pdf-fill" in block, block
+    assert "PDF_LICENSE_KEY" not in block                          # neither value NOR name leaked
     assert "SKILL_LOAD_ERRORS:" in block and "broken/SKILL.md" in block, block
+
+    # Debug flag advertises everything, including blocked skills.
+    os.environ["OMEGACLAW_SKILLS_DEBUG"] = "1"
+    try:
+        dbg = catalogue_block(cfg)
+        assert "- pdf-fill:" in dbg, dbg
+    finally:
+        os.environ.pop("OMEGACLAW_SKILLS_DEBUG", None)
 
     # Per-skill overhead within 20% of the bare name/description formula.
     name, desc = "pdf-fill", "Fill PDF forms from a data file"

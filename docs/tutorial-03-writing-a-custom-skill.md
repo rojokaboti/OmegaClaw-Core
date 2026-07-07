@@ -98,6 +98,14 @@ actionable error — never silently. Roots, allow/deny lists and prompt knobs li
 `profile/skills.yaml`. This is how you reuse an existing skill ecosystem without
 rewriting each skill as MeTTa.
 
+**Eligibility (Issue #13).** A skill can declare prerequisites in its frontmatter
+(`metadata.openclaw.requires.{env,bins,anyBins,config}`, `os`, `always`; or Hermes
+`platforms` / `required_environment_variables` / `metadata.hermes.requires_toolsets`).
+Only skills whose prerequisites are satisfied *here* are advertised to the agent; the rest
+appear as a concise `SKILL_UNAVAILABLE:` note (no secret values). Run
+`scripts/omegaclaw-skills doctor` to see exactly what each blocked skill needs, or set
+`OMEGACLAW_SKILLS_DEBUG=1` to advertise everything.
+
 ## Next steps
 
 - [reference-internals-skill-dispatch.md](./reference-internals-skill-dispatch.md) — how dispatch works.

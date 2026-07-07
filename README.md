@@ -189,6 +189,7 @@ If you want to skip preloading the knowledge then run `export IMPORT_KB_ON_START
 | `OMEGACLAW_LLM_CONFIG_FAIL_OPEN` | `1`/`true` to opt an explicit `OMEGACLAW_LLM_CONFIG_PATH` back into fail-open (fall back to built-in defaults instead of failing closed). |
 | `OMEGACLAW_SKILLS_CONFIG_PATH` | Path to the filesystem-skill loader config YAML (default `profile/skills.yaml`) listing skill roots + allow/deny lists. Relative values resolve against the install root. Fails open to a safe empty set, so a missing/invalid file simply loads no external skills. |
 | `OMEGACLAW_SKILL_BODY_MAX_CHARS` | Max characters of a skill's instructions returned by `use-skill` (default `20000`); longer bodies are truncated. |
+| `OMEGACLAW_SKILLS_DEBUG` | `1`/`true` to advertise ALL loaded skills in the prompt, including those blocked by eligibility gates (Issue #13). Default off — only eligible skills are advertised; blocked ones show as a concise `SKILL_UNAVAILABLE:` note. |
 
 ---
 
@@ -269,6 +270,18 @@ so it can reference support files. Drop bundles under a root listed in
 duplicate, or root-escaping bundle is skipped with an **actionable error**, never
 silently, and secret-shaped tokens in a skill body are redacted before they reach the
 prompt.
+
+**Eligibility gates & readiness (`src/skill_policy.py`).** Only skills that can actually run
+here are advertised, so the agent never tries a skill whose prerequisites are missing. A
+bundle declares requirements in its frontmatter — OpenClaw `metadata.openclaw.requires`
+(`env` / `bins` / `anyBins` / `config`), `os`, `always`; Hermes `platforms`,
+`required_environment_variables`, `metadata.hermes.requires_toolsets` — normalized into one
+schema and checked against the current OS, environment, `PATH`, config, and tool policy.
+Blocked skills are not advertised (they appear as a concise `SKILL_UNAVAILABLE:` note that
+never prints secret values); set `OMEGACLAW_SKILLS_DEBUG=1` to advertise all. Run
+`scripts/omegaclaw-skills doctor` for a full readiness report with remediation for every
+blocked bundle. Per-skill allow/deny and overrides live in `profile/skills.yaml`
+(`enabled` / `disabled` / `entries` / `config`).
 
 ---
 
