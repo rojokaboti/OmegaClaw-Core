@@ -160,6 +160,7 @@ async def run(game_id, seed, pln_side, hours, max_turns, out_dir, size):
         last = {"0": {}, "1": {}}
         stalls = 0
         reconnects = 0
+        dead_streak = {0: 0, 1: 0}  # consecutive turns a side read as 0 cities AND 0 units
 
         async def reconnect_one(idx):
             # Reconnect ONLY the dropped side. Reconnecting BOTH triggered a resync storm
@@ -214,8 +215,18 @@ async def run(game_id, seed, pln_side, hours, max_turns, out_dir, size):
             _log(out_dir, rec)
             _heartbeat(out_dir, turn=(nt if nt is not None else cur), turns_played=turns_played,
                        pln_side=pln_side, reconnects=reconnects)
-            if not (last["0"].get("alive") and last["1"].get("alive")):
-                _log(out_dir, {"event": "elimination", "winner_side": _winner(last), "at_turn": cur})
+            # Elimination requires a SUSTAINED dead read (3 consecutive turns of 0 cities & 0 units
+            # from a VALID state) — a single empty read right after a reconnect is not a death.
+            for i in (0, 1):
+                m = last[str(i)].get("metrics")
+                if m is not None and (m.get("n_cities") or 0) == 0 and (m.get("n_units") or 0) == 0:
+                    dead_streak[i] += 1
+                else:
+                    dead_streak[i] = 0
+                last[str(i)]["alive"] = dead_streak[i] < 3
+            if not (last["0"]["alive"] and last["1"]["alive"]):
+                _log(out_dir, {"event": "elimination", "winner_side": _winner(last),
+                               "at_turn": cur, "dead_streak": dict(dead_streak)})
                 break
             if nt is None:
                 stalls += 1
