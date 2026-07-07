@@ -76,6 +76,24 @@ the baseline (no lifecycle) can do. `sys.exit(1)` on regression. Satisfies the i
 - Full CLI lifecycle exercised by hand: `install local:… → list → pin → update --all
   (skipped) → verify (ok) → remove`.
 
+### Post-review fix (PR #36 review) — two filesystem-safety blockers
+1. **Path traversal in `remove()`** — it joined an untrusted `name` into a path and
+   `rmtree`d it (the `or os.path.isdir(dest)` clause even deleted untracked dirs), so
+   `remove("../outside-victim")` deleted outside the root. **Fix:** a shared
+   `skill_loader.is_safe_skill_name` (rejects empty / `..` / separators / absolute / NUL) +
+   `skill_install._safe_dest` (realpath + `commonpath` containment), applied to
+   `remove`/`_set_pin`/`verify`/`install` before any write or delete.
+2. **Symlinked bundle payloads dereferenced into the root** — local `copytree` and the commit
+   copy followed symlinks, so a payload symlinked to an outside file was copied in
+   (exfiltration). **Fix:** fetch/commit now `copytree(..., symlinks=True)` (never
+   dereference), and a bundle containing **any** symlink is rejected fail-closed
+   (`rejected_symlink`, not committed). ClawHub archives were already covered by the
+   traversal-safe `tarfile` `data` filter.
+Regression tests added:
+`test_remove_rejects_path_traversal_and_leaves_outside_dirs_untouched`,
+`test_symlinked_bundle_is_rejected_not_dereferenced`, `test_is_safe_skill_name`. Install suite
+now 11 tests; KPI gate + loader/policy gates still pass.
+
 ## 6. Reviewer guide
 
 ```bash

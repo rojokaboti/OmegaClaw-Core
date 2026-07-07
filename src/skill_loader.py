@@ -218,6 +218,23 @@ def _split_frontmatter(text: str) -> Tuple[Optional[str], str]:
     return None, text  # unterminated fence => treat as no frontmatter
 
 
+def is_safe_skill_name(name: Any) -> bool:
+    """True iff ``name`` is safe to use as a lookup key AND a filesystem path segment.
+
+    Rejects empties, path separators, ``..`` traversal, and absolute paths. Shared by the
+    loader (frontmatter validation) and the installer (remove/pin/verify build paths from
+    a name, so an unvalidated name is a destructive path-traversal vector — Issue #12 review).
+    """
+    return (
+        isinstance(name, str) and bool(name)
+        and name not in (".", "..")
+        and ".." not in name
+        and "/" not in name and "\\" not in name
+        and not os.path.isabs(name)
+        and "\x00" not in name
+    )
+
+
 def _as_str_list(val: Any) -> List[str]:
     if val is None:
         return []
@@ -262,8 +279,7 @@ def _parse_skill(skill_file: str, root_abs: str) -> Tuple[Optional[Skill], Optio
     name_stripped = name_raw.strip()
     # A skill name is an identifier used for lookup (and, in #12, as an install dir
     # name), so it must be path-safe: no separators or '..' traversal.
-    if (name_stripped in (".", "..") or ".." in name_stripped
-            or "/" in name_stripped or "\\" in name_stripped):
+    if not is_safe_skill_name(name_stripped):
         return None, SkillError(rel, f"unsafe skill name {name_stripped!r} (no path separators or '..')")
     description = fm.get("description")
     if not isinstance(description, str) or not description.strip():

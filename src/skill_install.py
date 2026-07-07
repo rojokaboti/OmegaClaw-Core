@@ -103,7 +103,9 @@ def _fetch(source_type: str, location: str, ref: Optional[str], dest: str) -> Op
         src = location if os.path.isabs(location) else os.path.abspath(location)
         if not os.path.isdir(src):
             raise SkillInstallError("local source is not a directory: {}".format(location))
-        shutil.copytree(src, dest)
+        # symlinks=True: copy links AS links (never dereference), so a symlinked payload
+        # cannot smuggle outside content into staging. Such bundles are rejected at commit.
+        shutil.copytree(src, dest, symlinks=True)
         return None
     if source_type == "git":
         return _fetch_git(location, ref, dest)
@@ -187,6 +189,26 @@ def install_root(cfg: Optional[Dict[str, Any]] = None) -> str:
     return root
 
 
+def _safe_dest(root: str, name: str) -> str:
+    """Resolve ``<root>/<name>`` and prove it stays inside ``root`` before any write/delete.
+
+    Two independent guards (Issue #12 review — a destructive path-traversal fix): reject an
+    unsafe name (``..`` / separators / absolute / empty), then realpath-confirm containment.
+    """
+    if not skill_loader.is_safe_skill_name(name):
+        raise SkillInstallError("unsafe skill name: {!r}".format(name))
+    dest = os.path.join(root, name)
+    root_real = os.path.realpath(root)
+    dest_real = os.path.realpath(dest)
+    try:
+        contained = os.path.commonpath([root_real, dest_real]) == root_real
+    except ValueError:  # different drives / mixed abs-rel
+        contained = False
+    if not contained:
+        raise SkillInstallError("skill path escapes the install root: {!r}".format(name))
+    return dest
+
+
 def _lock_path(root: str) -> str:
     return os.path.join(root, _LOCK_NAME)
 
@@ -233,11 +255,25 @@ def _write_origin(dest: str, meta: Dict[str, Any]) -> None:
         json.dump(meta, f, indent=2, sort_keys=True)
 
 
+def _contains_symlink(root: str) -> bool:
+    """True if ``root`` itself or anything within it is a symlink (not followed)."""
+    if os.path.islink(root):
+        return True
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        for nm in dirnames + filenames:
+            if os.path.islink(os.path.join(dirpath, nm)):
+                return True
+    return False
+
+
 def _replace_dir(dest: str, src: str) -> None:
-    """Replace ``dest`` with a copy of ``src`` (idempotent — no duplicate dirs)."""
+    """Replace ``dest`` with a copy of ``src`` (idempotent — no duplicate dirs).
+
+    ``symlinks=True`` so links are never dereferenced during commit (defensive — bundles
+    containing symlinks are already rejected before this is called)."""
     if os.path.exists(dest):
         shutil.rmtree(dest)
-    shutil.copytree(src, dest)
+    shutil.copytree(src, dest, symlinks=True)
 
 
 # --------------------------------------------------------------------------- install / update
@@ -275,6 +311,16 @@ def install(source: str, cfg: Optional[Dict[str, Any]] = None, *,
             if prev and prev.get("pinned") and not force:
                 installed.append({"name": name, "status": "skipped_pinned"})
                 continue
+            # Reject a bundle that carries a symlink: it could dereference to content
+            # outside the source (exfiltration / smuggling). Fail-closed, skip commit.
+            if _contains_symlink(sk.base_dir):
+                installed.append({"name": name, "status": "rejected_symlink"})
+                continue
+            try:
+                dest = _safe_dest(root, name)                     # name/containment guard
+            except SkillInstallError as e:
+                installed.append({"name": name, "status": "rejected_unsafe_name", "error": str(e)})
+                continue
             content_hash = _hash_dir(sk.base_dir)
             meta = {
                 "name": name, "source_type": source_type, "source": location, "ref": ref,
@@ -282,8 +328,8 @@ def install(source: str, cfg: Optional[Dict[str, Any]] = None, *,
                 "installed_at": _now(), "trust": trust,
                 "pinned": bool(pin or (prev.get("pinned") if prev else False)),
             }
-            _replace_dir(os.path.join(root, name), sk.base_dir)   # commit AFTER validation
-            _write_origin(os.path.join(root, name), meta)
+            _replace_dir(dest, sk.base_dir)                       # commit AFTER validation
+            _write_origin(dest, meta)
             lock["skills"][name] = meta
             installed.append({"name": name, "status": "installed",
                               "version": meta["version"], "content_hash": content_hash})
@@ -336,8 +382,11 @@ def update(name: Optional[str] = None, cfg: Optional[Dict[str, Any]] = None, *,
 def remove(name: str, cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     cfg = cfg if cfg is not None else skill_loader.load_config()
     root = install_root(cfg)
+    try:
+        dest = _safe_dest(root, name)      # reject traversal BEFORE any rmtree
+    except SkillInstallError as e:
+        return {"ok": False, "error": str(e)}
     lock = _load_lock(root)
-    dest = os.path.join(root, name)
     existed = name in lock["skills"] or os.path.isdir(dest)
     if os.path.isdir(dest):
         shutil.rmtree(dest, ignore_errors=True)
@@ -366,7 +415,11 @@ def verify(name: Optional[str] = None, cfg: Optional[Dict[str, Any]] = None) -> 
         if not entry:
             report.append({"name": n, "status": "not_in_lock"})
             continue
-        dest = os.path.join(root, n)
+        try:
+            dest = _safe_dest(root, n)
+        except SkillInstallError:
+            report.append({"name": n, "status": "unsafe_name"})
+            continue
         if not os.path.isdir(dest):
             report.append({"name": n, "status": "missing"})
             continue
@@ -382,8 +435,11 @@ def _set_pin(name: str, pinned: bool, cfg: Optional[Dict[str, Any]]) -> Dict[str
     entry = lock["skills"].get(name)
     if not entry:
         return {"ok": False, "error": "not installed: {}".format(name)}
+    try:
+        dest = _safe_dest(root, name)
+    except SkillInstallError as e:
+        return {"ok": False, "error": str(e)}
     entry["pinned"] = pinned
-    dest = os.path.join(root, name)
     if os.path.isdir(dest):
         _write_origin(dest, entry)
     _save_lock(root, lock)

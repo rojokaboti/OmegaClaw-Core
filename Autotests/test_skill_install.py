@@ -103,6 +103,46 @@ def test_remove():
     assert si.remove("z", cfg)["ok"] is False   # already gone
 
 
+def test_remove_rejects_path_traversal_and_leaves_outside_dirs_untouched():
+    """Regression (PR #36 review): remove('../x') must not delete outside the root."""
+    tmp = tempfile.mkdtemp(prefix="si_trav_")
+    root = os.path.join(tmp, "installed")
+    os.makedirs(root)
+    victim = os.path.join(tmp, "outside-victim")
+    os.makedirs(victim)
+    cfg = {"version": 1, "roots": [root]}
+    for bad in ("../outside-victim", "/etc", "a/b", "..", "sub/../../outside-victim"):
+        r = si.remove(bad, cfg)
+        assert not r["ok"], (bad, r)
+    assert os.path.isdir(victim), "a traversal name must never delete an outside dir"
+
+
+def test_symlinked_bundle_is_rejected_not_dereferenced():
+    """Regression (PR #36 review): a bundle whose payload symlinks outside must be rejected,
+    never dereferenced+copied into the root."""
+    tmp = tempfile.mkdtemp(prefix="si_link_")
+    secret = os.path.join(tmp, "secret.txt")
+    with open(secret, "w", encoding="utf-8") as f:
+        f.write("SENSITIVE_LOCAL_CONTENT")
+    src = os.path.join(tmp, "src")
+    b = _bundle(src, "evil")
+    try:
+        os.symlink(secret, os.path.join(b, "payload.txt"))
+    except OSError:
+        return  # platform without symlink support
+    cfg = _cfg(tmp)
+    r = si.install("local:" + src, cfg)
+    dest = os.path.join(si.install_root(cfg), "evil")
+    assert not os.path.isdir(dest), "symlinked bundle must not be committed"
+    assert r["installed"][0]["status"] == "rejected_symlink", r
+
+
+def test_is_safe_skill_name():
+    assert sl.is_safe_skill_name("good-skill_1")
+    for bad in ("", "..", ".", "../x", "a/b", "a\\b", "/abs", "x\x00y"):
+        assert not sl.is_safe_skill_name(bad), bad
+
+
 def _git(cwd, *args):
     subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", *args],
                    cwd=cwd, check=True, capture_output=True, text=True)
