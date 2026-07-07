@@ -109,45 +109,102 @@ async def run(game_id, seed, pln_side, hours, max_turns, out_dir, size):
     roles = {str(pln_side): "pln", str(1 - pln_side): "plain"}
     print("[duel] game=%s seed=%s roles(player->arm)=%s" % (game_id, seed, roles), flush=True)
     ws0, ws1 = None, None
+    conns = {0: None, 1: None}
     try:
-        ws0, pid0 = await _connect(websockets, "duel-A", game_id)
-        ws1, pid1 = await _connect(websockets, "duel-B", game_id)
-        print("[duel] connected: A player_id=%s, B player_id=%s" % (pid0, pid1), flush=True)
-        # Pregame (pure 1v1, small map, seeded). With only human players the server won't start
-        # until BOTH players are READY, so we send player_ready on both connections before /start
-        # (this is the gate that leaves the game stuck at turn 0 otherwise).
-        st = await turncycle.get_state(ws0)
-        if not st or not st.get("units"):
-            for cmd in ("/set aifill 0", "/set minplayers 2", "/set size %d" % size,
-                        "/set mapseed %d" % seed, "/set gameseed %d" % seed):
-                await ws0.send(json.dumps({"type": "chat", "message": cmd}))
-                await asyncio.sleep(1.0)
-            for ws in (ws0, ws1):
-                await ws.send(json.dumps({"type": "player_ready"}))
-                await asyncio.sleep(1.0)
-            await ws0.send(json.dumps({"type": "chat", "message": "/start"}))
-            for _ in range(30):
-                await asyncio.sleep(4)
+        # Connect both players + pregame, with retries (transient closes happen under load; the
+        # launcher also STAGGERS the two mirror games to avoid concurrent pregame contention).
+        # Pure 1v1 (aifill 0) only starts once BOTH players are READY, so we send player_ready on
+        # both connections before /start (the gate that otherwise leaves it stuck at turn 0).
+        st = None
+        for attempt in range(4):
+            try:
+                ws0, pid0 = await _connect(websockets, "duel-A", game_id)
+                ws1, pid1 = await _connect(websockets, "duel-B", game_id)
+                print("[duel] connected (attempt %d): A=%s B=%s" % (attempt, pid0, pid1), flush=True)
                 st = await turncycle.get_state(ws0)
+                if not st or not st.get("units"):
+                    for cmd in ("/set aifill 0", "/set minplayers 2", "/set size %d" % size,
+                                "/set mapseed %d" % seed, "/set gameseed %d" % seed):
+                        await ws0.send(json.dumps({"type": "chat", "message": cmd}))
+                        await asyncio.sleep(1.0)
+                    for ws in (ws0, ws1):
+                        await ws.send(json.dumps({"type": "player_ready"}))
+                        await asyncio.sleep(1.0)
+                    await ws0.send(json.dumps({"type": "chat", "message": "/start"}))
+                    for _ in range(30):
+                        await asyncio.sleep(4)
+                        st = await turncycle.get_state(ws0)
+                        if st and st.get("units"):
+                            break
                 if st and st.get("units"):
                     break
+            except Exception as e:  # noqa: BLE001 - transient connect/pregame failure -> retry
+                print("[duel] setup attempt %d failed: %s: %s" % (attempt, type(e).__name__, str(e)[:150]), flush=True)
+            for ws in (ws0, ws1):
+                if ws is not None:
+                    try:
+                        await ws.close()
+                    except Exception:  # noqa: BLE001
+                        pass
+            ws0, ws1, st = None, None, None
+            await asyncio.sleep(10)
         if not st or not st.get("units"):
             _log(out_dir, {"event": "no_populated_state"}); print("[duel] no populated state"); return 1
 
-        # map connection -> arm: ws0 is player pid0. We label sides by connection A=0, B=1,
-        # but which is PLN is set by pln_side over the CONNECTION index (0=A,1=B).
-        conns = {0: (ws0, roles["0"] == "pln"), 1: (ws1, roles["1"] == "pln")}
+        # Sides are indexed by CONNECTION (0=duel-A, 1=duel-B); PLN role fixed to the connection.
+        conns[0], conns[1] = ws0, ws1
+        agent_id = {0: "duel-A", 1: "duel-B"}
+        is_pln = {0: roles["0"] == "pln", 1: roles["1"] == "pln"}
         deadline = time.time() + hours * 3600.0
         turns_played = 0
         last = {"0": {}, "1": {}}
         stalls = 0
+        reconnects = 0
+
+        async def reconnect_one(idx):
+            # Reconnect ONLY the dropped side. Reconnecting BOTH triggered a resync storm
+            # (reconnecting the healthy side dropped the other -> ~17 reconnects/turn). The proxy
+            # re-takes the correct player by agent_id, so per-connection reconnect is coherent.
+            nonlocal reconnects
+            reconnects += 1
+            try:
+                await conns[idx].close()
+            except Exception:  # noqa: BLE001
+                pass
+            conns[idx], _ = await _connect(websockets, agent_id[idx], game_id)
+            _log(out_dir, {"event": "reconnect", "side": idx, "count": reconnects})
+
         while time.time() < deadline and turns_played < max_turns:
-            cur = turncycle.turn_of(await turncycle.get_state(ws0))
+            # read current turn from side 0 (reconnect only side 0 on failure)
+            try:
+                cur = turncycle.turn_of(await turncycle.get_state(conns[0]))
+            except (websockets.ConnectionClosed, OSError):
+                try:
+                    await reconnect_one(0)
+                except Exception:  # noqa: BLE001
+                    await asyncio.sleep(5)
+                continue
+            # each side acts; a drop reconnects ONLY that side (best-effort end its phase after)
             for idx in (0, 1):
-                ws, is_pln = conns[idx]
-                last[str(idx)] = await _play_side(ws, is_pln)
-            nt = await turncycle.await_turn_advance(ws0, cur, timeout=60)
-            rec = {"turn": cur, "advanced_to": nt,
+                try:
+                    last[str(idx)] = await _play_side(conns[idx], is_pln[idx])
+                except (websockets.ConnectionClosed, OSError):
+                    try:
+                        await reconnect_one(idx)
+                        await turncycle.send_end_turn(conns[idx])
+                    except Exception:  # noqa: BLE001
+                        pass
+                    last.setdefault(str(idx), {"alive": True, "metrics": None})
+            # await advance on side 0 (reconnect only side 0 on failure)
+            try:
+                nt = await turncycle.await_turn_advance(conns[0], cur, timeout=60)
+            except (websockets.ConnectionClosed, OSError):
+                try:
+                    await reconnect_one(0)
+                except Exception:  # noqa: BLE001
+                    pass
+                nt = None
+            rec = {"turn": cur, "advanced_to": nt, "reconnects": reconnects,
                    "side0": {"arm": roles["0"], **{k: last["0"].get(k) for k in
                              ("metrics", "proposed", "submitted", "blocked", "reason_ms",
                               "n_conclusions", "llm_ms", "alive", "error")}},
@@ -156,21 +213,20 @@ async def run(game_id, seed, pln_side, hours, max_turns, out_dir, size):
                               "n_conclusions", "llm_ms", "alive", "error")}}}
             _log(out_dir, rec)
             _heartbeat(out_dir, turn=(nt if nt is not None else cur), turns_played=turns_played,
-                       pln_side=pln_side)
-            # elimination -> game decided
+                       pln_side=pln_side, reconnects=reconnects)
             if not (last["0"].get("alive") and last["1"].get("alive")):
                 _log(out_dir, {"event": "elimination", "winner_side": _winner(last), "at_turn": cur})
                 break
             if nt is None:
                 stalls += 1
                 _log(out_dir, {"event": "no_advance", "at_turn": cur, "stalls": stalls})
-                if stalls >= 5:  # persistent plateau -> end + judge territory
+                if stalls >= 8:  # persistent plateau -> end + judge territory
                     _log(out_dir, {"event": "plateau_end", "at_turn": cur}); break
                 await asyncio.sleep(5)
             else:
                 stalls = 0; turns_played += 1
     finally:
-        for ws in (ws0, ws1):
+        for ws in (conns.get(0), conns.get(1), ws0, ws1):
             if ws is not None:
                 try:
                     await ws.close()
