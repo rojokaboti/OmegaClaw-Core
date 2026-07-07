@@ -335,7 +335,12 @@ def install(source: str, cfg: Optional[Dict[str, Any]] = None, *,
                               "version": meta["version"], "content_hash": content_hash})
         _save_lock(root, lock)
         skill_loader.reset_cache()
-        return {"ok": True, "root": root, "source_type": source_type, "installed": installed}
+        rejected = [i for i in installed if str(i["status"]).startswith("rejected")]
+        result = {"ok": not rejected, "root": root, "source_type": source_type, "installed": installed}
+        if rejected:
+            result["error"] = "{} bundle(s) rejected: ".format(len(rejected)) + ", ".join(
+                "{} ({})".format(i["name"], i["status"]) for i in rejected)
+        return result
     except SkillInstallError as e:
         return {"ok": False, "error": str(e)}          # active root untouched
     except Exception as e:  # noqa: BLE001
@@ -374,9 +379,17 @@ def update(name: Optional[str] = None, cfg: Optional[Dict[str, Any]] = None, *,
             continue
         # force=True when updating a single named pinned skill (explicit intent)
         r = install(_entry_source_spec(entry), cfg, force=bool(name and entry.get("pinned")))
-        results.append({"name": n, "status": "updated" if r.get("ok") else "error",
-                        "error": r.get("error")})
-    return {"ok": all(x["status"] != "error" for x in results), "updated": results}
+        # Preserve the inner install outcome (e.g. rejected_symlink) rather than flattening
+        # every non-ok into a generic "updated"/"error" — the lifecycle must not misreport a
+        # rejected reinstall as a success.
+        inner = next((i for i in r.get("installed", []) if i["name"] == n), None)
+        if inner:
+            status = "updated" if inner["status"] == "installed" else inner["status"]
+        else:
+            status = "updated" if r.get("ok") else "error"
+        results.append({"name": n, "status": status, "error": r.get("error")})
+    ok_statuses = {"updated", "skipped_pinned"}
+    return {"ok": all(x["status"] in ok_statuses for x in results), "updated": results}
 
 
 def remove(name: str, cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:

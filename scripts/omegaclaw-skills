@@ -127,12 +127,21 @@ def cmd_pin(args):
 
 
 def build_parser():
+    # --config on the TOP parser carries the default (None). Subcommands accept --config too,
+    # but with default=SUPPRESS so that when it's absent the subparser does NOT overwrite the
+    # top-level value in the shared namespace — so `--config X install …` (top-level, as the
+    # help advertises) and `install --config X …` BOTH target the intended root, and a
+    # write/delete command can never silently fall back to the default skill root.
+    common_top = argparse.ArgumentParser(add_help=False)
+    common_top.add_argument("--config", default=None,
+                            help="path to skills config YAML (default profile/skills.yaml)")
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--config", help="path to skills config YAML (default profile/skills.yaml)")
+    common.add_argument("--config", default=argparse.SUPPRESS,
+                        help="path to skills config YAML (default profile/skills.yaml)")
     jsn = argparse.ArgumentParser(add_help=False)
     jsn.add_argument("--json", action="store_true", help="emit result as JSON")
 
-    p = argparse.ArgumentParser(prog="omegaclaw-skills", parents=[common],
+    p = argparse.ArgumentParser(prog="omegaclaw-skills", parents=[common_top],
                                 description="OmegaClaw filesystem-skills CLI")
     sub = p.add_subparsers(dest="command")
 

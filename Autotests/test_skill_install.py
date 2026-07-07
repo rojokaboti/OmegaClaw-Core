@@ -137,6 +137,81 @@ def test_symlinked_bundle_is_rejected_not_dereferenced():
     assert r["installed"][0]["status"] == "rejected_symlink", r
 
 
+def test_all_rejected_install_reports_failure():
+    """Regression (PR #36 re-review): if every staged bundle is rejected, install must report
+    ok:False (not a silent success) and record nothing in the lock."""
+    tmp = tempfile.mkdtemp(prefix="si_rej_")
+    secret = os.path.join(tmp, "secret")
+    with open(secret, "w", encoding="utf-8") as f:
+        f.write("x")
+    src = os.path.join(tmp, "src")
+    b = _bundle(src, "badlink")
+    try:
+        os.symlink(secret, os.path.join(b, "p.txt"))
+    except OSError:
+        return
+    cfg = _cfg(tmp)
+    r = si.install("local:" + src, cfg)
+    assert r["ok"] is False and "rejected" in r.get("error", "")
+    assert si._load_lock(si.install_root(cfg))["skills"] == {}
+
+
+def test_update_preserves_rejected_status():
+    """A reinstall that becomes malicious must surface as rejected, not 'updated'."""
+    tmp = tempfile.mkdtemp(prefix="si_uprej_")
+    secret = os.path.join(tmp, "secret")
+    with open(secret, "w", encoding="utf-8") as f:
+        f.write("x")
+    src = os.path.join(tmp, "src")
+    b = _bundle(src, "upskill")
+    cfg = _cfg(tmp)
+    assert si.install("local:" + src, cfg)["ok"]
+    try:
+        os.symlink(secret, os.path.join(b, "p.txt"))   # source turns malicious
+    except OSError:
+        return
+    u = si.update(cfg=cfg, all_skills=True)
+    assert u["ok"] is False
+    assert {x["name"]: x["status"] for x in u["updated"]}["upskill"] == "rejected_symlink"
+
+
+def _load_cli():
+    from importlib.machinery import SourceFileLoader          # extensionless script
+    from importlib.util import spec_from_loader, module_from_spec
+    path = os.path.join(_REPO_ROOT, "scripts", "omegaclaw-skills")
+    loader = SourceFileLoader("omegaclaw_skills_cli", path)
+    mod = module_from_spec(spec_from_loader(loader.name, loader))
+    loader.exec_module(mod)
+    return mod
+
+
+def test_top_level_config_targets_intended_root():
+    """Regression (PR #36 re-review): `--config X install …` (before the subcommand) must
+    target X, not silently fall back to the default skill root."""
+    import io
+    import contextlib
+    cli = _load_cli()
+    tmp = tempfile.mkdtemp(prefix="si_cli_")
+    _bundle(os.path.join(tmp, "src"), "cliskill")
+    cfg_path = os.path.join(tmp, "skills.yaml")
+    with open(cfg_path, "w", encoding="utf-8") as f:
+        f.write('version: 1\nroots: ["{}/installed"]\n'.format(tmp))
+    saved = os.environ.get("OMEGACLAW_SKILLS_CONFIG_PATH")
+    try:
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = cli.main(["--config", cfg_path, "install", "local:" + os.path.join(tmp, "src"), "--json"])
+        assert rc == 0
+        # it installed into the temp root named by the top-level --config, not the repo default
+        assert os.path.isdir(os.path.join(tmp, "installed", "cliskill"))
+    finally:
+        if saved is None:
+            os.environ.pop("OMEGACLAW_SKILLS_CONFIG_PATH", None)
+        else:
+            os.environ["OMEGACLAW_SKILLS_CONFIG_PATH"] = saved
+        sl.reset_cache()
+
+
 def test_is_safe_skill_name():
     assert sl.is_safe_skill_name("good-skill_1")
     for bad in ("", "..", ".", "../x", "a/b", "a\\b", "/abs", "x\x00y"):

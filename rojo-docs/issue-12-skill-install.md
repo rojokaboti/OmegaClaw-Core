@@ -94,6 +94,24 @@ Regression tests added:
 `test_symlinked_bundle_is_rejected_not_dereferenced`, `test_is_safe_skill_name`. Install suite
 now 11 tests; KPI gate + loader/policy gates still pass.
 
+### Post-review fix round 2 (PR #36 re-review) — two lifecycle/CLI reporting blockers
+1. **Rejected installs/updates reported success.** A symlink-rejected bundle still returned
+   `ok: True` (CLI exit 0), and `update()` mapped the rejected reinstall to `"updated"`.
+   **Fix:** `install()` returns `ok: False` + an `error` summary when any bundle is rejected
+   (`rejected_*`), so the CLI exits non-zero; `update()` preserves the inner per-skill status
+   (e.g. `rejected_symlink`) instead of flattening to `"updated"`, and its `ok` is true only
+   when every skill is `updated`/`skipped_pinned`.
+2. **Top-level `--config` silently ignored.** `--config` defined on both the top parser and
+   each subparser meant `--config X install …` (the advertised form) was overwritten by the
+   subparser default → a write/delete command could target the *default* skill root. **Fix:**
+   subparser `--config` now uses `default=argparse.SUPPRESS` so it never clobbers the
+   top-level value when absent; both `--config X install …` and `install --config X …` target
+   the intended root.
+Regression tests: `test_all_rejected_install_reports_failure`,
+`test_update_preserves_rejected_status`, `test_top_level_config_targets_intended_root`
+(drives the real CLI `main()` with `--config` before the subcommand). Install suite now 14
+tests; 94-test host sweep green; all three KPI gates still pass.
+
 ## 6. Reviewer guide
 
 ```bash

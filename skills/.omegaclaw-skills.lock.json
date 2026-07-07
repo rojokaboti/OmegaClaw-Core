@@ -1,0 +1,16 @@
+{
+  "skills": {
+    "x": {
+      "content_hash": "04c24d83476c25c85c9145d45e51a9fa790989e7c9e040c47dceb0a540a94bee",
+      "installed_at": "2026-07-07T12:17:15.197055+00:00",
+      "name": "x",
+      "pinned": false,
+      "ref": null,
+      "source": "/tmp/tmp.ZTsVJyYXtU/src",
+      "source_type": "local",
+      "trust": "unverified",
+      "version": ""
+    }
+  },
+  "version": 1
+}
