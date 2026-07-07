@@ -40,6 +40,8 @@ _DEFAULT_RISK = {
     "write-file": "medium",
     "append-file": "medium",
     "read-file": "low",
+    # read-only fetch of a loaded skill's instructions (Issue #11)
+    "use-skill": "low",
 }
 
 # Tools whose first positional value is a filesystem path / a shell command.

@@ -110,6 +110,9 @@ ARG_SPEC = {
     "read-file": [("path", "file", "filename")],
     "shell": [("command", "cmd", "text")],
     "metta": [("expr", "code", "text")],
+    # Progressive disclosure for filesystem SKILL.md bundles (Issue #11): return a
+    # loaded skill's full instructions on demand. One static tool, not one-per-skill.
+    "use-skill": [("name", "skill", "text")],
     "write-file": [("path", "file", "filename"), ("content", "text", "str")],
     "append-file": [("path", "file", "filename"), ("content", "text", "str")],
     # FreeCiv benchmark tools (Issue #6). observe takes no args (reads current game state);
@@ -636,6 +639,12 @@ def _selftest():
     r = parse_actions('{"actions":[{"tool":"shell","args":{"command":"ls"}}]}')
     authd, errs = authorize_actions(r.actions)
     assert errs == [] and len(authd) == 1, (authd, errs)
+
+    # use-skill tool (Issue #11) validates + renders end-to-end, incl. its alias.
+    assert "use-skill" in ALLOWED_TOOLS and "use-skill" in ARG_SPEC
+    assert parse_and_render_metta('{"actions":[{"tool":"use-skill","args":{"name":"demo"}}]}') == '((use-skill "demo"))'
+    assert parse_and_render_metta('{"actions":[{"tool":"use-skill","args":{"skill":"x"}}]}') == '((use-skill "x"))'
+    assert "use-skill{name}" in output_format_block()
 
     print("action_protocol self-tests passed")
 
