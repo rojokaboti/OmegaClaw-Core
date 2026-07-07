@@ -158,6 +158,68 @@ def test_plugin_skill_dirs_feed_the_loader():
         pr.reset(); sl.reset_cache()
 
 
+def test_requirement_cache_invalidates_on_env_flip():
+    """Regression (PR #37 review): a required-env flip must not return a stale load decision,
+    and removing the env after load must re-gate on reset."""
+    pr.reset()
+    root = _root()
+    _plugin(root, "needsenv", manifest={
+        "id": "needsenv", "version": "1.0.0", "entrypoint": "plugin_impl.py",
+        "requires": {"env": ["OMEGACLAW_PR37_TESTVAR"]}})
+    cfg = {"version": 1, "roots": [root]}
+    os.environ.pop("OMEGACLAW_PR37_TESTVAR", None)
+    try:
+        assert pr.list_plugins(cfg) == []                 # unset -> blocked
+        os.environ["OMEGACLAW_PR37_TESTVAR"] = "1"
+        assert pr.list_plugins(cfg) == ["needsenv"]       # set, SAME process -> now allowed
+        os.environ.pop("OMEGACLAW_PR37_TESTVAR", None)
+        assert pr.list_plugins(cfg) == []                 # removed -> blocked again
+    finally:
+        os.environ.pop("OMEGACLAW_PR37_TESTVAR", None)
+        pr.reset()
+
+
+def test_requirement_cache_invalidates_on_config_flip():
+    pr.reset()
+    root = _root()
+    _plugin(root, "needsconf", manifest={
+        "id": "needsconf", "version": "1.0.0", "entrypoint": "plugin_impl.py",
+        "requires": {"config": ["FLAG"]}})
+    assert pr.list_plugins({"version": 1, "roots": [root], "config": {"FLAG": False}}) == []
+    assert pr.list_plugins({"version": 1, "roots": [root], "config": {"FLAG": True}}) == ["needsconf"]
+
+
+def test_skill_dir_escape_rejected():
+    """Regression (PR #37 review): a plugin may not contribute a skill_dir outside its dir."""
+    pr.reset()
+    base = tempfile.mkdtemp(prefix="plug_esc_")
+    root = os.path.join(base, "plugins")
+    d = _plugin(root, "p", manifest={
+        "id": "p", "version": "1.0.0", "entrypoint": "plugin_impl.py",
+        "skill_dirs": ["../../outside_skills"]})
+    os.makedirs(os.path.join(base, "outside_skills"), exist_ok=True)
+    cfg = {"version": 1, "roots": [root]}
+    assert pr.skill_roots(cfg) == []
+    assert any("escapes the plugin dir" in e.message for e in pr.errors(cfg))
+
+
+def test_symlinked_plugin_dir_rejected():
+    """Regression (PR #37 review): a symlink under the root must not load an out-of-root plugin."""
+    pr.reset()
+    base = tempfile.mkdtemp(prefix="plug_link_")
+    root = os.path.join(base, "plugins")
+    os.makedirs(root)
+    outside = os.path.join(base, "outside_plugin")
+    _plugin(os.path.dirname(outside), os.path.basename(outside))  # build the outside plugin
+    try:
+        os.symlink(outside, os.path.join(root, "link"))
+    except OSError:
+        return  # platform without symlink support
+    cfg = {"version": 1, "roots": [root]}
+    assert pr.list_plugins(cfg) == [] and pr.list_tools(cfg) == []
+    assert any("escapes its root" in e.message for e in pr.errors(cfg))
+
+
 def test_empty_config_noop():
     pr.reset()
     assert pr.catalogue_block({"version": 1, "roots": []}) == ""

@@ -154,6 +154,17 @@ def _roots(cfg: Dict[str, Any]) -> List[str]:
     return out
 
 
+def _contained(child: str, parent: str) -> bool:
+    """True iff ``child`` realpath-resolves to a location at/under ``parent`` (rejects
+    symlink escapes and ``..`` traversal)."""
+    try:
+        c = os.path.realpath(child)
+        p = os.path.realpath(parent)
+        return os.path.commonpath([c, p]) == p
+    except (ValueError, OSError):
+        return False
+
+
 def _manifest_in(d: str) -> Optional[str]:
     for mn in _MANIFEST_NAMES:
         mp = os.path.join(d, mn)
@@ -243,6 +254,28 @@ def _load_entrypoint_tools(plugin_id: str, plugin_dir: str, entrypoint: str) -> 
     return tools
 
 
+def _requirement_fingerprint(cfg: Dict[str, Any]) -> tuple:
+    """Decision-relevant requirement state (only booleans -> secret-safe), so the load cache
+    invalidates when a required env var / binary / config value flips (the #13 lesson,
+    applied to plugins)."""
+    import shutil
+    conf = cfg.get("config") if isinstance(cfg.get("config"), dict) else {}
+    fp = set()
+    for root_abs in _roots(cfg):
+        for mp in _find_manifests(root_abs):
+            try:
+                req = (_read_manifest(mp) or {}).get("requires") or {}
+            except Exception:  # noqa: BLE001 - a bad manifest is handled in _load
+                continue
+            for v in (req.get("env") or []):
+                fp.add(("env", str(v), bool(os.environ.get(str(v)))))
+            for b in (req.get("bins") or []):
+                fp.add(("bin", str(b), shutil.which(str(b)) is not None))
+            for k in (req.get("config") or []):
+                fp.add(("config", str(k), bool(conf.get(k))))
+    return tuple(sorted(fp))
+
+
 def _signature(cfg: Dict[str, Any]) -> tuple:
     sig: List[Any] = [("disabled", tuple(sorted(cfg.get("disabled") or [])))]
     try:
@@ -255,6 +288,7 @@ def _signature(cfg: Dict[str, Any]) -> tuple:
                 sig.append((mp, os.path.getmtime(mp)))
             except OSError:
                 sig.append((mp, None))
+    sig.append(("req", _requirement_fingerprint(cfg)))
     return tuple(sig)
 
 
@@ -268,6 +302,12 @@ def _load(cfg: Dict[str, Any]):
         for mp in _find_manifests(root_abs):
             pdir = os.path.dirname(mp)
             rel = os.path.relpath(pdir, root_abs)
+            # Containment: a symlinked plugin dir (or one otherwise resolving outside the
+            # configured root) is rejected — a symlink under the root must not smuggle in an
+            # out-of-root plugin.
+            if not _contained(pdir, root_abs):
+                errors.append(PluginError(rel, "plugin dir escapes its root (symlink/traversal) — rejected"))
+                continue
             try:
                 manifest = _read_manifest(mp)
             except Exception as exc:  # noqa: BLE001
@@ -310,10 +350,16 @@ def _load(cfg: Dict[str, Any]):
                 accepted[t.name] = t
             skill_dirs = []
             for sd in (manifest.get("skill_dirs") or []):
-                if isinstance(sd, str) and sd.strip():
-                    abs_sd = sd if os.path.isabs(sd) else os.path.join(pdir, sd)
-                    if os.path.isdir(abs_sd):
-                        skill_dirs.append(os.path.abspath(abs_sd))
+                if not (isinstance(sd, str) and sd.strip()):
+                    continue
+                abs_sd = sd if os.path.isabs(sd) else os.path.join(pdir, sd)
+                # A skill_dir must stay inside the plugin dir — a plugin may not contribute an
+                # arbitrary outside directory to the skill loader.
+                if not _contained(abs_sd, pdir):
+                    errors.append(PluginError(pid, "skill_dir {!r} escapes the plugin dir — rejected".format(sd)))
+                    continue
+                if os.path.isdir(abs_sd):
+                    skill_dirs.append(os.path.realpath(abs_sd))
             plug = Plugin(
                 id=pid, version=str(manifest.get("version", "")).strip(),
                 description=str(manifest.get("description", "")).strip(), dir=pdir,

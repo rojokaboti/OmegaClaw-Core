@@ -82,6 +82,21 @@ error; duplicate tool names are rejected. `sys.exit(1)` on regression.
   plugin's `calc` computes and its `arithmetic-helper` skill is discovered via the loader.
   #11/#13 skill gates still pass. MeTTa edits paren-neutral vs `main`.
 
+### Post-review fix (PR #37 review) — two boundary/cache blockers
+1. **Requirement decisions cached without env/config values** (the #13 lesson, not fully carried
+   into plugins): a required-env/config/bin flip returned a stale load decision, and removing an
+   env requirement left the plugin loaded until reset. **Fix:** `_signature` now folds a
+   `_requirement_fingerprint` — `(env, var, present)` / `(bin, name, on-PATH)` /
+   `(config, key, truthy)` booleans (secret-safe) — so the load cache invalidates on any flip.
+2. **Path-containment escapes**: `skill_dirs` were accepted if they merely *existed* (a plugin
+   could contribute an outside dir to the loader), and `_find_manifests` followed **symlinked
+   plugin dirs** (a symlink under the root loaded an out-of-root plugin). **Fix:** a shared
+   `_contained` (realpath + `commonpath`) rejects a plugin dir that escapes its root and a
+   `skill_dir` that escapes its plugin dir, each with an actionable `PLUGIN_LOAD_ERRORS` entry.
+Regression tests: `test_requirement_cache_invalidates_on_{env,config}_flip`,
+`test_skill_dir_escape_rejected`, `test_symlinked_plugin_dir_rejected`. Plugin suite now 15
+tests; KPI + all skill gates still pass; 55-test sweep green.
+
 ## 6. Reviewer guide
 
 ```bash
