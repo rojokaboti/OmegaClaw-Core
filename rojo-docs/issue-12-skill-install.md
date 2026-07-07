@@ -112,6 +112,16 @@ Regression tests: `test_all_rejected_install_reports_failure`,
 (drives the real CLI `main()` with `--config` before the subcommand). Install suite now 14
 tests; 94-test host sweep green; all three KPI gates still pass.
 
+### Post-review fix round 3 (PR #36 re-review) — committed runtime artifacts
+A stray manual smoke test (run *before* the top-level `--config` fix, which is exactly why it
+landed in the default root) had committed `skills/x/SKILL.md`, `skills/x/.omegaclaw-origin.json`,
+and `skills/.omegaclaw-skills.lock.json` — a placeholder skill + lock/origin pointing at a
+non-reproducible `/tmp` path, which polluted the repo's default runtime catalogue (`doctor`
+showed an unintended eligible `x`). **Fix:** removed all three (kept `skills/README.md`) and
+added a `.gitignore` guard (`/skills/*` except `!/skills/README.md`) so installed bundles + lock
+metadata — runtime artifacts — can never be committed again. Verified: `doctor` now reports 0
+skills, and a stray install into the default root shows nothing in `git status`.
+
 ## 6. Reviewer guide
 
 ```bash
