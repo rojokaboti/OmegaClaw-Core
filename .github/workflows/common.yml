@@ -118,6 +118,7 @@ jobs:
           python ../src/metta_sessions.py
           python ../src/channel_registry.py
           python ../src/skill_loader.py
+          python ../src/skill_policy.py
           pytest -s -v @run_mandatory
         env:
           OMEGACLAW_CONTAINER: ${{ env.AUTOTESTS_OMEGACLAW_CONTAINER }}

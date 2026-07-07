@@ -27,3 +27,20 @@ disabled: []
 # Max characters of each skill's description rendered into the compact catalogue
 # (keeps per-skill prompt overhead within the KPI's 20% band).
 max_description_chars: 220
+
+# ---- Eligibility gates (Issue #13) ------------------------------------------------
+# Only skills that can actually run here are advertised in the prompt; the rest are
+# flagged (SKILL_UNAVAILABLE) with setup guidance from `skills doctor`. A skill declares
+# its requirements in its SKILL.md frontmatter (OpenClaw metadata.openclaw.requires
+# {env,bins,anyBins,config}/os/always, or Hermes platforms/required_environment_variables/
+# metadata.hermes.requires_toolsets). Set OMEGACLAW_SKILLS_DEBUG=1 to advertise all
+# (incl. blocked) for debugging.
+
+# Values for OpenClaw `requires.config` presence checks (keys must be present & truthy).
+# These are non-secret feature flags, NOT credentials (credentials belong in env vars).
+config: {}
+
+# Per-skill overrides (OpenClaw `skills.entries`). `enabled: false` force-blocks a skill;
+# `enabled: true` force-includes it past an `enabled` allowlist miss; `always: true` skips
+# requirement gates. Precedence: disabled > entries > enabled-allowlist > requirement gates.
+entries: {}

@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""OmegaClaw filesystem-skills CLI (Issue #13).
+
+Subcommands (more arrive with the install lifecycle in Issue #12):
+
+  doctor   Report skill readiness — which loaded SKILL.md bundles are eligible here and,
+           for the rest, exactly what is missing (env var / binary / config / OS / toolset)
+           with actionable remediation. Never prints secret values.
+
+Usage:
+  scripts/omegaclaw-skills doctor [--json] [--config PATH]
+
+Stdlib only. Skill roots/policy come from profile/skills.yaml (or OMEGACLAW_SKILLS_CONFIG_PATH).
+"""
+
+import argparse
+import json
+import os
+import sys
+
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(_REPO_ROOT, "src"))
+
+
+def _load_config(path):
+    import skill_loader
+    if path:
+        os.environ["OMEGACLAW_SKILLS_CONFIG_PATH"] = path
+        skill_loader.reset_cache()
+    return skill_loader.load_config()
+
+
+def cmd_doctor(args):
+    import skill_policy
+    report = skill_policy.doctor(_load_config(args.config))
+    if args.json:
+        print(json.dumps(report, indent=2))
+        return 0
+
+    c = report["counts"]
+    print("OmegaClaw skills doctor  (OS: {})".format(report["os"]))
+    print("  eligible: {}   blocked: {}   invalid: {}".format(c["eligible"], c["blocked"], c["invalid"]))
+    if report["eligible"]:
+        print("\nELIGIBLE ({}):".format(c["eligible"]))
+        for name in report["eligible"]:
+            print("  ✓ {}".format(name))
+    if report["blocked"]:
+        print("\nBLOCKED ({}) — needs setup:".format(c["blocked"]))
+        for b in report["blocked"]:
+            print("  ✗ {}".format(b["name"]))
+            for r in b["reasons"]:
+                print("      - [{}] {}".format(r["kind"], r["detail"]))
+                print("        fix: {}".format(r["remediation"]))
+    if report["errors"]:
+        print("\nINVALID ({}) — malformed bundles:".format(c["invalid"]))
+        for e in report["errors"]:
+            print("  ! {}: {}".format(e["path"], e["message"]))
+    # Exit non-zero if nothing is usable but bundles exist, so scripts can gate on it.
+    return 0
+
+
+def build_parser():
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--config", help="path to skills config YAML (default profile/skills.yaml)")
+    p = argparse.ArgumentParser(prog="omegaclaw-skills", parents=[common],
+                                description="OmegaClaw filesystem-skills CLI")
+    sub = p.add_subparsers(dest="command")
+    d = sub.add_parser("doctor", parents=[common], help="report skill eligibility + remediation")
+    d.add_argument("--json", action="store_true", help="emit the report as JSON")
+    d.set_defaults(func=cmd_doctor)
+    return p
+
+
+def main(argv=None):
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if not getattr(args, "func", None):
+        parser.print_help()
+        return 2
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

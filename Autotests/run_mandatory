@@ -10,6 +10,7 @@ test_errors.py
 test_metta_sessions.py
 test_channel_registry.py
 test_skill_loader.py
+test_skill_policy.py
 mock/test_actions_equivalence.py
 mock/test_comm.py
 mock/test_convert_format_mock.py
