@@ -126,6 +126,35 @@ def cmd_pin(args):
                 if r.get("ok") else r.get("error"))
 
 
+def cmd_scan(args):
+    """Static trust scan of a local bundle dir (or a dir of bundles) before installing it."""
+    import skill_loader
+    import install_policy
+    path = os.path.abspath(args.path)
+    skills, _errors = skill_loader.load_skills(
+        {"version": 1, "roots": [path], "include_plugin_skill_roots": False})
+    results = []
+    worst = "clean"
+    for name in sorted(skills):
+        sk = skills[name]
+        report = install_policy.scan_bundle(sk.base_dir, declared_env=sk.required_environment_variables)
+        decision = install_policy.decide(report)
+        if decision.action != "allow":
+            worst = "blocked"
+        elif decision.trust == "flagged" and worst == "clean":
+            worst = "flagged"
+        results.append({"name": name, "decision": decision.action, "trust": decision.trust,
+                        "report": report.as_dict()})
+    obj = {"ok": worst != "blocked", "worst": worst, "skills": results}
+    lines = ["scan ({} bundle(s)) — {}:".format(len(results), worst.upper())]
+    for r in results:
+        lines.append("  {} [{}] trust={}".format(r["name"], r["decision"].upper(), r["trust"]))
+        for f in r["report"]["findings"]:
+            lines.append("      - [{}] {} ({}): {}".format(
+                f["severity"].upper(), f["kind"], f["path"], f["detail"]))
+    return _out(args, obj, "\n".join(lines))
+
+
 def build_parser():
     # --config on the TOP parser carries the default (None). Subcommands accept --config too,
     # but with default=SUPPRESS so that when it's absent the subparser does NOT overwrite the
@@ -175,6 +204,11 @@ def build_parser():
     pn.add_argument("name")
     pn.add_argument("--unpin", action="store_true", help="unpin instead of pin")
     pn.set_defaults(func=cmd_pin)
+
+    sc = sub.add_parser("scan", parents=[common, jsn],
+                        help="static trust scan of a local bundle before installing (Issue #19)")
+    sc.add_argument("path", help="path to a skill bundle dir (or a dir of bundles)")
+    sc.set_defaults(func=cmd_scan)
     return p
 
 

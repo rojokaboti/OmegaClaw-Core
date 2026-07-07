@@ -39,6 +39,11 @@ try:
 except ImportError:  # pragma: no cover
     from src import skill_loader
 
+try:
+    import install_policy
+except ImportError:  # pragma: no cover
+    from src import install_policy
+
 _LOCK_NAME = ".omegaclaw-skills.lock.json"
 _ORIGIN_NAME = ".omegaclaw-origin.json"
 _GIT_TIMEOUT = int(os.environ.get("OMEGACLAW_GIT_TIMEOUT", "60"))
@@ -321,11 +326,21 @@ def install(source: str, cfg: Optional[Dict[str, Any]] = None, *,
             except SkillInstallError as e:
                 installed.append({"name": name, "status": "rejected_unsafe_name", "error": str(e)})
                 continue
+            # Static trust scan of the staged bundle (Issue #19). Fail-closed: a HIGH finding
+            # (exfil / destructive / credential / suspicious-exec) blocks the install in the
+            # default non-interactive mode; MEDIUM (undeclared env) only flags. The scan verdict
+            # is recorded as the skill's trust (replacing the old blanket "unverified").
+            report = install_policy.scan_bundle(sk.base_dir, declared_env=sk.required_environment_variables)
+            decision = install_policy.decide(report)
+            if decision.action != "allow":
+                installed.append({"name": name, "status": "rejected_policy",
+                                  "reasons": decision.reasons})
+                continue
             content_hash = _hash_dir(sk.base_dir)
             meta = {
                 "name": name, "source_type": source_type, "source": location, "ref": ref,
                 "version": sk.version or version or "", "content_hash": content_hash,
-                "installed_at": _now(), "trust": trust,
+                "installed_at": _now(), "trust": trust if trust != "unverified" else decision.trust,
                 "pinned": bool(pin or (prev.get("pinned") if prev else False)),
             }
             _replace_dir(dest, sk.base_dir)                       # commit AFTER validation

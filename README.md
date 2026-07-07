@@ -189,6 +189,8 @@ If you want to skip preloading the knowledge then run `export IMPORT_KB_ON_START
 | `OMEGACLAW_LLM_CONFIG_FAIL_OPEN` | `1`/`true` to opt an explicit `OMEGACLAW_LLM_CONFIG_PATH` back into fail-open (fall back to built-in defaults instead of failing closed). |
 | `OMEGACLAW_SKILLS_CONFIG_PATH` | Path to the filesystem-skill loader config YAML (default `profile/skills.yaml`) listing skill roots + allow/deny lists. Relative values resolve against the install root. Fails open to a safe empty set, so a missing/invalid file simply loads no external skills. |
 | `OMEGACLAW_SKILL_BODY_MAX_CHARS` | Max characters of a skill's instructions returned by `use-skill` (default `20000`); longer bodies are truncated. |
+| `OMEGACLAW_INSTALL_POLICY` | Untrusted-skill scan policy (Issue #19): `enforce` (default — HIGH findings block install), `warn` (flag but allow), or `off` (no scan gating). |
+| `OMEGACLAW_INSTALL_INTERACTIVE` | `1`/`true` to allow operator approval of HIGH-severity install findings; default off ⇒ **fail-closed** (HIGH denied in the agent's non-interactive runtime). |
 | `OMEGACLAW_SKILLS_DEBUG` | `1`/`true` to advertise ALL loaded skills in the prompt, including those blocked by eligibility gates (Issue #13). Default off — only eligible skills are advertised; blocked ones show as a concise `SKILL_UNAVAILABLE:` note. |
 
 ---
@@ -319,7 +321,7 @@ so it is **high-risk** in the tool policy (gate it in hardened mode). See
 
 ---
 
-## Security: two layers
+## Security: three layers
 
 OmegaClaw applies defense-in-depth around tool use:
 
@@ -334,6 +336,19 @@ OmegaClaw applies defense-in-depth around tool use:
    enabled/disabled, `allowed_roots` for file reads/writes (path-resolved to block
    `../` escapes), and shell `allow`/`deny` glob lists. Denials are structured and
    logged (`[tool_policy] POLICY_DENIAL …`) and reject the whole action batch.
+
+3. **Install trust boundary (`src/install_policy.py`, Issue #19)** — before a fetched
+   skill/plugin bundle is committed, it is **statically scanned** for network
+   exfiltration, destructive commands, credential access, and suspicious dynamic
+   execution (HIGH), plus undeclared env references (MEDIUM). The policy is
+   **fail-closed**: in the agent's default non-interactive mode a HIGH finding
+   **denies** the install (`rejected_policy`, never written to the root); MEDIUM findings
+   only flag (keeping the benign false-positive rate low). The scan verdict is recorded as
+   the skill's `trust` (`clean`/`flagged`). Inspect any bundle before installing with
+   `scripts/omegaclaw-skills scan <path>`. Path/symlink containment is already enforced by
+   the loader (#11) and installer (#12); this adds the *content* boundary. Tune via
+   `OMEGACLAW_INSTALL_POLICY` (`enforce` default / `warn` / `off`) and
+   `OMEGACLAW_INSTALL_INTERACTIVE` (allow operator approval prompts; off ⇒ fail-closed).
 
 The shipped default (`tool_policy.yaml`) is **permissive** (preserves normal
 behavior). A strict, opt-in example lives in `tool_policy.hardened.yaml`

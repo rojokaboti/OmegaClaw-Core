@@ -47,7 +47,8 @@ def test_local_install_idempotent_and_locked():
     lock = si._load_lock(root)
     e = lock["skills"]["alpha"]
     assert e["source_type"] == "local" and e["content_hash"] and e["version"] == "1.0.0"
-    assert e["trust"] == "unverified" and os.path.exists(os.path.join(root, "alpha", si._ORIGIN_NAME))
+    # trust is now the static-scan verdict (Issue #19); a benign bundle scans "clean"
+    assert e["trust"] == "clean" and os.path.exists(os.path.join(root, "alpha", si._ORIGIN_NAME))
     # reinstall -> idempotent, single dir + single lock entry
     si.install("local:" + src, cfg)
     assert [d for d in os.listdir(root) if d == "alpha"] == ["alpha"]
