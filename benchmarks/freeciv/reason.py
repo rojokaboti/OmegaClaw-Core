@@ -27,8 +27,13 @@ import tempfile
 _HERE = os.path.dirname(os.path.abspath(__file__))            # benchmarks/freeciv
 _REPO = os.path.dirname(os.path.dirname(_HERE))               # repo root
 
-# Import preamble: mirror how lib_omegaclaw.metta pulls in the reasoning libs + our rules.
+# Import preamble: replicate run.metta's setup so the `OmegaClaw-Core` library root is registered
+# (lib_import provides `library`/`git-import!`; git-import! resolves to the LOCAL repos/ clone
+# offline). Then pull in the reasoning libs + our rules. PLN word-form inference uses `|~`
+# (lib_pln), not `|-` (arrow-form NAL) — see rules.metta.
 _DEFAULT_IMPORTS = "\n".join([
+    "!(import! &self (library lib_import))",
+    '!(git-import! "https://github.com/asi-alliance/OmegaClaw-Core.git")',
     "!(import! &self (library OmegaClaw-Core lib_nal))",
     "!(import! &self (library OmegaClaw-Core lib_pln))",
     "!(import! &self (library OmegaClaw-Core ./benchmarks/freeciv/rules))",
@@ -85,10 +90,15 @@ def derive(fact_sentences, timeout=30):
         return []
     seen, recs = set(), []
     for m in _REC_RE.finditer(out):
-        key = (m.group(1), m.group(2))
+        entity, action = m.group(1), m.group(2)
+        # Skip ungrounded rule templates that leak from non-matching fact/rule pairings
+        # (e.g. "(Recommend $c Defend)"): a real recommendation has a concrete entity.
+        if entity.startswith("$") or action.startswith("$"):
+            continue
+        key = (entity, action)
         if key not in seen:
             seen.add(key)
-            recs.append("(Recommend {} {})".format(*key))
+            recs.append("(Recommend {} {})".format(entity, action))
     return recs
 
 
