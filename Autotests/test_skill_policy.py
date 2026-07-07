@@ -148,6 +148,24 @@ def test_doctor_reports_not_allowlisted_and_disabled():
     sl.reset_cache(); sp.reset_cache()
 
 
+def test_doctor_redacts_malformed_frontmatter_content():
+    """Regression (PR #35 re-review): a YAML parse error echoes the offending line, which can
+    carry secret-shaped content — it must be redacted in the doctor JSON/CLI, not just the
+    prompt path."""
+    import json as _json
+    sl.reset_cache(); sp.reset_cache()
+    root = os.path.join(tempfile.mkdtemp(prefix="skleak_"), "skills")
+    os.makedirs(os.path.join(root, "bad"))
+    # tab char makes YAML fail with an error that echoes the line incl. the token
+    with open(os.path.join(root, "bad", "SKILL.md"), "w", encoding="utf-8") as f:
+        f.write("---\nname: bad\ntoken:\tsk-ant-LEAKEDsecret0123456789abcdef\n---\nbody\n")
+    rep = sp.doctor({"version": 1, "roots": [root]})
+    blob = _json.dumps(rep)
+    assert "sk-ant-LEAKEDsecret" not in blob, rep["errors"]
+    assert rep["errors"] and "[REDACTED:" in rep["errors"][0]["message"]
+    sl.reset_cache(); sp.reset_cache()
+
+
 def _skill(name, description="fixture", platforms=None, envs=None, metadata=None):
     return sl.Skill(name=name, description=description, version="1.0.0",
                     platforms=platforms or [], required_environment_variables=envs or [],

@@ -249,7 +249,10 @@ def _parse_skill(skill_file: str, root_abs: str) -> Tuple[Optional[Skill], Optio
     try:
         fm = yaml.safe_load(fm_text)
     except Exception as exc:  # noqa: BLE001
-        return None, SkillError(rel, f"unparseable YAML frontmatter: {exc}")
+        # The YAML parser echoes the offending line, which can carry secret-shaped content
+        # from the malformed frontmatter — redact at the source so every consumer (prompt,
+        # logs, `skills doctor`) is safe, not just the prompt path.
+        return None, SkillError(rel, redact_secrets(f"unparseable YAML frontmatter: {exc}"))
     if not isinstance(fm, dict):
         return None, SkillError(rel, "frontmatter is not a YAML mapping")
 

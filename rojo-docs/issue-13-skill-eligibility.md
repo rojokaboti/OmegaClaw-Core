@@ -99,6 +99,17 @@ Regression tests added: `test_load_skills_does_not_prefilter_allow_deny`,
 `test_doctor_reports_not_allowlisted_and_disabled` (policy). Suites now 15 (loader) + 10
 (policy); both KPI gates still pass; 79-test host sweep green.
 
+### Post-review fix round 2 (PR #35 re-review)
+The re-review confirmed the two blockers above fixed and found one more: **`skills doctor`
+could leak malformed-frontmatter content.** The prompt path redacted `SKILL_LOAD_ERRORS`, but
+a YAML parse error echoes the offending line — which can carry secret-shaped content — and the
+`doctor()` path returned `SkillError.message` raw into the JSON/CLI. Fixed at the source
+(`skill_loader._parse_skill` now `redact_secrets(...)` the YAML-exception message, so every
+consumer is safe) plus defense-in-depth in `skill_policy.doctor()` (redacts each error message
+again). Regression: `test_doctor_redacts_malformed_frontmatter_content` (a tabbed frontmatter
+carrying an `sk-ant-…` token → the token is absent and `[REDACTED:…]` present in the doctor
+JSON/CLI). Policy suite now 11 tests; 80-test host sweep green.
+
 ## 6. Reviewer guide
 
 ```bash

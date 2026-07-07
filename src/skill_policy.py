@@ -316,7 +316,9 @@ def doctor(cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         "os": current_os(),
         "eligible": sorted(eligible),
         "blocked": blocked,
-        "errors": [{"path": err.path, "message": err.message} for err in errors],
+        # Defense-in-depth: redact again here so a raw SkillError.message from any source
+        # can never leak secret-shaped content through the doctor JSON / CLI.
+        "errors": [{"path": err.path, "message": redact_secrets(err.message)} for err in errors],
         "counts": {"eligible": len(eligible), "blocked": len(blocked), "invalid": len(errors)},
     }
 
