@@ -79,6 +79,26 @@ KPI acceptance gate.
 - `scripts/omegaclaw-skills doctor [--json]` on a mixed corpus → eligible/blocked/invalid with
   remediation; verified a secret env value set at runtime never appears in the output.
 
+### Post-review fix (PR #35 review)
+A reviewer found two integration blockers where the merged-#11 `load_skills` and the new
+`skill_policy` disagreed:
+1. **`entries.<skill>.enabled: true` couldn't override an `enabled` allowlist in the runtime
+   path** — `load_skills` pre-filtered by `enabled`/`disabled` *before* `skill_policy` saw the
+   skills, so a force-include (or a `disabled`/`not_allowlisted` report in `doctor`) was dead.
+   Fixed by making `skill_policy` the **single owner** of allow/deny: `load_skills` now
+   discovers ALL valid bundles and applies no allow/deny filtering; the eligibility layer
+   applies the documented precedence over the full set (so `entries` overrides work and
+   `doctor` reports `disabled`/`not_allowlisted` with remediation).
+2. **`classify()` cache ignored config/entry *values*** (keyed on keys only), so flipping
+   `config.FEATURE` false→true (or an entry's `enabled`/`always`) returned a stale decision in
+   a long-running process. Fixed by folding decision-relevant value *booleans* into the cache
+   key (secret-safe — only booleans).
+Regression tests added: `test_load_skills_does_not_prefilter_allow_deny`,
+`test_entries_override_forces_include_past_allowlist` (loader), and
+`test_classify_cache_invalidates_on_{config,entry}_value_flip`,
+`test_doctor_reports_not_allowlisted_and_disabled` (policy). Suites now 15 (loader) + 10
+(policy); both KPI gates still pass; 79-test host sweep green.
+
 ## 6. Reviewer guide
 
 ```bash

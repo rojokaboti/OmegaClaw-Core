@@ -302,28 +302,23 @@ def _discovery_signature(cfg: Dict[str, Any]) -> Tuple:
 
 
 def load_skills(cfg: Optional[Dict[str, Any]] = None) -> Tuple[Dict[str, Skill], List[SkillError]]:
-    """Discover + validate all configured skills.
+    """Discover + validate ALL configured skills (no allow/deny filtering here).
 
-    Returns ``(skills_by_name, errors)``. First-wins on duplicate names (a second
-    bundle claiming a taken name becomes an actionable ``SkillError``, not a silent
-    overwrite). Respects the ``enabled`` allowlist / ``disabled`` denylist. Cached by
-    an mtime signature over the config + every discovered SKILL.md.
+    Returns ``(skills_by_name, errors)`` for every valid discovered bundle. First-wins on
+    duplicate names (a second bundle claiming a taken name becomes an actionable
+    ``SkillError``, not a silent overwrite). Cached by an mtime signature over the config +
+    every discovered SKILL.md.
+
+    NB (Issue #13): allow/deny/eligibility is the SINGLE responsibility of
+    ``skill_policy`` — ``load_skills`` deliberately does **not** pre-filter by
+    ``enabled``/``disabled``, so ``skill_policy`` sees the full set and can (a) honor
+    ``entries`` overrides that force-include a skill past an allowlist miss, and (b) report
+    ``disabled``/``not_allowlisted`` skills with remediation via ``skills doctor``.
     """
     cfg = cfg if cfg is not None else load_config()
-    # Cache key folds in the policy fields of the (possibly in-memory) cfg — roots,
-    # allowlist, denylist — so two different cfgs over the same files don't collide.
-    policy_fp = (
-        tuple(cfg.get("roots") or []),
-        tuple(sorted(cfg.get("enabled"))) if isinstance(cfg.get("enabled"), list) else None,
-        tuple(sorted(cfg.get("disabled") or [])),
-    )
-    key = ("skills", policy_fp, _discovery_signature(cfg))
+    key = ("skills", tuple(_roots(cfg)), _discovery_signature(cfg))
     if key in _CACHE:
         return _CACHE[key]
-
-    enabled = cfg.get("enabled")
-    enabled_set = set(enabled) if isinstance(enabled, list) else None
-    disabled_set = set(cfg.get("disabled") or [])
 
     skills: Dict[str, Skill] = {}
     errors: List[SkillError] = []
@@ -342,10 +337,6 @@ def load_skills(cfg: Optional[Dict[str, Any]] = None) -> Tuple[Dict[str, Skill],
                     f"duplicate skill name {skill.name!r} (first-wins; kept "
                     f"{os.path.relpath(skills[skill.name].skill_file, root_abs)})",
                 ))
-                continue
-            if skill.name in disabled_set:
-                continue
-            if enabled_set is not None and skill.name not in enabled_set:
                 continue
             skills[skill.name] = skill
 

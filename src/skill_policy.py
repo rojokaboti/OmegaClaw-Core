@@ -270,13 +270,19 @@ def classify(skills: List[Any], cfg: Optional[Dict[str, Any]] = None,
     policy fingerprint) so repeated prompt builds are cheap but invalidate on real change."""
     cfg = cfg or {}
     env = env if env is not None else os.environ
+    conf = cfg.get("config") if isinstance(cfg.get("config"), dict) else {}
+    entries = cfg.get("entries") if isinstance(cfg.get("entries"), dict) else {}
+    # Fingerprint the DECISION-RELEVANT values, not just keys: eligibility depends on config
+    # truthiness (requires.config) and each entry's enabled/always flags. Only booleans enter
+    # the key, so it stays secret-safe. (Missing before -> stale decisions across value flips.)
     key = (
         tuple(sorted(s.name for s in skills)),
         _relevant_env_fingerprint(skills, env),
         tuple(sorted((cfg.get("enabled") or []))) if isinstance(cfg.get("enabled"), list) else None,
         tuple(sorted(cfg.get("disabled") or [])),
-        tuple(sorted((cfg.get("config") or {}).keys())),
-        tuple(sorted((cfg.get("entries") or {}).keys())),
+        tuple(sorted((k, bool(v)) for k, v in conf.items())),
+        tuple(sorted((k, bool((v or {}).get("enabled")), bool((v or {}).get("always")))
+                     for k, v in entries.items())),
         os.environ.get("OMEGACLAW_DISABLED_TOOLS", ""),
     )
     if key in _CACHE:

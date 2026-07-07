@@ -114,6 +114,40 @@ def test_doctor_report_structure():
     sl.reset_cache(); sp.reset_cache()
 
 
+def test_classify_cache_invalidates_on_config_value_flip():
+    """Regression (PR #35 review): the cache keyed on config KEYS only, so a value flip
+    (FEATURE false->true) returned a stale decision."""
+    s = _skill("z", metadata={"openclaw": {"requires": {"config": ["FEATURE"]}}})
+    sp.reset_cache()
+    assert sp.classify([s], {"config": {"FEATURE": False}})[0].eligible is False
+    assert sp.classify([s], {"config": {"FEATURE": True}})[0].eligible is True
+
+
+def test_classify_cache_invalidates_on_entry_value_flip():
+    s = _skill("z", envs=["MISSING_ONLY"])                 # blocked unless overridden
+    sp.reset_cache()
+    assert sp.classify([s], {"entries": {"z": {"always": False}}})[0].eligible is False
+    assert sp.classify([s], {"entries": {"z": {"always": True}}})[0].eligible is True
+
+
+def test_doctor_reports_not_allowlisted_and_disabled():
+    """Regression: with load_skills no longer pre-filtering, doctor sees + explains the
+    denied/not-allowlisted skills instead of them silently disappearing."""
+    sl.reset_cache(); sp.reset_cache()
+    root = os.path.join(tempfile.mkdtemp(prefix="skdoc2_"), "skills")
+    os.makedirs(root)
+    for n in ("keep", "denied", "stranger"):
+        _mk(root, n, "name: {}\ndescription: {}".format(n, n))
+    cfg = {"version": 1, "roots": [root], "enabled": ["keep"], "disabled": ["denied"]}
+    rep = sp.doctor(cfg)
+    assert rep["eligible"] == ["keep"]
+    kinds = {b["name"]: b["reasons"][0]["kind"] for b in rep["blocked"]}
+    assert kinds == {"denied": "disabled", "stranger": "not_allowlisted"}
+    for b in rep["blocked"]:
+        assert b["reasons"][0]["remediation"]
+    sl.reset_cache(); sp.reset_cache()
+
+
 def _skill(name, description="fixture", platforms=None, envs=None, metadata=None):
     return sl.Skill(name=name, description=description, version="1.0.0",
                     platforms=platforms or [], required_environment_variables=envs or [],

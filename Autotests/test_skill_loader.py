@@ -102,15 +102,34 @@ def test_duplicate_name_first_wins_with_error():
     assert any("duplicate" in e.message for e in errors), errors
 
 
-def test_enabled_allowlist_and_disabled_denylist():
+def test_load_skills_does_not_prefilter_allow_deny():
+    """load_skills discovers ALL valid bundles; allow/deny is skill_policy's job (Issue #13).
+
+    (Regression for the PR #35 review: load_skills used to pre-filter by enabled/disabled,
+    which killed entries overrides and hid disabled/not_allowlisted skills from doctor.)
+    """
     sl.reset_cache()
     root = _root()
     for n in ("one", "two", "three"):
         _mk(root, n, f"---\nname: {n}\ndescription: skill {n}\n---\nb\n")
-    only, _ = sl.load_skills({"version": 1, "roots": [root], "enabled": ["one", "two"]})
-    assert set(only) == {"one", "two"}
-    denied, _ = sl.load_skills({"version": 1, "roots": [root], "disabled": ["two"]})
-    assert set(denied) == {"one", "three"}
+    loaded, _ = sl.load_skills({"version": 1, "roots": [root], "enabled": ["one"], "disabled": ["two"]})
+    assert set(loaded) == {"one", "two", "three"}          # everything is loaded
+    # filtering happens in the eligibility layer instead:
+    eligible, blocked, _ = sl.eligible_skills({"version": 1, "roots": [root],
+                                               "enabled": ["one"], "disabled": ["two"]})
+    assert set(eligible) == {"one"}                         # only the allowlisted one
+    assert {b.name for b in blocked} == {"two", "three"}    # denied + not-allowlisted, with reasons
+
+
+def test_entries_override_forces_include_past_allowlist():
+    """entries.<name>.enabled: true must force-include a skill past an allowlist miss."""
+    sl.reset_cache()
+    root = _root()
+    for n in ("a", "b"):
+        _mk(root, n, f"---\nname: {n}\ndescription: skill {n}\n---\nb\n")
+    eligible, _, _ = sl.eligible_skills(
+        {"version": 1, "roots": [root], "enabled": ["a"], "entries": {"b": {"enabled": True}}})
+    assert set(eligible) == {"a", "b"}
 
 
 def test_catalogue_block_shape_and_overhead():
