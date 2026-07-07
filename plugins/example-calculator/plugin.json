@@ -1,0 +1,9 @@
+{
+  "id": "example-calculator",
+  "version": "1.0.0",
+  "description": "Safe arithmetic tools (add/eval) — a worked example plugin (Issue #15).",
+  "entrypoint": "plugin_impl.py",
+  "permissions": [],
+  "skill_dirs": ["skills"],
+  "requires": {"env": [], "bins": [], "config": []}
+}

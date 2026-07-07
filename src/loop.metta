@@ -32,6 +32,7 @@
    (string-safe (py-str ("PROMPT: " (getPrompt (provider)) " SKILLS: " (getSkills)
                          " " (py-call (action_protocol.output_format_block)) " "
                          " " (py-call (skill_loader.catalogue_block)) " "
+                         " " (py-call (plugin_registry.catalogue_block)) " "
                          " LAST_SKILL_USE_RESULTS: " (last_chars (get-state &lastresults) (maxFeedback)) " HISTORY: " (getHistory) " TIME: " (get_time_as_string)))))
 
 ; Structured error recovery events (Issue #10). The recorder runs a py-call that

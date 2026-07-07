@@ -120,6 +120,7 @@ jobs:
           python ../src/skill_loader.py
           python ../src/skill_policy.py
           python ../src/skill_install.py
+          python ../src/plugin_registry.py
           pytest -s -v @run_mandatory
         env:
           OMEGACLAW_CONTAINER: ${{ env.AUTOTESTS_OMEGACLAW_CONTAINER }}

@@ -179,6 +179,21 @@ def _roots(cfg: Dict[str, Any]) -> List[str]:
         if not isinstance(r, str) or not r.strip():
             continue
         out.append(r if os.path.isabs(r) else os.path.join(_REPO_ROOT, r))
+    # Plugins (Issue #15) can contribute their own skill dirs through the same loader.
+    # Best-effort + import-light: absent/erroring plugin registry never breaks discovery.
+    if cfg.get("include_plugin_skill_roots", True):
+        try:
+            import plugin_registry
+        except ImportError:
+            try:
+                from src import plugin_registry
+            except ImportError:
+                plugin_registry = None
+        if plugin_registry is not None:
+            try:
+                out.extend(plugin_registry.skill_roots())
+            except Exception:  # noqa: BLE001
+                pass
     return out
 
 
