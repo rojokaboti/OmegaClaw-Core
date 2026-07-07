@@ -236,6 +236,55 @@ def test_intra_plugin_duplicate_tool_rejected():
     assert any("duplicate tool name" in e.message for e in errs)
 
 
+def test_entrypoint_change_invalidates_cache():
+    """Regression (PR #37 re-review): editing a plugin's entrypoint must update the tool table
+    WITHOUT a manual reset() — a long-running agent must not keep invoking old plugin code."""
+    pr.reset()
+    root = _root()
+    d = _plugin(root, "ep", impl='''
+        def register():
+            return [{"name":"t","description":"d","arg":"x","handler":lambda s:"v1"}]
+    ''')
+    cfg = {"version": 1, "roots": [root]}
+    _p, tools, _e = pr.ensure_loaded(cfg)
+    assert tools["t"].handler("") == "v1"
+    # edit the entrypoint in-process (same size/second as v1) — no reset()
+    with open(os.path.join(d, "plugin_impl.py"), "w", encoding="utf-8") as f:
+        f.write('def register():\n    return [{"name":"t","description":"d","arg":"x","handler":lambda s:"v2"}]\n')
+    _p, tools, _e = pr.ensure_loaded(cfg)
+    assert tools["t"].handler("") == "v2", "entrypoint edit not picked up (stale cache/bytecode)"
+    # removing the tool is reflected too
+    with open(os.path.join(d, "plugin_impl.py"), "w", encoding="utf-8") as f:
+        f.write("def register():\n    return []\n")
+    _p, tools, _e = pr.ensure_loaded(cfg)
+    assert "t" not in tools
+
+
+def test_requirement_value_change_invalidates_cache():
+    """A changed-but-still-truthy env VALUE must invalidate the cache (not just set/unset)."""
+    pr.reset()
+    root = _root()
+    _plugin(root, "valp", manifest={
+        "id": "valp", "version": "1.0.0", "entrypoint": "plugin_impl.py",
+        "requires": {"env": ["OMEGACLAW_PR37_VALUE"]}}, impl='''
+        import os
+        _V = os.environ.get("OMEGACLAW_PR37_VALUE")
+        def register():
+            return [{"name":"v","description":"d","arg":"x","handler":lambda s:_V}]
+    ''')
+    cfg = {"version": 1, "roots": [root]}
+    os.environ["OMEGACLAW_PR37_VALUE"] = "one"
+    try:
+        _p, tools, _e = pr.ensure_loaded(cfg)
+        assert tools["v"].handler("") == "one"
+        os.environ["OMEGACLAW_PR37_VALUE"] = "two"          # still truthy, different value
+        _p, tools, _e = pr.ensure_loaded(cfg)
+        assert tools["v"].handler("") == "two", "env value change not picked up"
+    finally:
+        os.environ.pop("OMEGACLAW_PR37_VALUE", None)
+        pr.reset()
+
+
 def test_empty_config_noop():
     pr.reset()
     assert pr.catalogue_block({"version": 1, "roots": []}) == ""

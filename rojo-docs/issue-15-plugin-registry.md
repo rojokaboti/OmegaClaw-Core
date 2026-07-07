@@ -101,6 +101,23 @@ Regression tests: `test_requirement_cache_invalidates_on_{env,config}_flip`,
 `test_intra_plugin_duplicate_tool_rejected`. Plugin suite now 16 tests; KPI + all skill gates
 still pass. (Containment closes relative, absolute, AND symlinked skill_dir vectors — verified.)
 
+### Post-review fix round 2 (PR #37 re-review) — two cache-invalidation gaps
+1. **Entrypoint code changes were cached stale.** `_signature` tracked manifest mtimes but not
+   the entrypoint file, so editing plugin code didn't reload it. Two-part fix: (a) `_signature`
+   folds `_entrypoint_fingerprint` — a **content hash** of each entrypoint (not mtime, which has
+   1s resolution and misses same-second/same-size edits); (b) `_load_entrypoint_tools` now
+   **compiles the current source directly** (`exec(compile(...))`) instead of `SourceFileLoader`,
+   which reused a stale `.pyc` keyed on source mtime+size. A tool edit/removal is now reflected
+   in-process without `reset()`.
+2. **Requirement fingerprints tracked only presence, not values.** A changed-but-still-truthy
+   env/config value (or a `PATH`-resolved binary path) didn't invalidate, so a handler that
+   captured the old value at `register()` kept running. Fix: `_requirement_fingerprint` now
+   folds a **hash of each env/config value** (secret-safe — the in-memory key never holds the
+   raw value) and the **resolved binary path**.
+Regression tests: `test_entrypoint_change_invalidates_cache` (edit + tool-removal in-process,
+no reset), `test_requirement_value_change_invalidates_cache`. Plugin suite now 18 tests; KPI +
+all skill gates pass; 58-test sweep green.
+
 ## 6. Reviewer guide
 
 ```bash

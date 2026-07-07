@@ -217,9 +217,12 @@ def _requirements_met(manifest: Dict[str, Any], cfg: Dict[str, Any]) -> Optional
 
 
 def _load_entrypoint_tools(plugin_id: str, plugin_dir: str, entrypoint: str) -> List[PluginTool]:
-    """Import the entrypoint module (isolated) and collect its tool specs."""
-    from importlib.machinery import SourceFileLoader
-    from importlib.util import spec_from_loader, module_from_spec
+    """Import the entrypoint module (isolated) and collect its tool specs.
+
+    Compiles the CURRENT source directly (no ``.pyc`` bytecode cache): a re-load — which only
+    happens on a registry cache miss — must reflect the file on disk, even after a same-second /
+    same-size edit that would leave a cached ``.pyc`` stale (PR #37 re-review)."""
+    import types
 
     ep_path = entrypoint if os.path.isabs(entrypoint) else os.path.join(plugin_dir, entrypoint)
     ep_real = os.path.realpath(ep_path)
@@ -229,9 +232,11 @@ def _load_entrypoint_tools(plugin_id: str, plugin_dir: str, entrypoint: str) -> 
     if not os.path.isfile(ep_real):
         raise ValueError("entrypoint not found: {}".format(entrypoint))
 
-    loader = SourceFileLoader("omegaclaw_plugin_" + plugin_id, ep_real)
-    mod = module_from_spec(spec_from_loader(loader.name, loader))
-    loader.exec_module(mod)
+    with open(ep_real, "rb") as f:
+        source = f.read()
+    mod = types.ModuleType("omegaclaw_plugin_" + plugin_id)
+    mod.__file__ = ep_real
+    exec(compile(source, ep_real, "exec"), mod.__dict__)   # fresh compile, no .pyc reuse
     if not hasattr(mod, "register"):
         raise ValueError("entrypoint has no register() function")
     specs = mod.register()
@@ -254,10 +259,21 @@ def _load_entrypoint_tools(plugin_id: str, plugin_dir: str, entrypoint: str) -> 
     return tools
 
 
+def _val_hash(value: Any) -> Optional[str]:
+    """A short content hash of a requirement value — VALUE-sensitive (so a changed but still
+    truthy env/config value invalidates the cache) yet SECRET-SAFE (the in-memory signature
+    never embeds the raw value, which may be a credential)."""
+    import hashlib
+    if value is None:
+        return None
+    return hashlib.sha256(repr(value).encode("utf-8")).hexdigest()[:16]
+
+
 def _requirement_fingerprint(cfg: Dict[str, Any]) -> tuple:
-    """Decision-relevant requirement state (only booleans -> secret-safe), so the load cache
-    invalidates when a required env var / binary / config value flips (the #13 lesson,
-    applied to plugins)."""
+    """Decision-relevant requirement state so the load cache invalidates when a required env /
+    binary / config changes — including a VALUE or resolved-PATH change, not just a
+    presence/truthiness flip (the #13 lesson, tightened for plugins). Env/config values are
+    hashed (secret-safe); binaries use their resolved PATH so a PATH change re-loads."""
     import shutil
     conf = cfg.get("config") if isinstance(cfg.get("config"), dict) else {}
     fp = set()
@@ -268,12 +284,38 @@ def _requirement_fingerprint(cfg: Dict[str, Any]) -> tuple:
             except Exception:  # noqa: BLE001 - a bad manifest is handled in _load
                 continue
             for v in (req.get("env") or []):
-                fp.add(("env", str(v), bool(os.environ.get(str(v)))))
+                fp.add(("env", str(v), _val_hash(os.environ.get(str(v)))))
             for b in (req.get("bins") or []):
-                fp.add(("bin", str(b), shutil.which(str(b)) is not None))
+                fp.add(("bin", str(b), shutil.which(str(b))))          # resolved path (or None)
             for k in (req.get("config") or []):
-                fp.add(("config", str(k), bool(conf.get(k))))
-    return tuple(sorted(fp))
+                fp.add(("config", str(k), _val_hash(conf.get(k)) if conf.get(k) else None))
+    return tuple(sorted(fp, key=lambda x: (x[0], x[1], str(x[2]))))
+
+
+def _entrypoint_fingerprint(cfg: Dict[str, Any]) -> tuple:
+    """A content hash of each discovered plugin's entrypoint file, so the loaded-tools cache
+    invalidates when plugin CODE changes — not just its manifest. Content-hashed (not mtime)
+    so a same-second / same-size edit still invalidates (a long-running agent must not keep
+    invoking an old handler after a plugin update)."""
+    import hashlib
+    fp = set()
+    for root_abs in _roots(cfg):
+        for mp in _find_manifests(root_abs):
+            try:
+                ep = (_read_manifest(mp) or {}).get("entrypoint")
+            except Exception:  # noqa: BLE001
+                continue
+            if not (isinstance(ep, str) and ep.strip()):
+                continue
+            pdir = os.path.dirname(mp)
+            ep_path = ep if os.path.isabs(ep) else os.path.join(pdir, ep)
+            try:
+                with open(ep_path, "rb") as f:
+                    digest = hashlib.sha256(f.read()).hexdigest()
+            except OSError:
+                digest = None
+            fp.add((os.path.realpath(ep_path), digest))
+    return tuple(sorted(fp, key=lambda x: (x[0], str(x[1]))))
 
 
 def _signature(cfg: Dict[str, Any]) -> tuple:
@@ -289,6 +331,7 @@ def _signature(cfg: Dict[str, Any]) -> tuple:
             except OSError:
                 sig.append((mp, None))
     sig.append(("req", _requirement_fingerprint(cfg)))
+    sig.append(("entry", _entrypoint_fingerprint(cfg)))
     return tuple(sig)
 
 
