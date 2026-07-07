@@ -2,16 +2,27 @@
 
 **Branch:** `exp/freeciv-ab-pln-vs-llm` · **Run:** `ab_runs/20260707T082249Z`, seed 42 · 2026-07-07
 
-## Question
-Does OmegaClaw's **symbolic PLN reasoning** improve FreeCiv play versus a **plain LLM** using the
-*same* model? Two games ran in parallel; the only independent variable is what the LLM sees each turn:
-- **plain** — a plain-text summary of the state (units, cities, gold/science/score, techs).
-- **pln** — the same summary **plus** a "DERIVED (PLN reasoning)" block from authentic in-container
-  MeTTa/PLN inference (`benchmarks/freeciv/rules.metta` + `reason.py`).
+## Hypothesis
+Augmenting an LLM's per-turn state view with **symbolic PLN-derived recommendations** (OmegaClaw's
+differentiator) produces **better FreeCiv play** than the *same* LLM given the raw facts alone —
+measurable as higher score / more cities / faster tech / better survival. Null hypothesis: the PLN
+block makes no reliable difference (formatting-only, or too shallow to change decisions).
+This was a **parallel A/B** (two separate games); the arms never interacted.
 
-Everything else held identical: same model (SNET `gpt-oss-120b`), temperature, action schema,
-pre-submit `validate_action`, **same map seed (42)**, nation (Romans), aifill, and the #25
-turn-advance handshake. Both arms ran the same `omegaclaw:local` image (identical deps/latency).
+## Setup (for reproducibility)
+- **Stack:** `taso-ventures/freeciv-llm` at `~/Repos/freeciv-llm` (`docker compose up -d fciv-net`),
+  civserver + freeciv-proxy on `:8002`. Each arm connects over `ws://localhost:8002/llmsocket/8002`
+  as a human player and drives turns via the #25-corrected `action` envelope.
+- **Two arms, one variable** — what the LLM sees each turn:
+  - **plain** — a plain-text summary of the state (units w/ type+pos, cities, gold/science/score, techs).
+  - **pln** — the same summary **plus** a "DERIVED (PLN reasoning)" block from authentic in-container
+    MeTTa/PLN inference (`benchmarks/freeciv/rules.metta` + `reason.py`).
+- **Held identical:** model (SNET `gpt-oss-120b`), temperature (0.3), action schema, pre-submit
+  `validate_action`, **map/game seed (42)**, nation (Romans), `aifill 3` opponents, the #25
+  turn-advance handshake, and the `omegaclaw:local` image. Separate `game_id`s → two independent
+  civserver games on the same seed (same map).
+- **Bounds:** up to 10 h wall-clock / 5000 turns, whichever first (it ended far sooner at the
+  turn-475 plateau). Per-turn JSONL metrics + heartbeat by `ab_sim.py`; snapshots/verdict by `ab_report.py`.
 
 ## The reasoning is real (not string formatting)
 The pre-run gate proved genuine inference through OmegaClaw's PLN engine: `(|~ fact rule)` fires
