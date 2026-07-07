@@ -74,7 +74,8 @@ ALLOWED_TOOLS = set(LLM_COMMANDS)
 # The session tools reach the same sread/eval path as `metta` (infer evaluates,
 # add stores expressions that infer later evaluates), so they share metta's risk.
 _METTA_EVAL_TOOLS = {"metta-session-infer", "metta-session-add"}
-HIGH_RISK_TOOLS = {"shell", "metta"} | _METTA_EVAL_TOOLS
+# plugin-invoke runs plugin-defined code, so it is an escape hatch like shell/metta.
+HIGH_RISK_TOOLS = {"shell", "metta", "plugin-invoke"} | _METTA_EVAL_TOOLS
 
 
 def _max_actions():
@@ -113,6 +114,9 @@ ARG_SPEC = {
     # Progressive disclosure for filesystem SKILL.md bundles (Issue #11): return a
     # loaded skill's full instructions on demand. One static tool, not one-per-skill.
     "use-skill": [("name", "skill", "text")],
+    # Generic dispatch for plugin/MCP tools (Issue #15): call a plugin tool by name with a
+    # single string arg (pass "" for no-arg tools). One static tool, not one-per-plugin-tool.
+    "plugin-invoke": [("name", "tool"), ("arg", "input", "text")],
     "write-file": [("path", "file", "filename"), ("content", "text", "str")],
     "append-file": [("path", "file", "filename"), ("content", "text", "str")],
     # FreeCiv benchmark tools (Issue #6). observe takes no args (reads current game state);

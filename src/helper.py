@@ -16,6 +16,7 @@ LLM_COMMANDS = {
     "metta-session-infer",
     "metta-session-snapshot",
     "pin",
+    "plugin-invoke",
     "query",
     "query-claims",
     "read-file",

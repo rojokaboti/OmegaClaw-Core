@@ -14,6 +14,7 @@
 !(import! &self (library OmegaClaw-Core ./src/metta_sessions.py))
 !(import! &self (library OmegaClaw-Core ./src/channel_registry.py))
 !(import! &self (library OmegaClaw-Core ./src/skill_loader.py))
+!(import! &self (library OmegaClaw-Core ./src/plugin_registry.py))
 !(import! &self (library OmegaClaw-Core ./src/freeciv_tool.py))
 !(import! &self (library OmegaClaw-Core ./src/agentverse.py))
 !(import! &self (library OmegaClaw-Core ./channels/irc.py))

@@ -303,6 +303,20 @@ installed skill against its lock to detect tampering, and `pin` protects a skill
 `update --all`. (Sandboxing/approvals for untrusted sources are Issue #19; installs are
 recorded as `trust: unverified` today.)
 
+**Plugins & tools (`src/plugin_registry.py`).** Skills describe *how* to use capabilities;
+plugins *provide* them. A plugin is a directory with a manifest (`plugin.json`) declaring an
+`id`, `version`, and `entrypoint` (a Python module exposing `register() -> [tool spec, …]`),
+plus optional `skill_dirs` and `requires` (`env`/`bins`/`config`). Point `profile/plugins.yaml`
+`roots:` at a plugin (or a parent dir of plugins) to enable it — **no core edits**. Discovered
+tools are advertised as a `PLUGIN_TOOLS:` prompt catalogue and called through one generic tool,
+`plugin-invoke <name> <arg>` (an MCP-style call interface); plugin `skill_dirs` are surfaced
+through the same SKILL.md loader. A disabled plugin contributes nothing; a bad manifest,
+failing import, unmet requirement, or duplicate tool name is skipped with an actionable
+`PLUGIN_LOAD_ERRORS` note, never crashing the agent. `plugin-invoke` runs plugin-defined code,
+so it is **high-risk** in the tool policy (gate it in hardened mode). See
+`plugins/example-calculator/` for a worked example (disabled by default). Out-of-box
+`roots:` is empty, so the default toolset is unchanged.
+
 ---
 
 ## Security: two layers

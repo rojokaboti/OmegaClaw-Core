@@ -42,6 +42,8 @@ _DEFAULT_RISK = {
     "read-file": "low",
     # read-only fetch of a loaded skill's instructions (Issue #11)
     "use-skill": "low",
+    # runs plugin-defined code (Issue #15) -> escape-hatch risk like shell/metta
+    "plugin-invoke": "high",
 }
 
 # Tools whose first positional value is a filesystem path / a shell command.
