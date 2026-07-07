@@ -93,9 +93,13 @@ error; duplicate tool names are rejected. `sys.exit(1)` on regression.
    plugin dirs** (a symlink under the root loaded an out-of-root plugin). **Fix:** a shared
    `_contained` (realpath + `commonpath`) rejects a plugin dir that escapes its root and a
    `skill_dir` that escapes its plugin dir, each with an actionable `PLUGIN_LOAD_ERRORS` entry.
+Also (non-blocking finding, fixed): an **intra-plugin** duplicate tool name (a `register()`
+returning two specs with the same name) silently kept the second handler — now the first is
+kept and the collision is reported, matching the cross-plugin behavior.
 Regression tests: `test_requirement_cache_invalidates_on_{env,config}_flip`,
-`test_skill_dir_escape_rejected`, `test_symlinked_plugin_dir_rejected`. Plugin suite now 15
-tests; KPI + all skill gates still pass; 55-test sweep green.
+`test_skill_dir_escape_rejected`, `test_symlinked_plugin_dir_rejected`,
+`test_intra_plugin_duplicate_tool_rejected`. Plugin suite now 16 tests; KPI + all skill gates
+still pass. (Containment closes relative, absolute, AND symlinked skill_dir vectors — verified.)
 
 ## 6. Reviewer guide
 

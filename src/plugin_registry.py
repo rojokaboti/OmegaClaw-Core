@@ -340,12 +340,15 @@ def _load(cfg: Dict[str, Any]):
                 errors.append(PluginError(pid, "load failed: {}".format(exc)))
                 continue
 
-            # duplicate tool names across plugins -> reject the colliding tool, keep going
+            # duplicate tool names -> reject the colliding tool, keep going. Guards BOTH
+            # cross-plugin collisions and intra-plugin ones (a register() returning two specs
+            # with the same name must not silently keep the second handler).
             accepted = {}
             for t in ptools:
-                if t.name in tools:
+                owner = tools.get(t.name) or accepted.get(t.name)
+                if owner is not None:
                     errors.append(PluginError(pid, "duplicate tool name {!r} (kept {}'s)".format(
-                        t.name, tools[t.name].plugin_id)))
+                        t.name, owner.plugin_id)))
                     continue
                 accepted[t.name] = t
             skill_dirs = []

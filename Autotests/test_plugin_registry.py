@@ -220,6 +220,22 @@ def test_symlinked_plugin_dir_rejected():
     assert any("escapes its root" in e.message for e in pr.errors(cfg))
 
 
+def test_intra_plugin_duplicate_tool_rejected():
+    """Regression (PR #37 review, non-blocking): a plugin returning two specs with the same
+    name must keep the FIRST and report the collision, not silently keep the second."""
+    pr.reset()
+    root = _root()
+    _plugin(root, "dup", impl='''
+        def register():
+            return [{"name":"same","description":"a","arg":"x","handler":lambda s:"first"},
+                    {"name":"same","description":"b","arg":"x","handler":lambda s:"second"}]
+    ''')
+    cfg = {"version": 1, "roots": [root]}
+    _p, tools, errs = pr.ensure_loaded(cfg)
+    assert tools["same"].handler("") == "first"
+    assert any("duplicate tool name" in e.message for e in errs)
+
+
 def test_empty_config_noop():
     pr.reset()
     assert pr.catalogue_block({"version": 1, "roots": []}) == ""
