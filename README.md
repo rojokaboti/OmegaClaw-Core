@@ -283,6 +283,26 @@ never prints secret values); set `OMEGACLAW_SKILLS_DEBUG=1` to advertise all. Ru
 blocked bundle. Per-skill allow/deny and overrides live in `profile/skills.yaml`
 (`enabled` / `disabled` / `entries` / `config`).
 
+**Install lifecycle (`src/skill_install.py`).** Rather than hand-copying skills, install them
+from a **local path**, a **Git repo** (pinned ref), or a **ClawHub-compatible HTTP registry**
+(slug):
+
+```
+scripts/omegaclaw-skills install local:/path/to/skill
+scripts/omegaclaw-skills install git:owner/repo@v1.2.0
+scripts/omegaclaw-skills install clawhub:my-skill@2.0      # OMEGACLAW_CLAWHUB_URL
+scripts/omegaclaw-skills list | update [--all] | verify | pin <name> | remove <name>
+```
+
+Each install fetches into a temp staging dir, **validates** it with the loader, and only then
+commits into the skill root — a bad source is a no-op (rollback), never a corrupted root.
+Reinstalls are idempotent (no duplicate directories). A workspace lockfile
+(`<root>/.omegaclaw-skills.lock.json`) plus a per-skill `.omegaclaw-origin.json` record the
+source, ref/version, a content hash, install time, and trust status; `verify` re-hashes an
+installed skill against its lock to detect tampering, and `pin` protects a skill from
+`update --all`. (Sandboxing/approvals for untrusted sources are Issue #19; installs are
+recorded as `trust: unverified` today.)
+
 ---
 
 ## Security: two layers

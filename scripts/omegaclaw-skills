@@ -59,15 +59,113 @@ def cmd_doctor(args):
     return 0
 
 
+def _out(args, obj, text):
+    if getattr(args, "json", False):
+        print(json.dumps(obj, indent=2))
+    else:
+        print(text)
+    return 0 if obj.get("ok", True) else 1
+
+
+def cmd_install(args):
+    import skill_install
+    _load_config(args.config)
+    r = skill_install.install(args.source, pin=args.pin, force=args.force)
+    if r.get("ok"):
+        names = ", ".join("{}[{}]".format(i["name"], i["status"]) for i in r["installed"])
+        return _out(args, r, "installed from {}: {}".format(r["source_type"], names))
+    return _out(args, r, "install failed: {}".format(r.get("error")))
+
+
+def cmd_update(args):
+    import skill_install
+    _load_config(args.config)
+    r = skill_install.update(args.name, all_skills=args.all)
+    if "error" in r and not r.get("updated"):
+        return _out(args, r, "update failed: {}".format(r.get("error")))
+    lines = "; ".join("{} {}".format(u["name"], u["status"]) for u in r.get("updated", []))
+    return _out(args, r, "update: {}".format(lines or "(nothing)"))
+
+
+def cmd_list(args):
+    import skill_install
+    _load_config(args.config)
+    items = skill_install.list_installed()
+    obj = {"ok": True, "skills": items}
+    lines = ["installed skills ({}):".format(len(items))]
+    for it in items:
+        lines.append("  {}{} v{} <- {}:{}{}".format(
+            it["name"], " (pinned)" if it.get("pinned") else "", it.get("version") or "?",
+            it.get("source_type"), it.get("source"),
+            "@" + it["ref"] if it.get("ref") else ""))
+    return _out(args, obj, "\n".join(lines))
+
+
+def cmd_remove(args):
+    import skill_install
+    _load_config(args.config)
+    r = skill_install.remove(args.name)
+    return _out(args, r, "removed {}".format(args.name) if r.get("ok") else r.get("error"))
+
+
+def cmd_verify(args):
+    import skill_install
+    _load_config(args.config)
+    r = skill_install.verify(args.name)
+    lines = ["verify ({}):".format("ok" if r["ok"] else "PROBLEMS")]
+    for s in r["skills"]:
+        lines.append("  {} {}".format(s["status"].upper().ljust(9), s["name"]))
+    return _out(args, r, "\n".join(lines))
+
+
+def cmd_pin(args):
+    import skill_install
+    _load_config(args.config)
+    r = (skill_install.unpin if args.unpin else skill_install.pin)(args.name)
+    return _out(args, r, "{} {}".format("unpinned" if args.unpin else "pinned", args.name)
+                if r.get("ok") else r.get("error"))
+
+
 def build_parser():
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--config", help="path to skills config YAML (default profile/skills.yaml)")
+    jsn = argparse.ArgumentParser(add_help=False)
+    jsn.add_argument("--json", action="store_true", help="emit result as JSON")
+
     p = argparse.ArgumentParser(prog="omegaclaw-skills", parents=[common],
                                 description="OmegaClaw filesystem-skills CLI")
     sub = p.add_subparsers(dest="command")
-    d = sub.add_parser("doctor", parents=[common], help="report skill eligibility + remediation")
-    d.add_argument("--json", action="store_true", help="emit the report as JSON")
+
+    d = sub.add_parser("doctor", parents=[common, jsn], help="report skill eligibility + remediation")
     d.set_defaults(func=cmd_doctor)
+
+    ins = sub.add_parser("install", parents=[common, jsn],
+                         help="install a skill from local:/git:/clawhub: source")
+    ins.add_argument("source", help="local:<path> | git:owner/repo@ref | clawhub:<slug>@<ver>")
+    ins.add_argument("--pin", action="store_true", help="pin after install (protected from update --all)")
+    ins.add_argument("--force", action="store_true", help="reinstall even if pinned")
+    ins.set_defaults(func=cmd_install)
+
+    up = sub.add_parser("update", parents=[common, jsn], help="reinstall from the recorded source")
+    up.add_argument("name", nargs="?", help="skill to update (omit with --all)")
+    up.add_argument("--all", action="store_true", help="update every non-pinned skill")
+    up.set_defaults(func=cmd_update)
+
+    ls = sub.add_parser("list", parents=[common, jsn], help="list installed skills + lock metadata")
+    ls.set_defaults(func=cmd_list)
+
+    rm = sub.add_parser("remove", parents=[common, jsn], help="remove an installed skill")
+    rm.add_argument("name")
+    rm.set_defaults(func=cmd_remove)
+
+    vf = sub.add_parser("verify", parents=[common, jsn], help="check installed skills against their lock hash")
+    vf.add_argument("name", nargs="?", help="skill to verify (omit for all)")
+    vf.set_defaults(func=cmd_verify)
+
+    pn = sub.add_parser("pin", parents=[common, jsn], help="pin (or --unpin) an installed skill")
+    pn.add_argument("name")
+    pn.add_argument("--unpin", action="store_true", help="unpin instead of pin")
+    pn.set_defaults(func=cmd_pin)
     return p
 
 
