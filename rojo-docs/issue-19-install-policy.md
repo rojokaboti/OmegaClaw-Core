@@ -122,6 +122,17 @@ install_policy suite now 11 tests; KPI + #12 gates still pass; 69-test sweep gre
 Regression tests: `test_attached_curl_upload_forms_are_high`, `test_special_files_do_not_hang_scan`.
 install_policy suite now 13 tests; KPI + #12 gates still pass; 71-test sweep green.
 
+### Post-review round 4 (PR #38 re-review) — no security blocker; CI + polish
+The reviewer found **no remaining code-level security blocker**; the only NO-GO was a red
+`build / common` on `mock/test_comm.py::test_two_messages` — a Docker comm-RPC test unrelated to
+this PR's files (it doesn't touch channels/comm/mock). To rule out any resource contention from
+this PR, the oversized/hard-cap tests + self-test now exercise the size logic with **tiny caps**
+(monkeypatched `_CHUNK`/`_OVERLAP`/`_HARD_CAP`) instead of writing ~58 MiB of temp files per CI
+run (host sweep dropped 23s→16s). Also addressed the two non-blocking notes: `scan` now surfaces
+a MEDIUM `special_file` finding for skipped symlink/FIFO/device entries (operator diagnostics
+instead of silent skip), and the docstrings/wording now describe the concrete
+`install --approve` handoff rather than "prompts". install_policy suite 13 tests; gates green.
+
 ## 6. Reviewer guide
 
 ```bash
