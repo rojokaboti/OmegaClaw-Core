@@ -32,3 +32,6 @@ memory/traces/
 # README; installed bundles + lock/origin metadata are runtime artifacts, never committed.
 /skills/*
 !/skills/README.md
+
+# skill workshop proposal queue (runtime, Issue #14)
+memory/skill-workshop/

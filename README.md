@@ -305,6 +305,16 @@ installed skill against its lock to detect tampering, and `pin` protects a skill
 `update --all`. (Sandboxing/approvals for untrusted sources are Issue #19; installs are
 recorded as `trust: unverified` today.)
 
+**Skill workshop (`src/skill_workshop.py`, Issue #14).** The agent can capture a repeated or
+tricky workflow into a reusable skill — safely. Calling `propose-skill <name> <SKILL.md>` drafts
+the skill into a **review queue** under `memory/skill-workshop/` (validated + scanned on the
+spot; malformed or unsafe drafts are **quarantined**, never applyable). The agent has **no path
+that writes the active skill root** — only an operator, via `omegaclaw-skills workshop apply
+<id>`, promotes a proposal to a live skill (reusing the install validate/scan/lock pipeline and
+snapshotting the prior version for `workshop rollback`). Manage the queue with
+`omegaclaw-skills workshop list | inspect | apply | reject | revise | quarantine | rollback`.
+This is durable learning without uncontrolled self-modification.
+
 **Plugins & tools (`src/plugin_registry.py`).** Skills describe *how* to use capabilities;
 plugins *provide* them. A plugin is a directory with a manifest (`plugin.json`) declaring an
 `id`, `version`, and `entrypoint` (a Python module exposing `register() -> [tool spec, …]`),

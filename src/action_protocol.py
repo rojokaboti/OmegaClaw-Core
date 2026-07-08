@@ -117,6 +117,9 @@ ARG_SPEC = {
     # Generic dispatch for plugin/MCP tools (Issue #15): call a plugin tool by name with a
     # single string arg (pass "" for no-arg tools). One static tool, not one-per-plugin-tool.
     "plugin-invoke": [("name", "tool"), ("arg", "input", "text")],
+    # Governed skill workshop (Issue #14): draft a SKILL.md proposal into the review queue.
+    # Sandboxed to the pending dir — it NEVER changes active skills (an operator applies).
+    "propose-skill": [("name", "skill"), ("body", "skill_md", "content", "text")],
     "write-file": [("path", "file", "filename"), ("content", "text", "str")],
     "append-file": [("path", "file", "filename"), ("content", "text", "str")],
     # FreeCiv benchmark tools (Issue #6). observe takes no args (reads current game state);

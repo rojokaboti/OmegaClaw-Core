@@ -17,6 +17,7 @@ LLM_COMMANDS = {
     "metta-session-snapshot",
     "pin",
     "plugin-invoke",
+    "propose-skill",
     "query",
     "query-claims",
     "read-file",
