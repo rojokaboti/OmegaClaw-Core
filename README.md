@@ -344,8 +344,10 @@ OmegaClaw applies defense-in-depth around tool use:
    **fail-closed**: in the agent's default non-interactive mode a HIGH finding
    **denies** the install (`rejected_policy`, never written to the root); MEDIUM findings
    only flag (keeping the benign false-positive rate low). The scan verdict is recorded as
-   the skill's `trust` (`clean`/`flagged`). Inspect any bundle before installing with
-   `scripts/omegaclaw-skills scan <path>`. Path/symlink containment is already enforced by
+   the skill's `trust` (`clean`/`flagged`/`approved`). Inspect any bundle before installing with
+   `scripts/omegaclaw-skills scan <path>` (non-zero exit on a blocked/invalid/empty target); an
+   operator may explicitly accept a HIGH bundle with `install --approve` (records
+   `trust: approved`). Path/symlink containment is already enforced by
    the loader (#11) and installer (#12); this adds the *content* boundary. Tune via
    `OMEGACLAW_INSTALL_POLICY` (`enforce` default / `warn` / `off`) and
    `OMEGACLAW_INSTALL_INTERACTIVE` (allow operator approval prompts; off ⇒ fail-closed).

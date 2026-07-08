@@ -70,7 +70,7 @@ def _out(args, obj, text):
 def cmd_install(args):
     import skill_install
     _load_config(args.config)
-    r = skill_install.install(args.source, pin=args.pin, force=args.force)
+    r = skill_install.install(args.source, pin=args.pin, force=args.force, approve_high=args.approve)
     if r.get("ok"):
         names = ", ".join("{}[{}]".format(i["name"], i["status"]) for i in r["installed"])
         return _out(args, r, "installed from {}: {}".format(r["source_type"], names))
@@ -131,8 +131,21 @@ def cmd_scan(args):
     import skill_loader
     import install_policy
     path = os.path.abspath(args.path)
-    skills, _errors = skill_loader.load_skills(
+    # Fail loud for automation: a nonexistent path, invalid bundles, or zero discovered
+    # bundles must NOT report CLEAN success (PR #38 review). --allow-empty opts out.
+    if not os.path.exists(path):
+        return _out(args, {"ok": False, "error": "path does not exist: {}".format(args.path)},
+                    "scan error: path does not exist: {}".format(args.path))
+    skills, load_errors = skill_loader.load_skills(
         {"version": 1, "roots": [path], "include_plugin_skill_roots": False})
+    if load_errors:
+        obj = {"ok": False, "error": "invalid bundle(s)",
+               "load_errors": [str(e) for e in load_errors]}
+        return _out(args, obj, "scan error — invalid bundle(s):\n" +
+                    "\n".join("  - " + str(e) for e in load_errors))
+    if not skills and not args.allow_empty:
+        return _out(args, {"ok": False, "error": "no skill bundles found under {}".format(args.path)},
+                    "scan error: no skill bundles found under {} (use --allow-empty to allow)".format(args.path))
     results = []
     worst = "clean"
     for name in sorted(skills):
@@ -182,6 +195,9 @@ def build_parser():
     ins.add_argument("source", help="local:<path> | git:owner/repo@ref | clawhub:<slug>@<ver>")
     ins.add_argument("--pin", action="store_true", help="pin after install (protected from update --all)")
     ins.add_argument("--force", action="store_true", help="reinstall even if pinned")
+    ins.add_argument("--approve", action="store_true",
+                     help="explicitly approve HIGH-severity scan findings (Issue #19); "
+                          "without it such bundles are denied (fail-closed)")
     ins.set_defaults(func=cmd_install)
 
     up = sub.add_parser("update", parents=[common, jsn], help="reinstall from the recorded source")
@@ -208,6 +224,8 @@ def build_parser():
     sc = sub.add_parser("scan", parents=[common, jsn],
                         help="static trust scan of a local bundle before installing (Issue #19)")
     sc.add_argument("path", help="path to a skill bundle dir (or a dir of bundles)")
+    sc.add_argument("--allow-empty", action="store_true",
+                    help="exit 0 even if no bundles are discovered (default: error)")
     sc.set_defaults(func=cmd_scan)
     return p
 

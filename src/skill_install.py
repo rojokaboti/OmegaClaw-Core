@@ -284,11 +284,17 @@ def _replace_dir(dest: str, src: str) -> None:
 # --------------------------------------------------------------------------- install / update
 
 def install(source: str, cfg: Optional[Dict[str, Any]] = None, *,
-            pin: bool = False, force: bool = False, trust: str = "unverified") -> Dict[str, Any]:
+            pin: bool = False, force: bool = False, trust: str = "unverified",
+            approve_high: bool = False) -> Dict[str, Any]:
     """Install skill bundle(s) from ``source``. Returns a structured result dict.
 
     Fetch->validate->commit->lock with rollback: nothing under the active root changes
     unless staging validates. Idempotent; a pinned skill is skipped unless ``force``.
+
+    ``approve_high``: explicit operator approval of HIGH-severity scan findings (Issue #19).
+    Without it, a HIGH finding is denied (fail-closed); with it, such a bundle installs with
+    ``trust: approved``. This is the concrete handoff behind the interactive-approval contract —
+    the CLI ``install --approve`` sets it.
     """
     cfg = cfg if cfg is not None else skill_loader.load_config()
     try:
@@ -331,8 +337,12 @@ def install(source: str, cfg: Optional[Dict[str, Any]] = None, *,
             # default non-interactive mode; MEDIUM (undeclared env) only flags. The scan verdict
             # is recorded as the skill's trust (replacing the old blanket "unverified").
             report = install_policy.scan_bundle(sk.base_dir, declared_env=sk.required_environment_variables)
-            decision = install_policy.decide(report)
-            if decision.action != "allow":
+            decision = install_policy.decide(report, interactive=True if approve_high else None)
+            if decision.action == "allow":
+                scan_trust = decision.trust
+            elif decision.action == "approve" and approve_high:
+                scan_trust = "approved"          # explicit operator approval of HIGH findings
+            else:
                 installed.append({"name": name, "status": "rejected_policy",
                                   "reasons": decision.reasons})
                 continue
@@ -340,7 +350,7 @@ def install(source: str, cfg: Optional[Dict[str, Any]] = None, *,
             meta = {
                 "name": name, "source_type": source_type, "source": location, "ref": ref,
                 "version": sk.version or version or "", "content_hash": content_hash,
-                "installed_at": _now(), "trust": trust if trust != "unverified" else decision.trust,
+                "installed_at": _now(), "trust": trust if trust != "unverified" else scan_trust,
                 "pinned": bool(pin or (prev.get("pinned") if prev else False)),
             }
             _replace_dir(dest, sk.base_dir)                       # commit AFTER validation
