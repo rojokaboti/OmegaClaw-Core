@@ -116,6 +116,51 @@ run 2 (the clean one) is mildly *against* the hypothesis. The harness and authen
 inference are proven; a real claim still needs many seeded pairs, deeper decision-changing rules,
 and ideally a stronger base agent that isn't getting crushed by the AI in the opening.
 
+## Head-to-head duel (LLM+PLN vs LLM) — 2026-07-08
+The parallel A/B has each arm in its *own* game vs the AI. The **duel** puts the two arms as
+**opposing players in the SAME 1v1 game** (`duel_sim.py`), so they compete directly. To cancel
+start-position bias we run a **mirror pair**: g1 with PLN as player slot 0, g2 (mirror) with PLN as
+slot 1. Constraint discovered: the `:8002` LLM-proxy carries only **one active game at a time**, so
+the mirror games can't run concurrently — g2 was run **sequentially** on a fresh stack after g1.
+Both games were clean (g1: 11 reconnects over 879 turns; g2: 10 over 632), desktop kept awake.
+
+**Run:** `ab_runs/duel_20260708T150047Z`, seed 42, size 2. Each game ended at a server plateau
+(turn stops advancing, repeated `no_advance`) with **neither side eliminated**, so the winner is by
+development at the plateau.
+
+| Game | PLN slot | PLN cities/units/techs | plain cities/units/techs | plateau turn | winner |
+|---|---|---|---|---|---|
+| g1 | side 0 | 3 / 21 / 32 | 7 / 69 / 33 | 879 | **plain** |
+| g2 (mirror) | side 1 | 2 / 27 / 15 | 3 / 33 / 19 | 632 | **plain** |
+
+**Verdict: plain-LLM won BOTH games, on both player slots.** PLN did not win on either side, so the
+result is **not** a start-position artifact — it is a genuine, direction-consistent disadvantage for
+the PLN arm in this configuration.
+
+### Root cause: the PLN block *anchors* the LLM to fewer actions
+Investigating *why* PLN underperforms surfaced a clear, quantified mechanism. Both arms are told
+"choose **1–3** actions"; the only difference is the PLN arm also gets a
+`DERIVED (PLN reasoning) — recommended priorities this turn:` block. **The LLM treats that list as an
+exhaustive to-do list** and does exactly as many actions as there are recommendations, then stops:
+
+| | avg actions/turn | avg PLN recs/turn | actions == recs |
+|---|---|---|---|
+| g1 PLN (side 0) | 2.06 | 2.09 | **97%** (863/881) |
+| g2 PLN (side 1) | 1.63 | 1.63 | **99%** (632/638) |
+| g1 plain | 2.93 | 0 | — |
+| g2 plain | 2.95 | 0 | — |
+
+The plain arm freely uses its full budget (~3 actions/turn); the PLN arm anchors to the
+recommendation count (~1.6–2.1). That **~30–45% per-turn activity deficit compounds** over hundreds
+of turns into far less expansion — the PLN player froze at 2–3 cities early while plain climbed to
+7. A secondary factor: the rule vocabulary (`rules.metta`) is consolidation-biased (Defend / Food /
+Settle-in-place) with **no expansion signal**, so even the anchored priorities lean toward turtling.
+
+**The reasoning is authentic and correct; the *injection* is the problem** — the block narrows the
+LLM instead of augmenting it. Fix plan (`benchmarks/freeciv/docs/anchoring-fix-plan.md`): reframe the
+block as *optional hints, not a checklist*, explicitly preserve the full 1–3 action budget, and add
+an expansion signal — then rerun the duel and check that PLN's actions/turn rises to ≈3.
+
 ## What this experiment did establish
 - A reproducible in-container A/B harness (`ab_sim.py`/`ab_report.py`/`ab_run.sh`) with matched
   controls and per-turn metrics.
