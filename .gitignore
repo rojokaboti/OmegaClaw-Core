@@ -39,3 +39,7 @@ memory/skill-workshop/
 # session store (runtime, Issue #16)
 memory/sessions.db
 memory/sessions.db-*
+
+# scheduler jobs store (runtime, Issue #17)
+memory/jobs.db
+memory/jobs.db-*
