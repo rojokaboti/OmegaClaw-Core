@@ -76,8 +76,11 @@ def connect(path: Optional[str] = None) -> sqlite3.Connection:
     p = path or db_path()
     if p != ":memory:":
         os.makedirs(os.path.dirname(p), exist_ok=True)
-    conn = sqlite3.connect(p)
+    conn = sqlite3.connect(p, timeout=30)
     conn.row_factory = sqlite3.Row
+    # wait (don't error) when another heartbeat holds the write lock; the atomic claim below
+    # serializes concurrent heartbeats so a due occurrence runs exactly once.
+    conn.execute("PRAGMA busy_timeout=30000")
     conn.executescript(_SCHEMA)
     conn.commit()
     return conn
@@ -314,17 +317,31 @@ def _execute_one(job: Dict[str, Any], now: float, runner: Callable, conn: sqlite
     validated event here)."""
     jid = job["id"]
     if advance:
-        # advance schedule FIRST (durability: a restart mid-run won't refire this occurrence)
+        # ATOMICALLY CLAIM this occurrence before running (durability + concurrency safety): the
+        # UPDATE's WHERE checks the exact next_run we selected, so if another heartbeat already
+        # advanced it, our rowcount is 0 and we skip — a due occurrence runs exactly once even
+        # with multiple concurrent schedulers against the same DB. Advancing first also means a
+        # crash mid-run cannot refire it.
         try:
             nxt = None if job["kind"] == "once" else _compute_next(job["kind"], job["spec"], now)
         except (SchedulerError, ValueError, ZeroDivisionError):
             nxt = None
-        _set(conn, jid, next_run=nxt, last_run=now, fires=(job.get("fires") or 0) + 1)
+        cur = conn.execute(
+            "UPDATE jobs SET next_run=?, last_run=?, fires=fires+1 "
+            "WHERE id=? AND enabled=1 AND next_run=?",
+            (nxt, now, jid, job.get("next_run")))
+        conn.commit()
+        if cur.rowcount != 1:
+            return None                      # lost the claim -> another heartbeat is running it
     else:
         nxt = job.get("next_run")
-        _set(conn, jid, last_run=now, fires=(job.get("fires") or 0) + 1)
-
-    sid = "cron-{}-{}".format(jid, int(job.get("fires") or 0) + 1)
+        conn.execute("UPDATE jobs SET last_run=?, fires=fires+1 WHERE id=?", (now, jid))
+        conn.commit()
+    # derive the session id from the PERSISTED (atomically-incremented) fire count, so concurrent
+    # attempts can never share a session id like cron-<job>-1.
+    row = conn.execute("SELECT fires FROM jobs WHERE id=?", (jid,)).fetchone()
+    fire_no = row[0] if row else (int(job.get("fires") or 0) + 1)
+    sid = "cron-{}-{}".format(jid, fire_no)
     wd = job.get("workdir") or tempfile.mkdtemp(prefix="omegaclaw-cron-{}-".format(jid))
     os.makedirs(wd, exist_ok=True)
     chain_out = None
@@ -385,9 +402,10 @@ def run_due(now: Optional[float] = None, runner: Optional[Callable] = None, *,
     own = conn is None
     conn = conn or connect()
     try:
-        fired = [_execute_one(job, now, runner, conn, delivery_fn=delivery_fn, alert_fn=alert_fn,
-                              advance=True)
-                 for job in due_jobs(now, conn=conn)]
+        fired = [r for r in (_execute_one(job, now, runner, conn, delivery_fn=delivery_fn,
+                                          alert_fn=alert_fn, advance=True)
+                             for job in due_jobs(now, conn=conn))
+                 if r is not None]   # r is None when this heartbeat lost the atomic claim
         return {"ok": all(f["status"] != "error" for f in fired), "now": now,
                 "fired": fired, "count": len(fired)}
     finally:

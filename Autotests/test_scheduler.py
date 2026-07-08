@@ -192,6 +192,66 @@ def test_webhook_transient_id_never_deletes_durable_job():
         _clean()
 
 
+def test_concurrent_heartbeats_run_due_occurrence_once():
+    """Regression (PR #42 re-review): two heartbeats that both SELECT the same due row (stale
+    select) must not both execute it — the atomic claim (CAS on next_run) lets exactly one win."""
+    _db()
+    try:
+        sch.create_job("race", "once", str(T0), prompt="hi", now=T0)
+        # both heartbeats selected the same due row at the same next_run
+        stale = sch.due_jobs(T0 + 1)[0]
+        ran = []
+        c1, c2 = sch.connect(), sch.connect()
+        try:
+            r1 = sch._execute_one(dict(stale), T0 + 1, lambda j, c: ran.append(j["id"]) or "o",
+                                  c1, advance=True)
+            r2 = sch._execute_one(dict(stale), T0 + 1, lambda j, c: ran.append(j["id"]) or "o",
+                                  c2, advance=True)
+        finally:
+            c1.close()
+            c2.close()
+        assert ran == ["race"], ran                    # ran exactly once
+        assert r1 is not None and r2 is None            # second lost the atomic claim
+        assert sch.get_job("race")["fires"] == 1        # persisted fire count reflects one run
+    finally:
+        _clean()
+
+
+def test_concurrent_run_due_threads_fire_once():
+    """Two concurrent run_due() threads racing the same due row fire it exactly once."""
+    import threading
+    _db()
+    try:
+        sch.create_job("r", "interval", "60", now=T0)
+        ran = []
+        barrier = threading.Barrier(2)
+        orig = sch.due_jobs
+
+        def patched(now, conn=None):
+            d = orig(now, conn=conn)
+            try:
+                barrier.wait(timeout=5)                 # both hold the due row before advancing
+            except threading.BrokenBarrierError:
+                pass
+            return d
+
+        sch.due_jobs = patched
+        try:
+            threads = [threading.Thread(target=lambda: sch.run_due(now=T0 + 5000,
+                                                                   runner=lambda j, c: ran.append(1)))
+                       for _ in range(2)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+        finally:
+            sch.due_jobs = orig
+        assert len(ran) == 1, ran
+        assert sch.get_job("r")["fires"] == 1
+    finally:
+        _clean()
+
+
 def test_webhook_signature_validation():
     _db()
     try:

@@ -110,6 +110,19 @@ Regression tests: `test_cron_respects_all_five_fields`,
 Regression tests: `test_webhook_runner_receives_event_payload`, `test_invalid_cron_fails_closed`,
 `test_run_now_does_not_resume_paused_or_reschedule`. Suite now 14 tests; KPI gate still passes.
 
+### Post-review fix round 3 (PR #42 re-review) — concurrent double-run race
+`run_due` did a **select-then-update**: two heartbeats could both `due_jobs()`-select the same
+row before either advanced it, so the job ran **twice** (sharing session id `cron-<job>-1`, with
+`fires` ending at 1 — hiding the dup). **Fix:** an **atomic claim** — `_execute_one` advances via
+`UPDATE jobs SET next_run=?, last_run=?, fires=fires+1 WHERE id=? AND enabled=1 AND next_run=?`
+(compare-and-swap on the selected `next_run`) and runs the body **only if `rowcount == 1`**; the
+loser returns `None` and skips. The session id is derived from the **persisted, atomically
+incremented** `fires`, so concurrent attempts can't share one. `connect()` also sets
+`busy_timeout` so concurrent writers wait rather than error. Regression tests:
+`test_concurrent_heartbeats_run_due_occurrence_once` (deterministic stale-select) and
+`test_concurrent_run_due_threads_fire_once` (two racing threads). Suite now 16 tests; KPI gate
+still passes.
+
 ## 6. Reviewer guide
 
 ```bash
