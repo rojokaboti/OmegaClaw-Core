@@ -177,6 +177,30 @@ def test_apply_rechecks_and_blocks_post_propose_tampering():
         _clean()
 
 
+def test_apply_refuses_content_tamper_after_review():
+    """Regression (PR #39 re-review): same-name in-place content change between review and apply
+    must be refused (hash mismatch) — the operator's apply is bound to the reviewed bytes.
+    `revise` is the sanctioned way to update + re-review."""
+    tmp, cfg, root = _env()
+    try:
+        sw.propose("beta", "---\nname: beta\ndescription: d\nversion: 1.0.0\n---\nORIGINAL\n",
+                   cfg=cfg, proposal_id="p-hash")
+        # tamper the pending bundle in place (same name, different body), no revise
+        with open(os.path.join(sw._bundle_dir("p-hash"), "SKILL.md"), "w", encoding="utf-8") as f:
+            f.write("---\nname: beta\ndescription: d\nversion: 1.0.0\n---\nTAMPERED\n")
+        r = sw.apply("p-hash", cfg)
+        assert r["ok"] is False and r["status"] == sw.STATUS_QUARANTINED
+        assert not os.path.isdir(os.path.join(root, "beta"))
+        assert "beta" not in sw.skill_install._load_lock(sw.skill_install.install_root(cfg))["skills"]
+        # sanctioned path: revise re-hashes + re-reviews, then apply installs the reviewed content
+        sw.revise("p-hash", skill_md="---\nname: beta\ndescription: d\nversion: 1.0.0\n---\nREVISED\n", cfg=cfg)
+        assert sw.apply("p-hash", cfg)["ok"]
+        with open(os.path.join(root, "beta", "SKILL.md"), encoding="utf-8") as f:
+            assert "REVISED" in f.read()
+    finally:
+        _clean()
+
+
 def test_propose_tool_string_bridge():
     tmp, cfg, root = _env()
     try:

@@ -90,6 +90,16 @@ nested skill — is refused, nothing committed). Regression tests:
 `test_apply_rechecks_and_blocks_post_propose_tampering`. Workshop suite now 12 tests; KPI +
 cluster gates still pass; 83-test sweep green.
 
+### Post-review fix round 2 (PR #39 re-review) — apply not bound to reviewed bytes
+`propose` stored a `content_hash`, but `apply` never checked it — so same-name **in-place
+content tampering** between review and apply installed unreviewed bytes (the single-skill/name
+invariants still matched). **Fix:** `apply` now recomputes `skill_install._hash_dir(bundle)` and
+refuses (quarantine) if it differs from the reviewed `content_hash`; `revise` remains the
+sanctioned way to change content (it re-hashes + re-reviews). The operator's apply is now bound
+to the exact bytes reviewed. Regression test: `test_apply_refuses_content_tamper_after_review`
+(tamper → refused + active root/lock unchanged; then revise → apply installs the re-reviewed
+content). Workshop suite now 13 tests; KPI + cluster gates still pass; 84-test sweep green.
+
 ## 6. Reviewer guide
 
 ```bash

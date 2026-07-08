@@ -332,6 +332,19 @@ def apply(pid: str, cfg: Optional[Dict[str, Any]] = None, *, approve_high: bool 
         return {"ok": False, "id": pid, "status": STATUS_QUARANTINED,
                 "error": err or "skill name changed since proposal"}
 
+    # Bind the operator's apply decision to the EXACT reviewed bytes: if the pending bundle
+    # changed since propose/revise (same name, different content), refuse — the content hash
+    # the operator reviewed must match what gets installed. `revise` is the sanctioned way to
+    # update content (it re-hashes + re-reviews).
+    current_hash = skill_install._hash_dir(_bundle_dir(pid))
+    if current_hash != meta.get("content_hash"):
+        meta["status"] = STATUS_QUARANTINED
+        meta.setdefault("reasons", []).append(
+            "apply blocked: bundle content changed since review (hash mismatch) — revise to re-review")
+        _save_meta(pid, meta)
+        return {"ok": False, "id": pid, "status": STATUS_QUARANTINED,
+                "error": "bundle content changed since review (hash mismatch); revise to re-review"}
+
     name = meta.get("name")
     root = skill_install.install_root(cfg)
     was_absent = not os.path.isdir(os.path.join(root, name))
