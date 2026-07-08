@@ -98,6 +98,17 @@ Regression tests: `test_curl_data_post_exfil_is_high`, `test_oversized_support_f
 `test_interactive_approval_handoff`, `test_scan_cli_fails_on_missing_invalid_and_empty`.
 install_policy suite now 10 tests; KPI gate + #12 gate still pass; 68-test sweep green.
 
+### Post-review fix round 2 (PR #38 re-review) — oversized middle-gap bypass
+The head+tail window from round 1 left a **blind middle**: a payload in the unscanned middle of
+an oversized file installed as `flagged` (MEDIUM doesn't block). **Fix:** the scanner now
+**stream-scans the whole file** in overlapping chunks (`_CHUNK` 1 MiB + `_OVERLAP` 8 KiB so a
+pattern straddling a boundary is still matched) — no gap. A file beyond a generous hard cap
+(`_HARD_CAP` 25 MiB) yields a **HIGH `unscannable_oversized`** finding that *blocks* under
+enforce (fail-closed), never a passable flag. Benign large files (under the cap) scan clean — no
+new false positives. Regression tests: `test_oversized_file_is_fully_scanned_no_middle_gap`
+(middle payload denied + benign large allowed), `test_beyond_hard_cap_file_fails_closed`.
+install_policy suite now 11 tests; KPI + #12 gates still pass; 69-test sweep green.
+
 ## 6. Reviewer guide
 
 ```bash
