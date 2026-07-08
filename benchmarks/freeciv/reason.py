@@ -103,14 +103,25 @@ def derive(fact_sentences, timeout=30):
 
 
 def format_for_llm(recommendations):
-    """Render derived recommendations as a concise prompt block (empty string if none)."""
+    """Render derived recommendations as a concise prompt block (empty string if none).
+
+    Framed as OPTIONAL hints, NOT a checklist. The 2026-07-08 head-to-head duel showed the LLM
+    treated a "recommended priorities this turn" list as exhaustive: it did exactly
+    len(recommendations) actions and stopped (proposed == n_conclusions on 97-99% of turns, ~1.6-2.1
+    actions/turn vs the plain arm's ~2.9), a compounding activity deficit that starved expansion.
+    The wording below decouples the action budget from the recommendation count.
+    """
     if not recommendations:
         return ""
-    lines = ["DERIVED (PLN reasoning) — recommended priorities this turn:"]
+    lines = ["DERIVED (PLN reasoning) — optional strategic hints (NOT a to-do list):"]
     for r in recommendations:
         m = _REC_RE.match(r)
         if m:
             lines.append("  - {} → {}".format(m.group(1), m.group(2)))
+    lines.append(
+        "(Hints only — do NOT limit yourself to these. Still choose the FULL 1-3 actions using your "
+        "own judgment, including expansion such as founding new cities with settlers, which the "
+        "hints may omit.)")
     return "\n".join(lines)
 
 
