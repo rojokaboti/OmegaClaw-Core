@@ -96,6 +96,20 @@ after restart, drift within threshold).
 Regression tests: `test_cron_respects_all_five_fields`,
 `test_webhook_transient_id_never_deletes_durable_job`. Suite now 11 tests; KPI gate still passes.
 
+### Post-review fix round 2 (PR #42 re-review) — three correctness bugs
+1. **Webhook runner never received the event.** The handler only saw the generic ctx; the parsed
+   event body was absent. **Fix:** the validated event is injected as `ctx["event"]` (via a new
+   single-job executor's `extra_ctx`), so handlers can act on issue titles / branch names / etc.
+2. **`*/0` (and out-of-range/non-int) cron crashed `create_job`** (`ZeroDivisionError`). **Fix:**
+   a guard in `_cron_field_match` (step > 0) + an up-front `_validate_cron` so a malformed spec
+   returns a structured `ok: false` (fail-closed) instead of crashing or silently never firing.
+3. **`run_now` silently resumed a paused job and rescheduled it** (and could fire *other* due
+   jobs). **Fix:** extracted `_execute_one` — `run_now` executes ONLY the named job with
+   `advance=False`, so it never mutates durable `enabled`/`next_run` or touches sibling jobs (the
+   webhook path uses the same executor, fixing that latent bug too).
+Regression tests: `test_webhook_runner_receives_event_payload`, `test_invalid_cron_fails_closed`,
+`test_run_now_does_not_resume_paused_or_reschedule`. Suite now 14 tests; KPI gate still passes.
+
 ## 6. Reviewer guide
 
 ```bash

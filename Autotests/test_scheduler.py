@@ -209,6 +209,54 @@ def test_webhook_signature_validation():
         _clean()
 
 
+def test_webhook_runner_receives_event_payload():
+    """Regression (PR #42 re-review): the runner must get the validated (nested) event in ctx."""
+    _db()
+    try:
+        sch.webhook_subscribe("gh", "", {"prompt": "handle"})
+        seen = {}
+        sch.webhook_event("gh", {"issue": {"title": "bug", "number": 7}, "repo": "acme"},
+                          runner=lambda job, ctx: seen.update({"event": ctx.get("event")}) or "ok")
+        assert seen["event"] == {"issue": {"title": "bug", "number": 7}, "repo": "acme"}
+    finally:
+        _clean()
+
+
+def test_invalid_cron_fails_closed():
+    """Regression (PR #42 re-review): a malformed cron (*/0, out-of-range, non-int) returns a
+    structured error instead of crashing (ZeroDivisionError) or silently never firing."""
+    _db()
+    try:
+        assert sch.create_job("z", "cron", "*/0 * * * *", now=T0)["ok"] is False
+        assert sch.create_job("r", "cron", "99 * * * *", now=T0)["ok"] is False
+        assert sch.create_job("n", "cron", "x * * * *", now=T0)["ok"] is False
+        assert sch.create_job("f", "cron", "* * *", now=T0)["ok"] is False       # wrong field count
+        assert sch.create_job("ok", "cron", "*/5 0 * * 1", now=T0)["ok"] is True  # valid still works
+    finally:
+        _clean()
+
+
+def test_run_now_does_not_resume_paused_or_reschedule():
+    """Regression (PR #42 re-review): a one-off `run` must not resume a paused job or change its
+    next_run, and must not fire other due jobs."""
+    _db()
+    try:
+        sch.create_job("p", "interval", "60", prompt="hi", now=T0)
+        sch.pause("p")
+        # an unrelated job is also due — run_now must NOT fire it
+        other = []
+        sch.create_job("other", "once", str(T0), now=T0)
+        before = sch.get_job("p")
+        r = sch.run_now("p", runner=lambda j, c: "done")
+        after = sch.get_job("p")
+        assert r["ok"] and r["fired"]["status"] == "ok"
+        assert after["enabled"] == 0                       # still paused
+        assert after["next_run"] == before["next_run"]     # not rescheduled
+        assert sch.get_job("other")["last_status"] is None  # unrelated due job untouched
+    finally:
+        _clean()
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0

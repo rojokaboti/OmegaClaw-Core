@@ -97,7 +97,8 @@ def _cron_field_match(field: str, value: int, lo: int, hi: int) -> bool:
     for part in field.split(","):
         if part.startswith("*/"):
             try:
-                if value % int(part[2:]) == 0:
+                step = int(part[2:])
+                if step > 0 and value % step == 0:      # step<=0 is invalid, never matches
                     return True
             except ValueError:
                 pass
@@ -134,6 +135,34 @@ def _cron_matches(spec: str, t: time.struct_time) -> bool:
             and _cron_field_match(dom, t.tm_mday, 1, 31)
             and _cron_field_match(mon, t.tm_mon, 1, 12)
             and dow_ok)
+
+
+def _validate_cron(spec: str) -> None:
+    """Raise SchedulerError for a malformed 5-field cron spec (bad step / range / token), so
+    create_job fails closed instead of storing a job that silently never fires (or crashes)."""
+    fields = spec.split()
+    if len(fields) != 5:
+        raise SchedulerError("cron spec must have 5 fields (m h dom mon dow): {!r}".format(spec))
+    ranges = [(0, 59), (0, 23), (1, 31), (1, 12), (0, 7)]
+    for field, (lo, hi) in zip(fields, ranges):
+        for part in field.split(","):
+            if part == "*":
+                continue
+            if part.startswith("*/"):
+                try:
+                    if int(part[2:]) <= 0:
+                        raise SchedulerError("cron step must be > 0: {!r}".format(part))
+                except ValueError:
+                    raise SchedulerError("cron step not an integer: {!r}".format(part))
+                continue
+            toks = part.split("-") if "-" in part else [part]
+            for tok in toks:
+                try:
+                    v = int(tok)
+                except ValueError:
+                    raise SchedulerError("cron field token not an integer: {!r}".format(tok))
+                if not (lo <= v <= hi):
+                    raise SchedulerError("cron token {} out of range [{}, {}]".format(v, lo, hi))
 
 
 def _cron_next(spec: str, after_epoch: float) -> Optional[float]:
@@ -174,11 +203,13 @@ def create_job(job_id: str, kind: str, spec: str, *, prompt: str = "", skills: O
     try:
         if conn.execute("SELECT 1 FROM jobs WHERE id=?", (job_id,)).fetchone():
             return {"ok": False, "error": "job already exists: {}".format(job_id)}
-        if kind == "interval" and float(spec) < _MIN_INTERVAL:
-            return {"ok": False, "error": "interval below min {}s (runaway guard)".format(_MIN_INTERVAL)}
         try:
+            if kind == "interval" and float(spec) < _MIN_INTERVAL:
+                return {"ok": False, "error": "interval below min {}s (runaway guard)".format(_MIN_INTERVAL)}
+            if kind == "cron":
+                _validate_cron(spec)                 # fail closed on a malformed cron spec
             nxt = _compute_next(kind, spec, now)
-        except (SchedulerError, ValueError) as e:
+        except (SchedulerError, ValueError, ZeroDivisionError) as e:
             return {"ok": False, "error": str(e)}
         conn.execute(
             "INSERT INTO jobs(id,kind,spec,prompt,skills,workdir,delivery,on_empty,enabled,created,"
@@ -274,76 +305,89 @@ def _default_runner(job: Dict[str, Any], ctx: Dict[str, Any]) -> str:
     return "ran job {} (prompt chars={})".format(job["id"], len(job.get("prompt") or ""))
 
 
+def _execute_one(job: Dict[str, Any], now: float, runner: Callable, conn: sqlite3.Connection, *,
+                 delivery_fn: Optional[Callable] = None, alert_fn: Optional[Callable] = None,
+                 advance: bool = True, extra_ctx: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Run ONE job in its own session + apply delivery/alert. ``advance`` reschedules next_run
+    (scheduled fire); a manual/one-off run passes ``advance=False`` so it does not mutate the
+    durable schedule/enabled state. ``extra_ctx`` merges into the runner ctx (webhooks inject the
+    validated event here)."""
+    jid = job["id"]
+    if advance:
+        # advance schedule FIRST (durability: a restart mid-run won't refire this occurrence)
+        try:
+            nxt = None if job["kind"] == "once" else _compute_next(job["kind"], job["spec"], now)
+        except (SchedulerError, ValueError, ZeroDivisionError):
+            nxt = None
+        _set(conn, jid, next_run=nxt, last_run=now, fires=(job.get("fires") or 0) + 1)
+    else:
+        nxt = job.get("next_run")
+        _set(conn, jid, last_run=now, fires=(job.get("fires") or 0) + 1)
+
+    sid = "cron-{}-{}".format(jid, int(job.get("fires") or 0) + 1)
+    wd = job.get("workdir") or tempfile.mkdtemp(prefix="omegaclaw-cron-{}-".format(jid))
+    os.makedirs(wd, exist_ok=True)
+    chain_out = None
+    if job.get("chain_from"):
+        prev = get_job(job["chain_from"], conn=conn)
+        chain_out = prev.get("last_output") if prev else None
+    ctx = {"job": job, "workdir": wd, "chain_output": chain_out, "now": now}
+    if extra_ctx:
+        ctx.update(extra_ctx)
+    try:
+        session_store.begin_session(sid, channel="cron", task=job.get("prompt") or jid)
+    except Exception:  # noqa: BLE001
+        pass
+
+    _in_run.active = True
+    status, output, err = "ok", "", None
+    try:
+        output = str(runner(job, ctx) or "")
+    except Exception as e:  # noqa: BLE001 - a job failure is isolated + alerted
+        status, err = "error", str(e)
+    finally:
+        _in_run.active = False
+
+    _set(conn, jid, last_status=status, last_output=redact_secrets(output))
+    try:
+        session_store.record_snapshot(sid, 1, {"status": status, "output_chars": len(output)})
+        session_store.end_session(sid, status)
+    except Exception:  # noqa: BLE001
+        pass
+
+    delivered = alerted = False
+    if status == "error":
+        _alert(alert_fn, job, "job failed: {}".format(err))
+        alerted = True
+    elif not output.strip():
+        if job.get("on_empty") == "alert":
+            _alert(alert_fn, job, "job produced empty output")
+            alerted = True
+        # on_empty == "silent": watchdog stays quiet
+    else:
+        if delivery_fn is not None and job.get("delivery"):
+            try:
+                delivery_fn(job, output)
+            except Exception:  # noqa: BLE001
+                pass
+        delivered = True
+    return {"id": jid, "status": status, "session_id": sid, "next_run": nxt,
+            "delivered": delivered, "alerted": alerted, "error": err}
+
+
 def run_due(now: Optional[float] = None, runner: Optional[Callable] = None, *,
             delivery_fn: Optional[Callable] = None, alert_fn: Optional[Callable] = None,
             conn: Optional[sqlite3.Connection] = None) -> Dict[str, Any]:
     """Fire every job due at ``now`` (injected clock). Each runs in its own session; the persisted
-    ``next_run`` is advanced BEFORE running so a crash mid-run can't double-fire it. Returns a
-    structured batch report."""
+    ``next_run`` is advanced BEFORE running so a crash mid-run can't double-fire it."""
     now = time.time() if now is None else now
     runner = runner or _default_runner
     own = conn is None
     conn = conn or connect()
-    fired = []
     try:
-        due = due_jobs(now, conn=conn)
-        for job in due:
-            jid = job["id"]
-            # advance schedule FIRST (durability: a restart mid-run won't refire this occurrence)
-            try:
-                nxt = None if job["kind"] == "once" else _compute_next(job["kind"], job["spec"], now)
-            except (SchedulerError, ValueError):
-                nxt = None
-            _set(conn, jid, next_run=nxt, last_run=now, fires=(job.get("fires") or 0) + 1)
-
-            sid = "cron-{}-{}".format(jid, int(job.get("fires") or 0) + 1)
-            wd = job.get("workdir") or tempfile.mkdtemp(prefix="omegaclaw-cron-{}-".format(jid))
-            os.makedirs(wd, exist_ok=True)
-            chain_out = None
-            if job.get("chain_from"):
-                prev = get_job(job["chain_from"], conn=conn)
-                chain_out = prev.get("last_output") if prev else None
-            ctx = {"job": job, "workdir": wd, "chain_output": chain_out, "now": now}
-            try:
-                session_store.begin_session(sid, channel="cron", task=job.get("prompt") or jid)
-            except Exception:  # noqa: BLE001
-                pass
-
-            _in_run.active = True
-            status, output, err = "ok", "", None
-            try:
-                output = str(runner(job, ctx) or "")
-            except Exception as e:  # noqa: BLE001 - a job failure is isolated + alerted
-                status, err = "error", str(e)
-            finally:
-                _in_run.active = False
-
-            _set(conn, jid, last_status=status, last_output=redact_secrets(output))
-            try:
-                session_store.record_snapshot(sid, 1, {"status": status, "output_chars": len(output)})
-                session_store.end_session(sid, status)
-            except Exception:  # noqa: BLE001
-                pass
-
-            # delivery / alert policy
-            delivered = alerted = False
-            if status == "error":
-                _alert(alert_fn, job, "job failed: {}".format(err))
-                alerted = True
-            elif not output.strip():
-                if job.get("on_empty") == "alert":
-                    _alert(alert_fn, job, "job produced empty output")
-                    alerted = True
-                # on_empty == "silent": watchdog stays quiet
-            else:
-                if delivery_fn is not None and job.get("delivery"):
-                    try:
-                        delivery_fn(job, output)
-                    except Exception:  # noqa: BLE001
-                        pass
-                delivered = True
-            fired.append({"id": jid, "status": status, "session_id": sid, "next_run": nxt,
-                          "delivered": delivered, "alerted": alerted, "error": err})
+        fired = [_execute_one(job, now, runner, conn, delivery_fn=delivery_fn, alert_fn=alert_fn,
+                              advance=True)
+                 for job in due_jobs(now, conn=conn)]
         return {"ok": all(f["status"] != "error" for f in fired), "now": now,
                 "fired": fired, "count": len(fired)}
     finally:
@@ -362,19 +406,20 @@ def _alert(alert_fn, job, message):
 
 
 def run_now(job_id: str, runner: Optional[Callable] = None, **kw) -> Dict[str, Any]:
-    """Force-run a single job immediately (CLI ``cron run``), regardless of its schedule."""
+    """Force-run a single job immediately (CLI ``cron run``), regardless of its schedule.
+
+    A one-off manual run: it executes ONLY this job (never other due jobs) and does NOT mutate
+    durable pause/resume (``enabled``) or ``next_run`` — running a paused job leaves it paused."""
+    delivery_fn = kw.pop("delivery_fn", None)
+    alert_fn = kw.pop("alert_fn", None)
     conn = kw.pop("conn", None) or connect()
     try:
         job = get_job(job_id, conn=conn)
         if not job:
             return {"ok": False, "error": "no such job: {}".format(job_id)}
-        _set(conn, job_id, next_run=job.get("next_run") if job.get("next_run") is not None else 0)
-        # temporarily make it due
-        _set(conn, job_id, enabled=1, next_run=0)
-        r = run_due(now=time.time(), runner=runner, conn=conn, **kw)
-        # restore schedule for recurring jobs handled inside run_due; return the fired entry
-        entry = next((f for f in r["fired"] if f["id"] == job_id), None)
-        return {"ok": bool(entry) and entry["status"] != "error", "fired": entry}
+        entry = _execute_one(job, time.time(), runner or _default_runner, conn,
+                             delivery_fn=delivery_fn, alert_fn=alert_fn, advance=False)
+        return {"ok": entry["status"] != "error", "fired": entry}
     finally:
         conn.close()
 
@@ -446,10 +491,11 @@ def webhook_event(sub_id: str, payload, signature: Optional[str] = None,
             event = {"raw": True}
 
         def _webhook_runner(job, ctx):
+            # the validated, parsed event is injected into ctx by _execute_one(extra_ctx=...)
             if runner is not None:
                 return runner(job, ctx)
-            return "webhook {} event handled (keys={})".format(sub_id, ",".join(sorted(event.keys()))
-                                                               if isinstance(event, dict) else "?")
+            keys = ",".join(sorted(event.keys())) if isinstance(event, dict) else "?"
+            return "webhook {} event handled (keys={})".format(sub_id, keys)
         # Collision-resistant transient id (random suffix), and — critically — only remove the
         # job if WE created it, so a webhook can never delete a pre-existing durable job whose id
         # happens to collide (the old predictable modulo id + unconditional remove could).
@@ -464,8 +510,10 @@ def webhook_event(sub_id: str, payload, signature: Optional[str] = None,
             return {"ok": False, "error": "could not create transient webhook job: {}".format(
                 created.get("error")), "sub_id": sub_id, "event_valid": True}
         try:
-            r = run_due(now=time.time(), runner=_webhook_runner, conn=conn)
-            entry = next((f for f in r["fired"] if f["id"] == jid), None)
+            job = get_job(jid, conn=conn)
+            # run ONLY this transient job, passing the validated event into the runner ctx
+            entry = _execute_one(job, time.time(), _webhook_runner, conn, advance=False,
+                                 extra_ctx={"event": event})
         finally:
             remove(jid, conn=conn)   # transient — safe: this id is unique and we created it
         return {"ok": bool(entry) and entry["status"] != "error", "sub_id": sub_id,
