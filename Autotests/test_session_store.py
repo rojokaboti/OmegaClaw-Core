@@ -101,6 +101,78 @@ def test_ingest_trace():
         _clean()
 
 
+def test_meta_redacted_in_show_and_export():
+    """Regression (PR #40 review): begin_session meta is persisted+exported, so it must be
+    redacted at rest too — a secret in meta must not appear in show/export."""
+    _db()
+    try:
+        ss.begin_session("s1", task="t", meta={
+            "api_key": "sk-proj-ABCDEFGHIJKLMNOP1234",
+            "nested": {"token": "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ012345"}})
+        blob = json.dumps(ss.export("s1")) + json.dumps(ss.show("s1"))
+        assert "sk-proj-ABCDEFGHIJKLMNOP" not in blob and "ghp_ABCDEFGHIJKLMNOP" not in blob
+        assert "[REDACTED:" in blob
+    finally:
+        _clean()
+
+
+def test_reused_session_id_clears_stale_rows():
+    """Regression (PR #40 review): a reused/collided session id must not carry stale
+    transcript/search content into the new session (no FK cascades)."""
+    _db()
+    try:
+        ss.begin_session("same", task="old")
+        ss.record_message("same", 1, "user", "zebrafishtoken")
+        ss.record_tool_call("same", 1, "shell", "oldcmd", "oldresult", True)
+        ss.record_snapshot("same", 1, {"old": "state"})
+        # restart the same id
+        ss.begin_session("same", task="new")
+        ss.record_message("same", 1, "user", "dolphincontent")
+        shown = ss.show("same")
+        assert [m["text"] for m in shown["messages"]] == ["dolphincontent"]
+        assert shown["tool_calls"] == []                       # old tool call gone
+        assert ss.resume("same")["latest_snapshot"] is None    # old snapshot gone
+        assert ss.search("zebrafishtoken") == []               # old search row gone
+        assert ss.search("dolphincontent")[0]["session_id"] == "same"
+    finally:
+        _clean()
+
+
+def test_ingest_real_tracing_trace():
+    """Regression (PR #40 review): ingest must handle the ACTUAL src.tracing phases
+    (iteration_start/llm_call/action_parse/policy_decision/iteration_result/...), producing
+    searchable summaries even without bodies."""
+    d = tempfile.mkdtemp()
+    trace = os.path.join(d, "tr.jsonl")
+    os.environ["OMEGACLAW_TRACE_PATH"] = trace
+    os.environ.pop("OMEGACLAW_TRACE_DISABLE", None)
+    _db()
+    try:
+        import tracing
+        tracing.reset()
+        tracing.begin_session("run-1")
+        tracing.begin_iteration(1, input_text="deploy the widget service")
+        tracing.trace_llm(provider="Anthropic", model="claude-opus", prompt="p", response="r")
+        tracing.trace_parse(ok=True, source="json", tools=["shell", "send"])
+        tracing.trace_policy(tool="shell", allowed=True, reason="ok", risk="high")
+        tracing.end_iteration("deploy completed")
+
+        r = ss.ingest_trace(trace)
+        assert r["ok"] and r["sessions"] == 1
+        shown = ss.show("run-1")
+        assert shown["ok"] and shown["messages"], "ingest produced no messages"
+        assert shown["tool_calls"], "ingest produced no tool calls"
+        # searchable by tool name and provider even though bodies were not recorded
+        assert ss.search("shell")[0]["session_id"] == "run-1"
+        assert ss.search("Anthropic")[0]["session_id"] == "run-1"
+        assert shown["session"]["provider"] == "Anthropic"
+    finally:
+        os.environ.pop("OMEGACLAW_TRACE_PATH", None)
+        _clean()
+        import tracing
+        tracing.reset()
+
+
 def test_list_and_missing_session():
     _db()
     try:

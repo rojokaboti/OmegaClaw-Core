@@ -103,6 +103,24 @@ def _conn_path(conn: sqlite3.Connection) -> str:
     return db_path()
 
 
+def _clear_session_rows(conn: sqlite3.Connection, session_id: str) -> None:
+    """Drop all dependent rows for a session id (messages/tool_calls/snapshots/search index).
+
+    There are no FK cascades, so a reused/collided id must be cleared explicitly — otherwise
+    stale transcript/search content bleeds into the new session (a correctness + privacy issue,
+    PR #40 review)."""
+    for tbl in ("messages", "tool_calls", "snapshots"):
+        conn.execute("DELETE FROM {} WHERE session_id=?".format(tbl), (session_id,))
+    if _has_fts(conn):
+        # FTS5 ignores DELETE ... WHERE <unindexed col>; delete by rowid instead.
+        rowids = [r[0] for r in conn.execute(
+            "SELECT rowid FROM search_fts WHERE session_id=?", (session_id,)).fetchall()]
+        for rid in rowids:
+            conn.execute("DELETE FROM search_fts WHERE rowid=?", (rid,))
+    else:
+        conn.execute("DELETE FROM search_like WHERE session_id=?", (session_id,))
+
+
 def _index(conn: sqlite3.Connection, session_id: str, kind: str, content: str) -> None:
     content = redact_secrets(content or "")
     if _has_fts(conn):
@@ -120,11 +138,16 @@ def begin_session(session_id: str, *, provider: str = "", channel: str = "", tas
     own = conn is None
     conn = conn or connect()
     try:
+        # begin = a FRESH session: clear any prior rows for a reused/collided id so stale
+        # transcript/search content can't bleed in (replace semantics), transactionally.
+        _clear_session_rows(conn, session_id)
+        # meta is persisted + exported, so it must be redacted at rest too (PR #40 review).
+        meta_str = redact_secrets(json.dumps(meta or {}, ensure_ascii=False))
         conn.execute(
             "INSERT OR REPLACE INTO sessions(id, started_at, ended_at, provider, channel, task, "
             "status, turns, meta) VALUES (?,?,?,?,?,?,?,?,?)",
             (session_id, time.time(), None, provider, channel, redact_secrets(task or ""),
-             "active", 0, json.dumps(meta or {})))
+             "active", 0, meta_str))
         _index(conn, session_id, "task", task or "")
         conn.commit()
     finally:
@@ -319,8 +342,14 @@ def export(session_id: str, conn: Optional[sqlite3.Connection] = None) -> Dict[s
 # --------------------------------------------------------------------------- trace ingest
 
 def ingest_trace(path: str, conn: Optional[sqlite3.Connection] = None) -> Dict[str, Any]:
-    """Backfill sessions from a reasoning-trace JSONL (what every run already writes). Maps
-    llm/parse/result/error events into messages + tool_calls. Best-effort per line."""
+    """Backfill sessions from a reasoning-trace JSONL (what every run writes via ``src.tracing``).
+
+    Maps the ACTUAL tracing phases — ``iteration_start`` / ``llm_call`` / ``action_parse`` /
+    ``policy_decision`` / ``iteration_result`` / ``error`` / ``iteration_end`` — into messages +
+    tool calls. Produces useful **searchable summaries even without bodies** (tool names,
+    provider/model, result size, error codes); when ``OMEGACLAW_TRACE_BODIES`` was set, the
+    redacted prompt/response/result/failed-action bodies are ingested too. Best-effort per line.
+    """
     own = conn is None
     conn = conn or connect()
     ingested = set()
@@ -339,26 +368,47 @@ def ingest_trace(path: str, conn: Optional[sqlite3.Connection] = None) -> Dict[s
                 if not sid:
                     continue
                 if sid not in ingested:
-                    begin_session(sid, provider=ev.get("provider", "") or "",
-                                  task="(ingested from trace)", conn=conn)
+                    begin_session(sid, task="(ingested from trace)", conn=conn)
                     ingested.add(sid)
                 turn = ev.get("iteration") or ev.get("turn_id") or 0
                 phase = ev.get("phase")
-                if phase == "llm":
-                    record_message(sid, turn, "assistant",
-                                   ev.get("response") or "(llm response, chars={})".format(ev.get("response_chars", "?")),
-                                   conn=conn)
-                elif phase == "input":
-                    record_message(sid, turn, "user",
-                                   ev.get("input") or "(input, chars={})".format(ev.get("input_chars", "?")), conn=conn)
-                elif phase == "result":
-                    record_tool_call(sid, turn, "result", "", ev.get("result_text") or "", True, conn=conn)
+
+                if phase in ("llm_call", "llm"):
+                    provider, model = ev.get("provider") or "", ev.get("model") or ""
+                    if provider:
+                        conn.execute("UPDATE sessions SET provider=? WHERE id=? AND (provider IS NULL OR provider='')",
+                                     (provider, sid))
+                    body = ev.get("response_body") or ev.get("response")
+                    text = body or "llm_call provider={} model={} response_chars={}".format(
+                        provider or "?", model or "?", ev.get("response_chars", "?"))
+                    record_message(sid, turn, "assistant", text, conn=conn)
+                elif phase in ("iteration_start", "input"):
+                    body = ev.get("input_body") or ev.get("input")
+                    if body:
+                        record_message(sid, turn, "user", body, conn=conn)
+                elif phase == "action_parse":
+                    tools = ev.get("tools") or []
+                    record_message(sid, turn, "system", "action_parse source={} ok={} tools={}".format(
+                        ev.get("source"), ev.get("ok"), ",".join(str(t) for t in tools)), conn=conn)
+                    for t in tools:                       # one tool_call per parsed tool (searchable)
+                        record_tool_call(sid, turn, str(t), "", "(parsed)", ev.get("ok") is not False, conn=conn)
+                elif phase == "policy_decision":
+                    record_tool_call(sid, turn, ev.get("tool") or "policy",
+                                     "risk={}".format(ev.get("risk")), ev.get("reason") or "",
+                                     ev.get("allowed") is not False, conn=conn)
+                elif phase in ("iteration_result", "result"):
+                    body = ev.get("result_body") or ev.get("result_text")
+                    record_tool_call(sid, turn, "result", "",
+                                     body or "result_chars={}".format(ev.get("result_chars", "?")),
+                                     True, conn=conn)
                 elif phase == "error":
-                    record_tool_call(sid, turn, ev.get("code") or "error", ev.get("failed_action") or "",
+                    record_tool_call(sid, turn, ev.get("code") or ev.get("error_type") or "error",
+                                     ev.get("failed_action") or "",
                                      ev.get("repair_hint") or ev.get("message") or "", False, conn=conn)
                 n += 1
         for sid in ingested:
             end_session(sid, "ingested", conn=conn)
+        conn.commit()
         return {"ok": True, "sessions": len(ingested), "events": n}
     except OSError as e:
         return {"ok": False, "error": str(e)}

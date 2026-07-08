@@ -9,10 +9,10 @@ Synthetic corpus of **1000 sessions** (each tagged with a unique keyword; half i
 | --- | --- | --- |
 | Sessions indexed | 1000 | 1000 |
 | recall@5 (target >= 0.90) | 0.0 | 1.0 |
-| Avg search latency ms over 1k corpus (target < 500) | None | 0.133 |
+| Avg search latency ms over 1k corpus (target < 500) | None | 0.137 |
 | Resume success (target >= 0.80) | 0.0 | 1.0 |
 | Secret leaks in search/export (target 0) | 0 | 0 |
 
-Candidate indexes **1000** sessions, finds the right session at recall@5 **1.00** in **0.13 ms** avg, resumes **100%** of interrupted fixtures, and leaks **0** secrets — the baseline requires manual log parsing.
+Candidate indexes **1000** sessions, finds the right session at recall@5 **1.00** in **0.14 ms** avg, resumes **100%** of interrupted fixtures, and leaks **0** secrets — the baseline requires manual log parsing.
 
 Reproduce: `python3 benchmarks/session_store_benchmark.py`

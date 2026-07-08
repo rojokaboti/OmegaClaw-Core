@@ -11,7 +11,7 @@
     "sessions": 1000,
     "search_sample": 200,
     "recall_at_5": 1.0,
-    "avg_search_latency_ms": 0.133,
+    "avg_search_latency_ms": 0.137,
     "resume_rate": 1.0,
     "secret_leaks": 0
   }

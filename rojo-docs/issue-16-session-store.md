@@ -71,6 +71,28 @@ export output. Baseline (raw logs) offers none of this. `sys.exit(1)` on regress
 - **Live wiring (documented):** `sessions ingest memory/traces/<date>.jsonl` backfills the store
   from any run's reasoning trace (the trace already carries the `session_id`).
 
+### Post-review fix (PR #40 review) — two persistence-contract bugs
+1. **`meta` persisted/exported unredacted.** Everything else was redacted, but `begin_session`
+   stored `json.dumps(meta)` raw, so a secret in `meta` leaked via `show`/`export`. **Fix:**
+   `meta` is now `redact_secrets(json.dumps(meta))`-ed at rest like every other field.
+2. **Reusing a session id kept stale rows.** `INSERT OR REPLACE` updated the sessions row but
+   left old `messages`/`tool_calls`/`snapshots`/search rows attached (no FK cascades), so a
+   restarted id mixed unrelated old context into `show`/`resume`/`search` (correctness +
+   privacy). **Fix:** `begin_session` = a fresh session — `_clear_session_rows` transactionally
+   deletes all dependent rows first (FTS5 rows deleted **by rowid**, since FTS5 ignores
+   `DELETE ... WHERE <unindexed col>`). Regression tests:
+   `test_meta_redacted_in_show_and_export`, `test_reused_session_id_clears_stale_rows`.
+3. **`ingest_trace` used the wrong phase names.** It handled invented phases
+   (`llm`/`input`/`result`) but `src.tracing` actually emits `iteration_start` / `llm_call` /
+   `action_parse` / `policy_decision` / `iteration_result` / `error` / `iteration_end`, so real
+   traces created a session row with **no** searchable/resumable content. **Fix:** map the real
+   phases, producing useful searchable summaries even **without** bodies (tool names from
+   `action_parse.tools`, provider/model from `llm_call`, result size, error codes) and ingesting
+   the redacted prompt/response/result bodies when `OMEGACLAW_TRACE_BODIES` was set; also capture
+   the session provider. Regression test `test_ingest_real_tracing_trace` generates a trace
+   **through `src.tracing`**, ingests it, and asserts `show`/`search` contain the event summaries
+   (searchable by tool name + provider). Suite now 9 tests; KPI gate still passes.
+
 ## 6. Reviewer guide
 
 ```bash
