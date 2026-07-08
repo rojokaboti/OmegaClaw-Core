@@ -1,6 +1,13 @@
 # Experiment — OmegaClaw PLN reasoning vs plain LLM (FreeCiv A/B)
 
-**Branch:** `exp/freeciv-ab-pln-vs-llm` · **Run:** `ab_runs/20260707T082249Z`, seed 42 · 2026-07-07
+**Branch:** `exp/freeciv-ab-pln-vs-llm` · **Runs:** `ab_runs/20260707T082249Z` (run 1) and
+`ab_runs/20260708T143034Z` (run 2, clean) · seed 42 · 2026-07-07 → 2026-07-08
+
+> **Latest, cleanest result first — see [Run 2](#run-2--clean-0-reconnects-2026-07-08) below.**
+> Run 2 is the first fully clean same-seed A/B (0 reconnects, 0 LLM errors, desktop kept awake).
+> In it the **plain LLM out-developed the PLN arm** (3 vs 1 peak cities, 11 vs 8 techs) and the
+> **PLN arm was eliminated first (turn 258)**. This is a single seed and both arms played weakly, so
+> it is directional, not conclusive — but it does **not** support the hypothesis that PLN helps here.
 
 ## Hypothesis
 Augmenting an LLM's per-turn state view with **symbolic PLN-derived recommendations** (OmegaClaw's
@@ -68,6 +75,46 @@ A crude metric-count favors plain (more cities + techs), but that is **not** a s
 it hurts. It demonstrates a **working, reproducible A/B method** and that **authentic PLN inference
 runs in the live loop** — but a real claim needs (a) score/gold extraction fixed, (b) many seeded
 pairs, and (c) deeper/decision-changing rules.
+
+## Run 2 — clean (0 reconnects) — 2026-07-08
+**Run:** `ab_runs/20260708T143034Z`, seed 42, same matched controls as run 1. This is the first run
+with the desktop kept awake the whole time, so it is the first **valid** dataset: **0 reconnects,
+0 LLM errors, 0 illegal actions** on both arms across **257 advanced turns**. (Run 1 had a
+score-extraction gap and a mid-run plateau; run 2 supersedes it for the head-to-head development
+comparison, though the score/gold caveat below still applies to both.)
+
+Both arms ran on the same seed until the **PLN player lost its last city+unit at turn 258** (arm
+eliminated); the plain arm outlasted it (still 1 city). The sims were then stopped — with the PLN
+player wiped, the turn could no longer be driven forward.
+
+| Metric | pln (OmegaClaw+PLN) | plain (LLM only) | winner |
+|---|---|---|---|
+| Peak cities | 1 | **3** | plain |
+| Peak techs | 8 | **11** | plain |
+| Peak units | 21 | **29** | plain |
+| Final (t258) cities / units | 0 / 0 (**eliminated**) | 1 / 0 | plain (survived) |
+| Actions submitted | 490 | 754 | — |
+| Illegal-action rate | 0.00 | 0.00 | tie |
+| Turns advanced | 257 | 257 | tie |
+| Avg LLM ms | 1646 | 3202 | — |
+| Avg reason ms | 227 | — | pln only |
+| PLN conclusions/turn | 1.9 | 0 | by design |
+| Reconnects / LLM errors | 0 / 0 | 0 / 0 | tie |
+
+**Run-2 verdict: plain LLM developed better and survived longer.** On every development axis
+(cities, techs, units) plain led, and the PLN arm was the one eliminated. Caveats that keep this
+from being a final claim: (a) **n = 1 seed** — one matched pair; (b) **both arms played poorly** —
+1–3 cities at turn 250+ means the AI opponents dominated both, so this measures a weak FreeCiv
+player more than it isolates PLN's marginal effect; (c) score/gold/science still unavailable (proxy
+`player.score=-1`), so "development" rests on cities/techs/units/survival, not the game's own score;
+(d) the PLN "treatment" is still one-hop (situation→priority), a modest prompt nudge. Notably the
+PLN arm also **submitted far fewer actions (490 vs 754)** — a lead worth investigating: the derived
+recommendations may be narrowing rather than enriching the LLM's action set.
+
+**Combined bottom line (runs 1 + 2):** two same-seed pairs, no evidence that PLN *improves* play;
+run 2 (the clean one) is mildly *against* the hypothesis. The harness and authentic in-loop PLN
+inference are proven; a real claim still needs many seeded pairs, deeper decision-changing rules,
+and ideally a stronger base agent that isn't getting crushed by the AI in the opening.
 
 ## What this experiment did establish
 - A reproducible in-container A/B harness (`ab_sim.py`/`ab_report.py`/`ab_run.sh`) with matched
