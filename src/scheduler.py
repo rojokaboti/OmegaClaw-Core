@@ -122,11 +122,18 @@ def _cron_matches(spec: str, t: time.struct_time) -> bool:
     if len(fields) != 5:
         raise SchedulerError("cron spec must have 5 fields (m h dom mon dow): {!r}".format(spec))
     m, h, dom, mon, dow = fields
-    return (_cron_field_match(m, t.tm_min, 0, 59) and _cron_field_match(h, t.tm_hour, 0, 23)
-            and _cron_field_match(dom, t.tm_mday, 1, 31) and _cron_field_match(mon, t.tm_mon, 1, 12)
-            and _cron_field_match(dow, t.tm_wday if t.tm_wday != 6 else 0, 0, 6)
-            # normalize: cron dow 0=Sun; python tm_wday 0=Mon..6=Sun
-            or _cron_field_match(dow, (t.tm_wday + 1) % 7, 0, 6))
+    # cron day-of-week: 0 or 7 = Sunday, 1=Mon..6=Sat. Python tm_wday: 0=Mon..6=Sun.
+    cron_dow = (t.tm_wday + 1) % 7                       # -> 0=Sun,1=Mon,..,6=Sat
+    dow_ok = (_cron_field_match(dow, cron_dow, 0, 6)
+              or (cron_dow == 0 and _cron_field_match(dow, 7, 0, 7)))   # accept "7" for Sunday
+    # ALL five fields must match (the dow term stays INSIDE the conjunction — a `*` dow must not
+    # short-circuit the minute/hour/day/month checks, which previously let daily specs fire every
+    # minute).
+    return (_cron_field_match(m, t.tm_min, 0, 59)
+            and _cron_field_match(h, t.tm_hour, 0, 23)
+            and _cron_field_match(dom, t.tm_mday, 1, 31)
+            and _cron_field_match(mon, t.tm_mon, 1, 12)
+            and dow_ok)
 
 
 def _cron_next(spec: str, after_epoch: float) -> Optional[float]:
@@ -443,15 +450,24 @@ def webhook_event(sub_id: str, payload, signature: Optional[str] = None,
                 return runner(job, ctx)
             return "webhook {} event handled (keys={})".format(sub_id, ",".join(sorted(event.keys()))
                                                                if isinstance(event, dict) else "?")
-        jid = "wh-{}-{}".format(sub_id, int(time.time() * 1000) % 1000000)
-        # create a transient one-shot job (due now) and run it immediately
-        create_job(jid, "once", str(time.time()), prompt=template.get("prompt", ""),
-                   skills=template.get("skills"), on_empty=template.get("on_empty", "silent"),
-                   meta={"webhook": sub_id, "event_keys": sorted(event.keys()) if isinstance(event, dict) else []},
-                   now=0, conn=conn)
-        r = run_due(now=time.time(), runner=_webhook_runner, conn=conn)
-        entry = next((f for f in r["fired"] if f["id"] == jid), None)
-        remove(jid, conn=conn)   # transient
+        # Collision-resistant transient id (random suffix), and — critically — only remove the
+        # job if WE created it, so a webhook can never delete a pre-existing durable job whose id
+        # happens to collide (the old predictable modulo id + unconditional remove could).
+        import uuid
+        jid = "wh-{}-{}".format(sub_id, uuid.uuid4().hex[:16])
+        created = create_job(jid, "once", str(time.time()), prompt=template.get("prompt", ""),
+                             skills=template.get("skills"), on_empty=template.get("on_empty", "silent"),
+                             meta={"webhook": sub_id,
+                                   "event_keys": sorted(event.keys()) if isinstance(event, dict) else []},
+                             now=0, conn=conn)
+        if not created.get("ok"):
+            return {"ok": False, "error": "could not create transient webhook job: {}".format(
+                created.get("error")), "sub_id": sub_id, "event_valid": True}
+        try:
+            r = run_due(now=time.time(), runner=_webhook_runner, conn=conn)
+            entry = next((f for f in r["fired"] if f["id"] == jid), None)
+        finally:
+            remove(jid, conn=conn)   # transient — safe: this id is unique and we created it
         return {"ok": bool(entry) and entry["status"] != "error", "sub_id": sub_id,
                 "fired": entry, "event_valid": True}
     finally:

@@ -81,6 +81,21 @@ after restart, drift within threshold).
 - CLI exercised by hand: create cron/interval jobs, `run`, `tick`, `webhook subscribe` + a valid
   event (runs) + an invalid signature (`REJECTED`, exit 1).
 
+### Post-review fix (PR #42 review) — two correctness bugs
+1. **Cron matching ignored minute/hour/dom/mon for many specs.** An operator-precedence bug left
+   the second DOW term OUTSIDE the conjunction (`… and dow_a or dow_b`), so a `*` DOW made daily/
+   monthly specs match **every minute** (`0 0 * * *` fired at 12:34) — a real autonomous-runaway/
+   cost risk. **Fix:** DOW is computed as a single value (with `0`/`7` = Sunday normalization) and
+   kept **inside** the five-field conjunction. Verified `0 0 * * *` @12:34 → False, next fire next
+   midnight; `*/5` → next boundary; DOW specs no longer bypass minute/hour.
+2. **Webhook transient job id could collide with + delete a durable job.** The id used a small
+   predictable `time%1e6` space, `create_job`'s result was unchecked, and `remove(jid)` ran
+   unconditionally — so a valid webhook could delete an unrelated durable job on collision.
+   **Fix:** collision-resistant `uuid4` suffix, abort if creation failed, and only `remove` the id
+   we actually created (in a `finally`). Verified a forced collision leaves the durable job intact.
+Regression tests: `test_cron_respects_all_five_fields`,
+`test_webhook_transient_id_never_deletes_durable_job`. Suite now 11 tests; KPI gate still passes.
+
 ## 6. Reviewer guide
 
 ```bash

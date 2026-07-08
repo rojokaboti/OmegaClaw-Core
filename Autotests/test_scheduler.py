@@ -145,6 +145,53 @@ def test_recursion_guard():
         _clean()
 
 
+def test_cron_respects_all_five_fields():
+    """Regression (PR #42 review): a `*` DOW must not short-circuit the minute/hour/dom/mon
+    checks (daily/monthly specs were firing every minute)."""
+    import calendar
+    import time as _t
+
+    def gm(s):
+        return _t.gmtime(calendar.timegm(_t.strptime(s, "%Y-%m-%d %H:%M")))
+
+    # 0 0 * * * must NOT match midday, and its next fire is the next midnight
+    assert sch._cron_matches("0 0 * * *", gm("2026-07-08 12:34")) is False
+    nxt = sch._cron_next("0 0 * * *", calendar.timegm(_t.strptime("2026-07-08 12:34", "%Y-%m-%d %H:%M")))
+    assert _t.strftime("%Y-%m-%d %H:%M", _t.gmtime(nxt)) == "2026-07-09 00:00"
+    # */5 from an off-minute → next 5-minute boundary
+    off = calendar.timegm(_t.strptime("2026-07-08 12:34", "%Y-%m-%d %H:%M"))
+    assert _t.strftime("%H:%M", _t.gmtime(sch._cron_next("*/5 * * * *", off))) == "12:35"
+    # DOW-specific spec: matches only when minute/hour also match (2026-07-06 is a Monday)
+    assert sch._cron_matches("0 9 * * 1", gm("2026-07-06 09:00")) is True
+    assert sch._cron_matches("30 9 * * 1", gm("2026-07-06 09:00")) is False   # minute mismatch
+    assert sch._cron_matches("0 9 * * 1", gm("2026-07-07 09:00")) is False    # Tuesday
+
+
+def test_webhook_transient_id_never_deletes_durable_job():
+    """Regression (PR #42 review): a webhook's transient job must not delete a pre-existing
+    durable job even if the generated id collides."""
+    import uuid
+    _db()
+    try:
+        sch.webhook_subscribe("gh", "", {"prompt": "x"})
+        fixed = "abcdef0123456789"
+
+        class _U:
+            hex = fixed
+        orig = uuid.uuid4
+        uuid.uuid4 = lambda: _U()
+        try:
+            sch.create_job("wh-gh-" + fixed, "once", "9999999999", prompt="DURABLE", now=0)
+            r = sch.webhook_event("gh", {"e": "push"}, runner=lambda j, c: "ok")
+        finally:
+            uuid.uuid4 = orig
+        assert r["ok"] is False and "already exists" in (r.get("error") or "")
+        assert sch.get_job("wh-gh-" + fixed) is not None          # durable job survived
+        assert sch.get_job("wh-gh-" + fixed)["prompt"] == "DURABLE"
+    finally:
+        _clean()
+
+
 def test_webhook_signature_validation():
     _db()
     try:
