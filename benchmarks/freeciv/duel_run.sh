@@ -30,8 +30,17 @@ launch () {  # container_suffix game_id pln_side out_subdir
   echo "launched $1: game_id=$2 pln_side=$3 -> $BASE/$4"
 }
 
-# g1: PLN is player slot 0 ; g2 (mirror): PLN is player slot 1
+# g1: PLN is player slot 0 ; g2 (mirror): PLN is player slot 1.
+# STAGGER: start g1, wait until it reaches a populated turn, THEN start g2 — two 1v1 games starting
+# their pregame simultaneously contend on the proxy and both fail, so we serialize the starts.
 launch g1 "duel1_$TS" 0 g1
+echo "waiting for g1 to reach turn 1 before starting g2 (avoids concurrent-pregame contention)..."
+for i in $(seq 1 45); do
+  sleep 4
+  if [ -f "$REPO/$BASE/g1/duel.heartbeat" ] && grep -q '"turn"' "$REPO/$BASE/g1/duel.heartbeat" 2>/dev/null; then
+    echo "g1 populated (turn seen after ~$((i*4))s) — launching g2"; break
+  fi
+done
 launch g2 "duel2_$TS" 1 g2
 
 echo "$REPO/$BASE" > "$REPO/benchmarks/freeciv/ab_runs/LATEST_DUEL"
