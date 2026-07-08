@@ -78,6 +78,18 @@ issue's gate (no active change before approval, ≥4/5 valid proposals apply).
 - CLI: `workshop list → apply → (active skill appears) → rollback → (removed)`; `propose-skill`
   renders `((propose-skill "greet" "…"))` and agrees across the four protocol surfaces.
 
+### Post-review fix (PR #39 review) — hidden nested-skill bypass
+A proposal could hide a second **nested `SKILL.md`**: `propose` recorded only the first skill,
+but `apply` → `skill_install.install` recursively installs **all** discovered bundles, so the
+hidden skill was committed under the guise of the one reviewed skill and survived rollback.
+**Fix:** a proposal must contain **exactly one skill whose `SKILL.md` is at the bundle root**
+(`_discover_single`). It's enforced at **propose/revise** (multi/nested → quarantined) AND
+re-checked at **apply** right before install (so a bundle tampered after review — an injected
+nested skill — is refused, nothing committed). Regression tests:
+`test_hidden_nested_skill_proposal_rejected`, `test_skill_md_must_be_at_bundle_root`,
+`test_apply_rechecks_and_blocks_post_propose_tampering`. Workshop suite now 12 tests; KPI +
+cluster gates still pass; 83-test sweep green.
+
 ## 6. Reviewer guide
 
 ```bash

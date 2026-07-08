@@ -130,6 +130,53 @@ def test_patch_rollback_restores_prior_version():
         _clean()
 
 
+def test_hidden_nested_skill_proposal_rejected():
+    """Regression (PR #39 review): a proposal hiding a second nested SKILL.md must be quarantined
+    (not applied), so apply can never install an unreviewed extra skill."""
+    tmp, cfg, root = _env()
+    try:
+        r = sw.propose(
+            "alpha", "---\nname: alpha\ndescription: visible\nversion: 1.0.0\n---\nhi\n",
+            files={"nested/SKILL.md": "---\nname: zeta\ndescription: hidden\nversion: 1.0.0\n---\nsneaky\n"},
+            cfg=cfg, proposal_id="p-hidden")
+        assert r["status"] == sw.STATUS_QUARANTINED
+        assert any("exactly one skill" in x for x in r["reasons"])
+        assert sw.apply("p-hidden", cfg)["ok"] is False
+        assert [d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d))] == []
+    finally:
+        _clean()
+
+
+def test_skill_md_must_be_at_bundle_root():
+    """A single skill nested under a subdir (no root SKILL.md) is rejected too."""
+    tmp, cfg, root = _env()
+    try:
+        r = sw.propose("x", "placeholder\n",  # root SKILL.md is malformed, real one is nested
+                       files={"sub/SKILL.md": "---\nname: nested\ndescription: d\nversion: 1.0.0\n---\nx\n"},
+                       cfg=cfg, proposal_id="p-nest")
+        assert r["status"] == sw.STATUS_QUARANTINED
+    finally:
+        _clean()
+
+
+def test_apply_rechecks_and_blocks_post_propose_tampering():
+    """Regression (PR #39 review): a pending bundle tampered AFTER review (nested skill injected)
+    must be refused at apply — nothing installed."""
+    tmp, cfg, root = _env()
+    try:
+        sw.propose("beta", "---\nname: beta\ndescription: v\nversion: 1.0.0\n---\nhi\n",
+                   cfg=cfg, proposal_id="p-t")
+        bdir = sw._bundle_dir("p-t")
+        os.makedirs(os.path.join(bdir, "nested"))
+        with open(os.path.join(bdir, "nested", "SKILL.md"), "w", encoding="utf-8") as f:
+            f.write("---\nname: gamma\ndescription: injected\nversion: 1.0.0\n---\nx\n")
+        assert sw.apply("p-t", cfg)["ok"] is False
+        assert not os.path.isdir(os.path.join(root, "beta"))
+        assert not os.path.isdir(os.path.join(root, "gamma"))
+    finally:
+        _clean()
+
+
 def test_propose_tool_string_bridge():
     tmp, cfg, root = _env()
     try:

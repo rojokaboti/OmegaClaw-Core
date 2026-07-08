@@ -109,19 +109,38 @@ def _bundle_dir(pid: str) -> str:
     return os.path.join(_proposal_dir(pid), "bundle")
 
 
-def _validate_and_scan(bundle_dir: str) -> Dict[str, Any]:
-    """Return {ok, status, name, reasons, findings} for a staged bundle.
+def _discover_single(bundle_dir: str):
+    """Return ``(skill, None)`` iff the bundle contains EXACTLY ONE skill whose SKILL.md sits at
+    the bundle ROOT; else ``(None, reason)``.
 
-    Malformed (no valid SKILL.md) or unsafe (install_policy HIGH) -> quarantined."""
+    A proposal is one reviewed skill. Rejecting extra or nested SKILL.md files closes the
+    governance bypass where a hidden nested bundle would be installed under the guise of the one
+    reviewed skill and survive rollback (Issue #14 review)."""
     skill_loader.reset_cache()
     skills, errors = skill_loader.load_skills(
         {"version": 1, "roots": [bundle_dir], "include_plugin_skill_roots": False})
     if not skills:
-        detail = errors[0].message if errors else "no valid SKILL.md"
+        return None, "malformed: " + (errors[0].message if errors else "no valid SKILL.md")
+    if len(skills) != 1:
+        return None, ("a proposal must contain exactly one skill, but {} were found ({}) — "
+                      "hidden/nested SKILL.md files are not allowed".format(
+                          len(skills), ", ".join(sorted(skills))))
+    sk = next(iter(skills.values()))
+    if os.path.realpath(sk.base_dir) != os.path.realpath(bundle_dir):
+        return None, ("SKILL.md must be at the proposal bundle root, not nested (found under {})"
+                      .format(os.path.relpath(sk.base_dir, bundle_dir)))
+    return sk, None
+
+
+def _validate_and_scan(bundle_dir: str) -> Dict[str, Any]:
+    """Return {ok, status, name, reasons, findings} for a staged bundle.
+
+    Malformed / multi-or-nested-skill / unsafe (install_policy HIGH) -> quarantined."""
+    sk, err = _discover_single(bundle_dir)
+    if err is not None:
         return {"ok": False, "status": STATUS_QUARANTINED, "name": None,
-                "reasons": ["malformed: " + detail], "findings": []}
-    name = sorted(skills)[0]
-    sk = skills[name]
+                "reasons": [err], "findings": []}
+    name = sk.name
     report = install_policy.scan_bundle(sk.base_dir, declared_env=sk.required_environment_variables)
     decision = install_policy.decide(report)
     findings = [str(f) for f in report.findings]
@@ -302,6 +321,16 @@ def apply(pid: str, cfg: Optional[Dict[str, Any]] = None, *, approve_high: bool 
         return {"ok": False, "error": "no such proposal: {}".format(pid)}
     if meta["status"] != STATUS_PENDING:
         return {"ok": False, "error": "proposal is {!r}, only 'pending' can be applied".format(meta["status"])}
+
+    # Re-verify the single-skill-at-root invariant at APPLY time (not just at propose), so a
+    # pending bundle tampered after review cannot smuggle an extra/nested skill through install.
+    sk, err = _discover_single(_bundle_dir(pid))
+    if err is not None or (sk is not None and sk.name != meta.get("name")):
+        meta["status"] = STATUS_QUARANTINED
+        meta.setdefault("reasons", []).append("apply blocked: " + (err or "skill name changed since proposal"))
+        _save_meta(pid, meta)
+        return {"ok": False, "id": pid, "status": STATUS_QUARANTINED,
+                "error": err or "skill name changed since proposal"}
 
     name = meta.get("name")
     root = skill_install.install_root(cfg)
