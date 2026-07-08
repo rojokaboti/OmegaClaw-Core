@@ -74,6 +74,22 @@ outputs, zero isolation violations (cross-workdir writes blocked), and clean can
   error isolation, subagent recorded in the session store).
 - `python3 benchmarks/delegation_benchmark.py` → `KPI GATE: PASSED`.
 
+### Post-review fix (PR #41 review) — three isolation/timeout contract bugs
+1. **Unsafe task id escaped `deleg_root`.** The id was used directly in the workdir path, so
+   `id="../escape"` put the workspace outside the root and survived `cleanup`. **Fix:** validate
+   ids up front with `skill_loader.is_safe_skill_name` (reject `..`/separators/absolute/empty) —
+   the batch is refused before anything runs — plus a realpath-containment check on the workdir.
+2. **Timed-out workers kept running and wrote artifacts post-timeout**, and `delegate` blocked
+   on the runaway (the `with ThreadPoolExecutor` did a waiting shutdown). **Fix:** each task has
+   its own cancel `Event`; on `FutureTimeout` it's set and `write_artifact` **refuses** once
+   cancelled/timed-out, and the executor is shut down with `wait=False, cancel_futures=True` so
+   `delegate` **returns promptly** (cooperative-timeout contract; a late write is refused).
+3. **Duplicate task ids collided** workspace/session/results (second overwrote first). **Fix:**
+   duplicate ids are rejected in the same up-front validation.
+Regression tests: `test_unsafe_task_id_rejected_before_running`, `test_duplicate_task_ids_rejected`,
+`test_timeout_refuses_post_timeout_writes_and_returns_promptly`. Suite now 11 tests; KPI gate
+still passes.
+
 ## 6. Reviewer guide
 
 ```bash

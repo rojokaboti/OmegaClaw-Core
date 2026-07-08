@@ -130,6 +130,55 @@ def test_worker_error_is_isolated():
         _clean(batch)
 
 
+def test_unsafe_task_id_rejected_before_running():
+    """Regression (PR #41 review): an unsafe task id (../, separators, absolute) must be rejected
+    up front — nothing runs, no workspace escapes the delegation root."""
+    _sess_db()
+    try:
+        for bad in ("../escape", "a/b", "/abs", ".."):
+            batch = dg.delegate([{"id": bad, "run": _sleeper}], parent_id="p", timeout=5)
+            assert batch["ok"] is False and batch["invalid"], (bad, batch)
+            assert "deleg_root" not in batch                 # nothing was created/run
+    finally:
+        _clean()
+
+
+def test_duplicate_task_ids_rejected():
+    """Regression (PR #41 review): duplicate ids would collide workspace/session/results — reject
+    the whole batch before running anything."""
+    _sess_db()
+    try:
+        batch = dg.delegate([{"id": "same", "run": _sleeper}, {"id": "same", "run": _sleeper}],
+                            parent_id="p", timeout=5)
+        assert batch["ok"] is False
+        assert any(x["reason"] == "duplicate task id" for x in batch["invalid"])
+    finally:
+        _clean()
+
+
+def test_timeout_refuses_post_timeout_writes_and_returns_promptly():
+    """Regression (PR #41 review): a timed-out worker cannot create artifacts after the timeout,
+    and delegate returns promptly (does not block on the runaway)."""
+    _sess_db()
+
+    def _late(ctx):
+        time.sleep(0.6)
+        ctx.write_artifact("late.txt", "late")   # must be REFUSED (cancelled after timeout)
+        return "late"
+
+    t0 = time.time()
+    batch = dg.delegate([{"id": "slow", "run": _late, "timeout": 0.1}], parent_id="p")
+    elapsed = time.time() - t0
+    try:
+        assert batch["results"][0]["status"] == "timeout"
+        assert elapsed < 0.4, elapsed                        # prompt return, not ~0.6s
+        late = os.path.join(batch["results"][0]["workdir"], "late.txt")
+        time.sleep(0.7)                                      # let the runaway finish its sleep
+        assert not os.path.isfile(late), "timed-out worker wrote an artifact after timeout"
+    finally:
+        _clean(batch)
+
+
 def test_no_nested_delegation_by_default():
     _sess_db()
 

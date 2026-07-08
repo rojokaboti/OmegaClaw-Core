@@ -35,6 +35,11 @@ except ImportError:  # pragma: no cover
     except ImportError:
         session_store = None
 
+try:
+    from skill_loader import is_safe_skill_name
+except ImportError:  # pragma: no cover
+    from src.skill_loader import is_safe_skill_name
+
 _DEFAULT_CONCURRENCY = int(os.environ.get("OMEGACLAW_DELEGATION_CONCURRENCY", "4"))
 _DEFAULT_TIMEOUT = float(os.environ.get("OMEGACLAW_DELEGATION_TIMEOUT", "30"))
 
@@ -53,16 +58,20 @@ class WorkerContext:
     task_id: str
     session_id: str
     workdir: str
-    _cancel: threading.Event
+    _cancel: threading.Event            # this task's cancel (set on its own timeout)
+    _batch_cancel: threading.Event      # whole-batch cancel (parent interruption)
     artifacts: List[str] = field(default_factory=list)
 
     def cancelled(self) -> bool:
-        return self._cancel.is_set()
+        return self._cancel.is_set() or self._batch_cancel.is_set()
 
     def write_artifact(self, relpath: str, content) -> str:
         """Write a declared artifact INSIDE the workdir and register it. Rejects any path that
         escapes the workdir (``..``/absolute/symlink) — this is the only way a subagent affects
-        the parent, so it must be contained."""
+        the parent, so it must be contained. Also refuses once the subagent is cancelled or has
+        timed out, so a timed-out worker cannot mutate artifacts after the parent moved on."""
+        if self.cancelled():
+            raise DelegationError("subagent cancelled/timed-out; artifact write refused")
         if os.path.isabs(relpath):
             raise DelegationError("artifact path must be relative: {!r}".format(relpath))
         target = os.path.realpath(os.path.join(self.workdir, relpath))
@@ -78,15 +87,24 @@ class WorkerContext:
 
 
 def _run_one(subtask: Dict[str, Any], parent_id: str, deleg_root: str,
-             cancel: threading.Event, default_timeout: float) -> Dict[str, Any]:
+             batch_cancel: threading.Event, task_cancel: threading.Event,
+             default_timeout: float) -> Dict[str, Any]:
     # NB: this runs in a worker thread, so it must NOT share a sqlite3 connection with the parent
     # (sqlite3 forbids cross-thread connection use). session_store calls open their own per-call
     # connection in THIS thread, which is thread-safe.
     tid = str(subtask.get("id"))
     sid = "deleg-{}-{}".format(parent_id, tid)
     workdir = os.path.join(deleg_root, tid)
+    # defense-in-depth: the id was validated safe up front, but confirm the workdir stays under
+    # deleg_root before creating it (never let a subagent workspace escape the delegation root).
+    root_real = os.path.realpath(deleg_root)
+    if os.path.realpath(workdir) != os.path.join(root_real, tid) and \
+       not os.path.realpath(workdir).startswith(root_real + os.sep):
+        return {"id": tid, "session_id": sid, "workdir": workdir, "status": "error",
+                "summary": "", "error": "workdir escapes deleg_root", "artifacts": []}
     os.makedirs(workdir, exist_ok=True)
-    ctx = WorkerContext(task_id=tid, session_id=sid, workdir=workdir, _cancel=cancel)
+    ctx = WorkerContext(task_id=tid, session_id=sid, workdir=workdir,
+                        _cancel=task_cancel, _batch_cancel=batch_cancel)
     started = time.time()
     if session_store is not None:
         try:
@@ -94,7 +112,7 @@ def _run_one(subtask: Dict[str, Any], parent_id: str, deleg_root: str,
         except Exception:  # noqa: BLE001
             pass
 
-    if cancel.is_set():
+    if ctx.cancelled():
         _finish(sid, "cancelled", ctx)
         return {"id": tid, "session_id": sid, "workdir": workdir, "status": "cancelled",
                 "summary": "", "artifacts": [], "duration": 0.0}
@@ -107,7 +125,7 @@ def _run_one(subtask: Dict[str, Any], parent_id: str, deleg_root: str,
         # nested-delegation guard: mark this thread as inside a delegation for the worker's scope
         _in_delegation.active = True
         summary = run(ctx)
-        result.update(status="cancelled" if cancel.is_set() else "ok",
+        result.update(status="cancelled" if ctx.cancelled() else "ok",
                       summary=str(summary or ""), duration=round(time.time() - started, 4))
     except Exception as e:  # noqa: BLE001 - a worker failure is isolated, never crashes the batch
         result.update(status="error", summary="", error=str(e),
@@ -143,16 +161,37 @@ def delegate(subtasks: List[Dict[str, Any]], *, parent_id: str = "parent",
     if getattr(_in_delegation, "active", False) and not allow_nested:
         raise DelegationError("nested delegation refused by default (set allow_nested=True)")
 
+    # Validate task ids up front — reject unsafe (../, separators, absolute, empty) or DUPLICATE
+    # ids BEFORE running anything. ids derive the workdir + session id, so an unsafe id escapes
+    # the delegation root and a duplicate id collapses two subagents' workspace/session/results.
+    ids = [str(st.get("id")) for st in subtasks]
+    invalid = []
+    seen = set()
+    for i in ids:
+        if not is_safe_skill_name(i):
+            invalid.append({"id": i, "reason": "unsafe task id"})
+        elif i in seen:
+            invalid.append({"id": i, "reason": "duplicate task id"})
+        seen.add(i)
+    if invalid:
+        return {"ok": False, "error": "invalid subtask ids (nothing run)", "invalid": invalid,
+                "parent_id": parent_id, "results": []}
+
     concurrency = concurrency or _DEFAULT_CONCURRENCY
     per_timeout = timeout if timeout is not None else _DEFAULT_TIMEOUT
     cancel = cancel_event or threading.Event()
-    own_root = deleg_root is None
+    task_cancels = {i: threading.Event() for i in ids}
     deleg_root = deleg_root or tempfile.mkdtemp(prefix="omegaclaw-deleg-{}-".format(parent_id))
 
     results: Dict[str, Dict[str, Any]] = {}
     started = time.time()
-    with ThreadPoolExecutor(max_workers=max(1, concurrency)) as ex:
-        futures = {ex.submit(_run_one, st, parent_id, deleg_root, cancel, per_timeout):
+    # Explicit executor (not the blocking `with` shutdown) so a timed-out runaway worker does not
+    # make delegate() block until it finishes; on timeout we set the task's cancel (its
+    # write_artifact then refuses) and shut down without waiting.
+    ex = ThreadPoolExecutor(max_workers=max(1, concurrency))
+    try:
+        futures = {ex.submit(_run_one, st, parent_id, deleg_root, cancel,
+                             task_cancels[str(st.get("id"))], per_timeout):
                    str(st.get("id")) for st in subtasks}
         for fut, tid in futures.items():
             st = next(s for s in subtasks if str(s.get("id")) == tid)
@@ -160,12 +199,15 @@ def delegate(subtasks: List[Dict[str, Any]], *, parent_id: str = "parent",
             try:
                 results[tid] = fut.result(timeout=t)
             except FutureTimeout:
+                task_cancels[tid].set()          # stop the worker + refuse its post-timeout writes
                 results[tid] = {"id": tid, "session_id": "deleg-{}-{}".format(parent_id, tid),
                                 "workdir": os.path.join(deleg_root, tid), "status": "timeout",
                                 "summary": "", "artifacts": [],
                                 "duration": round(time.time() - started, 4)}
             except Exception as e:  # noqa: BLE001
                 results[tid] = {"id": tid, "status": "error", "error": str(e), "artifacts": []}
+    finally:
+        ex.shutdown(wait=False, cancel_futures=True)
 
     ordered = [results.get(str(st.get("id")), {"id": str(st.get("id")), "status": "missing"})
                for st in subtasks]
