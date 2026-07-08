@@ -29,7 +29,7 @@ def _fake(name, inbox=None):
 
 
 def test_real_channels_registered():
-    for name in ("irc", "telegram", "slack", "mattermost", "mock"):
+    for name in ("irc", "telegram", "slack", "mattermost", "websocket", "mock"):
         assert name in cr.list_channels()
         assert isinstance(cr.CHANNELS[name], cr.Channel)
 

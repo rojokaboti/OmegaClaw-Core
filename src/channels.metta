@@ -10,6 +10,8 @@
 (= (TG_POLL_TIMEOUT) (empty))
 (= (SL_CHANNEL_ID) (empty))
 (= (SL_POLL_INTERVAL) (empty))
+(= (WS_URL) (empty))
+(= (WS_TOKEN) (empty))
 
 ;Connect all the channels via the channel registry (Issue #9). Config is resolved from CLI args
 ;here (configure/argk); start_channel selects the channel and uses only its keys. Unknown
@@ -27,10 +29,12 @@
           (configure SL_POLL_INTERVAL 60)
           (configure MM_URL "https://chat.singularitynet.io")
           (configure MM_CHANNEL_ID "8fjrmabjx7gupy7e5kjznpt5qh")
+          (configure WS_URL "")
+          (configure WS_TOKEN "")
           (py-call (channel_registry.start_channel (commchannel)
                     (IRC_channel) (IRC_server) (IRC_port) (IRC_user)
                     (TG_CHAT_ID) (TG_POLL_TIMEOUT) (SL_CHANNEL_ID) (SL_POLL_INTERVAL)
-                    (MM_URL) (MM_CHANNEL_ID)))))
+                    (MM_URL) (MM_CHANNEL_ID) (WS_URL) (WS_TOKEN)))))
 
 ;Receive the latest user message from the selected channel (unknown -> mock, in the registry):
 (= (receive)

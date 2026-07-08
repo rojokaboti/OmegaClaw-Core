@@ -90,6 +90,10 @@ def _mattermost_start(cfg):
     )
 
 
+def _websocket_start(cfg):
+    return _lazy("wschat", "start_websocket")(cfg.get("WS_URL") or "", cfg.get("WS_TOKEN") or "")
+
+
 def _mock_start(cfg):
     return _lazy("mock", "start_mock")()
 
@@ -106,6 +110,8 @@ CHANNELS: Dict[str, Channel] = {
                           _lazy("mattermost", "send_message"),
                           {"MM_URL": "https://chat.singularitynet.io",
                            "MM_CHANNEL_ID": "8fjrmabjx7gupy7e5kjznpt5qh"}),
+    "websocket": Channel("websocket", _websocket_start, _lazy("wschat", "getLastMessage"),
+                         _lazy("wschat", "send_message"), {"WS_URL": "", "WS_TOKEN": ""}),
     "mock": Channel("mock", _mock_start, _lazy("mock", "getLastMessage"),
                     _lazy("mock", "send_message"), {}),
 }
@@ -130,7 +136,7 @@ def _resolve(name):
 
 def start_channel(name, irc_channel="", irc_server="", irc_port="", irc_user="",
                   tg_chat_id="", tg_poll_timeout="", sl_channel_id="", sl_poll_interval="",
-                  mm_url="", mm_channel_id=""):
+                  mm_url="", mm_channel_id="", ws_url="", ws_token=""):
     """Start the selected channel. Config is passed positionally from the MeTTa facade (already
     resolved from CLI args); only the selected channel's keys are used."""
     cfg = {
@@ -138,6 +144,7 @@ def start_channel(name, irc_channel="", irc_server="", irc_port="", irc_user="",
         "TG_CHAT_ID": tg_chat_id, "TG_POLL_TIMEOUT": tg_poll_timeout,
         "SL_CHANNEL_ID": sl_channel_id, "SL_POLL_INTERVAL": sl_poll_interval,
         "MM_URL": mm_url, "MM_CHANNEL_ID": mm_channel_id,
+        "WS_URL": ws_url, "WS_TOKEN": ws_token,
     }
     ch = _resolve(name)
     ch.start(cfg)
@@ -180,8 +187,8 @@ def _selftest():
         assert calls["sent"] == ["a\\nb"], calls["sent"]
         # unknown channel resolves to the mock fallback (no import triggered by _resolve)
         assert _resolve("does-not-exist").name == "mock"
-        # the five real channels are registered
-        for name in ("irc", "telegram", "slack", "mattermost", "mock"):
+        # the real channels are registered (incl. the upstream websocket/wschat channel)
+        for name in ("irc", "telegram", "slack", "mattermost", "websocket", "mock"):
             assert name in list_channels()
     finally:
         CHANNELS.pop("echo", None)
