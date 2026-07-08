@@ -35,3 +35,7 @@ memory/traces/
 
 # skill workshop proposal queue (runtime, Issue #14)
 memory/skill-workshop/
+
+# session store (runtime, Issue #16)
+memory/sessions.db
+memory/sessions.db-*
