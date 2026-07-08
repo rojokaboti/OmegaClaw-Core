@@ -277,6 +277,20 @@ task. Over a 1,000-session synthetic corpus, search returns in well under a mill
 
 ---
 
+## Multi-agent delegation (`src/delegation.py`)
+
+For work that parallelizes — independent investigations, review agents, sandboxed workers —
+OmegaClaw can **delegate** a batch of subtasks to concurrent subagents (Issue #18). Each subagent
+runs in its **own isolated workdir + session** (recorded in the session store), under a
+**concurrency limit** and per-worker **timeout**, and can affect the parent **only through
+declared artifacts** (`write_artifact` rejects any path escaping the workdir). Parent
+interruption **cancels children cleanly**, and **nested delegation is refused by default** (no
+runaway recursion). Results are structured — per-subagent status, session id, artifact paths,
+duration. On a 12-subtask fixture, concurrent delegation runs ~88% faster than serial with zero
+isolation violations.
+
+---
+
 ## Filesystem skills (SKILL.md bundles)
 
 Beyond the built-in MeTTa skills, OmegaClaw loads portable **OpenClaw/Hermes-style
