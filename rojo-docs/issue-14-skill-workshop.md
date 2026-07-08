@@ -100,6 +100,21 @@ to the exact bytes reviewed. Regression test: `test_apply_refuses_content_tamper
 (tamper → refused + active root/lock unchanged; then revise → apply installs the re-reviewed
 content). Workshop suite now 13 tests; KPI + cluster gates still pass; 84-test sweep green.
 
+### Post-review fix round 3 (PR #39 re-review) — rollback could lie / not restore
+`rollback` ignored the installer's return value AND restored the prior snapshot via
+`skill_install.install` — which re-runs the #19 scan and **denies** a previously-approved HIGH
+skill, so the restore silently failed while rollback reported `ok:true` and the patch stayed
+live. **Fix:** two parts. (1) New `skill_install.restore_snapshot` — an **exact revert** of the
+pre-apply snapshot that does NOT re-scan already-approved state (a re-scan would wrongly refuse
+to revert) but still enforces name/containment + symlink safety and rewrites lock/origin; `apply`
+now also captures the prior lock entry for an exact restore. (2) `rollback` **checks the result**
+— on failure it returns `ok:false`, leaves status `applied`, and surfaces the error (active
+state is never falsely reported as restored). Regression tests:
+`test_rollback_restores_prior_approved_version_even_if_now_high_risk` (prior HIGH version +
+support file correctly restored), `test_rollback_reports_failure_when_restore_fails` (forced
+failure → `ok:false`, status stays applied, patch still active). Workshop suite now 15 tests;
+KPI + cluster gates still pass; 86-test sweep green.
+
 ## 6. Reviewer guide
 
 ```bash

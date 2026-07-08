@@ -348,12 +348,14 @@ def apply(pid: str, cfg: Optional[Dict[str, Any]] = None, *, approve_high: bool 
     name = meta.get("name")
     root = skill_install.install_root(cfg)
     was_absent = not os.path.isdir(os.path.join(root, name))
-    # snapshot the current active skill (for rollback) before committing
+    # snapshot the current active skill + its lock entry (for an EXACT rollback) before committing
     rb_dir = os.path.join(_rollback_root(), pid)
     shutil.rmtree(rb_dir, ignore_errors=True)
+    prev_lock_entry = None
     if not was_absent:
         os.makedirs(rb_dir, exist_ok=True)
         shutil.copytree(os.path.join(root, name), os.path.join(rb_dir, name), symlinks=True)
+        prev_lock_entry = skill_install._load_lock(root)["skills"].get(name)
 
     r = skill_install.install("local:" + _bundle_dir(pid), cfg, force=True, approve_high=approve_high)
     if not r.get("ok"):
@@ -366,7 +368,8 @@ def apply(pid: str, cfg: Optional[Dict[str, Any]] = None, *, approve_high: bool 
     meta["status"] = STATUS_APPLIED
     meta["applied_at"] = _now()
     meta["rollback"] = {"name": name, "was_absent": was_absent,
-                        "snapshot": None if was_absent else rb_dir}
+                        "snapshot": None if was_absent else rb_dir,
+                        "prev_lock_entry": prev_lock_entry}
     _save_meta(pid, meta)
     return {"ok": True, "id": pid, "status": STATUS_APPLIED, "name": name}
 
@@ -383,9 +386,20 @@ def rollback(pid: str, cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     rb = meta["rollback"]
     name = rb["name"]
     if rb["was_absent"]:
-        skill_install.remove(name, cfg)                       # it was newly added -> remove it
+        r = skill_install.remove(name, cfg)                   # it was newly added -> remove it
     else:
-        skill_install.install("local:" + rb["snapshot"], cfg, force=True)   # restore prior version
+        # EXACT restore of the pre-apply snapshot (no #19 re-scan of already-approved state, but
+        # containment/symlink-safe). Uses the snapshot's <name> dir + the prior lock entry.
+        snap = os.path.join(rb["snapshot"], name)
+        r = skill_install.restore_snapshot(name, snap, cfg, rb.get("prev_lock_entry"))
+    # The rollback contract: never report success unless the active root/lock were actually
+    # reverted (PR #39 review). A failed restore leaves status 'applied' + surfaces the error.
+    if not r.get("ok"):
+        meta.setdefault("reasons", []).append("rollback failed: " + str(r.get("error")))
+        meta["rollback_error"] = r.get("error")
+        _save_meta(pid, meta)
+        return {"ok": False, "id": pid, "status": meta["status"], "error": r.get("error"),
+                "detail": "active state NOT restored"}
     meta["status"] = "rolled_back"
     meta["rolled_back_at"] = _now()
     _save_meta(pid, meta)

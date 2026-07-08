@@ -434,6 +434,47 @@ def remove(name: str, cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     return {"ok": existed, "removed": name} if existed else {"ok": False, "error": "not installed: {}".format(name)}
 
 
+def restore_snapshot(name: str, snapshot_dir: str, cfg: Optional[Dict[str, Any]] = None,
+                     lock_entry: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Exact-restore a previously-active skill from a snapshot (Issue #14 rollback).
+
+    Unlike :func:`install`, this does NOT re-run the install-policy scan: the snapshot is state
+    that was already approved+active, so restoring it can't introduce new risk, and a re-scan
+    would wrongly refuse to revert (e.g. a previously-approved HIGH skill). It STILL enforces
+    name/containment + symlink safety and rewrites the lock/origin. Returns a structured result;
+    the caller MUST check ``ok``."""
+    cfg = cfg if cfg is not None else skill_loader.load_config()
+    root = install_root(cfg)
+    try:
+        dest = _safe_dest(root, name)
+    except SkillInstallError as e:
+        return {"ok": False, "error": str(e)}
+    if not os.path.isdir(snapshot_dir):
+        return {"ok": False, "error": "snapshot not found: {}".format(snapshot_dir)}
+    if _contains_symlink(snapshot_dir):
+        return {"ok": False, "error": "snapshot contains a symlink; refusing restore"}
+    try:
+        _replace_dir(dest, snapshot_dir)
+        entry = dict(lock_entry) if isinstance(lock_entry, dict) else {}
+        entry["name"] = name
+        entry["content_hash"] = _hash_dir(dest)          # reflect the restored bytes
+        entry.setdefault("source_type", "restore")
+        entry.setdefault("source", "workshop-rollback")
+        entry.setdefault("ref", None)
+        entry.setdefault("version", "")
+        entry["restored_at"] = _now()
+        entry.setdefault("trust", "restored")
+        entry.setdefault("pinned", False)
+        _write_origin(dest, entry)
+        lock = _load_lock(root)
+        lock["skills"][name] = entry
+        _save_lock(root, lock)
+        skill_loader.reset_cache()
+        return {"ok": True, "name": name}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": "restore failed: {}".format(e)}
+
+
 def list_installed(cfg: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     root = install_root(cfg if cfg is not None else skill_loader.load_config())
     lock = _load_lock(root)
