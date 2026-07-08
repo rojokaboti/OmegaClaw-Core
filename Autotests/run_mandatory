@@ -15,6 +15,7 @@ test_skill_install.py
 test_plugin_registry.py
 test_install_policy.py
 test_skill_workshop.py
+test_session_store.py
 mock/test_actions_equivalence.py
 mock/test_comm.py
 mock/test_convert_format_mock.py

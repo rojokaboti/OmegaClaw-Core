@@ -191,6 +191,7 @@ If you want to skip preloading the knowledge then run `export IMPORT_KB_ON_START
 | `OMEGACLAW_SKILL_BODY_MAX_CHARS` | Max characters of a skill's instructions returned by `use-skill` (default `20000`); longer bodies are truncated. |
 | `OMEGACLAW_INSTALL_POLICY` | Untrusted-skill scan policy (Issue #19): `enforce` (default — HIGH findings block install), `warn` (flag but allow), or `off` (no scan gating). |
 | `OMEGACLAW_INSTALL_INTERACTIVE` | `1`/`true` to allow operator approval of HIGH-severity install findings; default off ⇒ **fail-closed** (HIGH denied in the agent's non-interactive runtime). |
+| `OMEGACLAW_SESSION_DB` | Path to the SQLite session store (Issue #16; default `memory/sessions.db`). Relative values resolve against the install root. Browse with `scripts/omegaclaw-sessions`. |
 | `OMEGACLAW_SKILLS_DEBUG` | `1`/`true` to advertise ALL loaded skills in the prompt, including those blocked by eligibility gates (Issue #13). Default off — only eligible skills are advertised; blocked ones show as a concise `SKILL_UNAVAILABLE:` note. |
 
 ---
@@ -252,6 +253,27 @@ into the reasoning trace under the current iteration's `trace_id` (no new env va
 ride the existing `OMEGACLAW_TRACE_*` file), so `scripts/omegaclaw-trace-summary` reports
 error counts **by category** across a run. This makes recovery reliable and error rates
 comparable across benchmark runs.
+
+---
+
+## Session persistence & recall (`src/session_store.py`)
+
+Beyond raw logs, OmegaClaw keeps a queryable **SQLite session store** (Issue #16) so you can ask
+"where did we leave off?", search prior decisions, compare runs, and resume interrupted work
+without parsing `history.metta`. It records turns, tool calls, and resumable snapshots, with an
+**FTS5 full-text index** (LIKE fallback) and **redaction applied before persistence** (searchable
+and exported content can never leak a secret). Browse it with `scripts/omegaclaw-sessions`:
+
+```
+scripts/omegaclaw-sessions list
+scripts/omegaclaw-sessions search "widget deploy"
+scripts/omegaclaw-sessions show <id> | resume <id> | export <id>
+scripts/omegaclaw-sessions ingest memory/traces/<date>.jsonl   # backfill from a reasoning trace
+```
+
+`resume` reconstructs enough state (latest snapshot + recent context) to continue an interrupted
+task. Over a 1,000-session synthetic corpus, search returns in well under a millisecond. DB path:
+`OMEGACLAW_SESSION_DB` (default `memory/sessions.db`).
 
 ---
 

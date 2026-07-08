@@ -1,0 +1,18 @@
+{
+  "baseline": {
+    "sessions": 1000,
+    "search_sample": 200,
+    "recall_at_5": 0.0,
+    "avg_search_latency_ms": null,
+    "resume_rate": 0.0,
+    "secret_leaks": 0
+  },
+  "candidate": {
+    "sessions": 1000,
+    "search_sample": 200,
+    "recall_at_5": 1.0,
+    "avg_search_latency_ms": 0.133,
+    "resume_rate": 1.0,
+    "secret_leaks": 0
+  }
+}

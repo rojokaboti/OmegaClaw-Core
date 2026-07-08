@@ -123,6 +123,7 @@ jobs:
           python ../src/plugin_registry.py
           python ../src/install_policy.py
           python ../src/skill_workshop.py
+          python ../src/session_store.py
           pytest -s -v @run_mandatory
         env:
           OMEGACLAW_CONTAINER: ${{ env.AUTOTESTS_OMEGACLAW_CONTAINER }}
