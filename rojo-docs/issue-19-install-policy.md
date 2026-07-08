@@ -109,6 +109,19 @@ new false positives. Regression tests: `test_oversized_file_is_fully_scanned_no_
 (middle payload denied + benign large allowed), `test_beyond_hard_cap_file_fails_closed`.
 install_policy suite now 11 tests; KPI + #12 gates still pass; 69-test sweep green.
 
+### Post-review fix round 3 (PR #38 re-review) — two more bypasses
+1. **Attached curl short-option upload args bypassed the scanner** — `curl -dNAME=…` /
+   `curl -Ffile=@…` (value glued to the flag) scanned clean because the regex expected a
+   separated flag. **Fix:** match `-[dFT]\S*` (short data/form/upload flag with an optional
+   attached value) alongside the long `--data*/--form/--upload-file` and `-X/--request POST|PUT`.
+   Benign GETs (`-o`/`-O`/`-sSL`) stay clean.
+2. **Scanner could hang on a FIFO/special file** — extensionless files were opened directly, so
+   a FIFO in a bundle blocked `scan`/`install` waiting for a writer. **Fix:** `_iter_text_files`
+   now `lstat`s each candidate and scans **only real regular files** (skips FIFOs, devices,
+   sockets, and symlinks — the latter also never followed out of the bundle).
+Regression tests: `test_attached_curl_upload_forms_are_high`, `test_special_files_do_not_hang_scan`.
+install_policy suite now 13 tests; KPI + #12 gates still pass; 71-test sweep green.
+
 ## 6. Reviewer guide
 
 ```bash
