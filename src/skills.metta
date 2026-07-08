@@ -24,6 +24,8 @@
     "- Read a loaded filesystem skill's full instructions before following it: use-skill name"
     ;PLUGIN TOOLS (see PLUGIN_TOOLS catalogue for available names; pass \"\" arg if none needed):
     "- Call a plugin/MCP tool by name with one string argument: plugin-invoke name arg"
+    ;SKILL WORKSHOP (capture reusable workflows for review; never changes active skills directly):
+    "- After a repeated or tricky workflow worth reusing, draft it as a SKILL.md proposal for operator review: propose-skill name skillmd"
     ;CODE EXECUTION:
     "- Execute MeTTa expression: metta sexpression"
     "Example to invoke Non-Axiomatic Logic via MeTTa: "
@@ -89,3 +91,8 @@
 ; getContext) advertises available tool names; this routes a call to the registered handler.
 (= (plugin-invoke $name $arg)
    (py-call (plugin_registry.invoke $name $arg)))
+
+; Governed skill workshop (Issue #14). Drafts a SKILL.md proposal into the review queue; it
+; NEVER modifies active skills — an operator applies via the workshop CLI.
+(= (propose-skill $name $body)
+   (py-call (skill_workshop.propose_tool $name $body)))

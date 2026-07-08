@@ -168,6 +168,50 @@ def cmd_scan(args):
     return _out(args, obj, "\n".join(lines))
 
 
+def cmd_workshop(args):
+    """Governed skill workshop (Issue #14): review agent-proposed skills before they go live."""
+    import skill_workshop as sw
+    _load_config(args.config)
+    action = args.workshop_action
+    if action == "list":
+        items = sw.list_proposals()
+        lines = ["proposals ({}):".format(len(items))]
+        for it in items:
+            lines.append("  {} [{}] {} name={} — {}".format(
+                it["id"], it["status"].upper(), it["kind"], it.get("name"),
+                "; ".join(it.get("reasons") or []) or "ok"))
+        return _out(args, {"ok": True, "proposals": items}, "\n".join(lines))
+    if action == "inspect":
+        r = sw.inspect(args.id)
+        if not r.get("ok"):
+            return _out(args, r, "error: {}".format(r.get("error")))
+        text = "proposal {}\n  meta: {}\n--- SKILL.md ---\n{}".format(
+            args.id, json.dumps(r["meta"], indent=2), r["skill_md"])
+        return _out(args, r, text)
+    if action == "apply":
+        r = sw.apply(args.id, approve_high=args.approve)
+        return _out(args, r, "applied {} ({})".format(args.id, r.get("name")) if r.get("ok")
+                    else "apply failed: {}".format(r.get("error")))
+    if action == "reject":
+        r = sw.reject(args.id, args.reason or "")
+        return _out(args, r, "rejected {}".format(args.id) if r.get("ok") else r.get("error"))
+    if action == "quarantine":
+        r = sw.quarantine(args.id, args.reason or "manual")
+        return _out(args, r, "quarantined {}".format(args.id) if r.get("ok") else r.get("error"))
+    if action == "revise":
+        body = None
+        if args.file:
+            with open(args.file, encoding="utf-8") as f:
+                body = f.read()
+        r = sw.revise(args.id, skill_md=body)
+        return _out(args, r, "revised {} -> {}".format(args.id, r.get("status")) if r.get("ok")
+                    else r.get("error"))
+    if action == "rollback":
+        r = sw.rollback(args.id)
+        return _out(args, r, "rolled back {}".format(args.id) if r.get("ok") else r.get("error"))
+    return _out(args, {"ok": False, "error": "unknown workshop action"}, "unknown workshop action")
+
+
 def build_parser():
     # --config on the TOP parser carries the default (None). Subcommands accept --config too,
     # but with default=SUPPRESS so that when it's absent the subparser does NOT overwrite the
@@ -227,6 +271,24 @@ def build_parser():
     sc.add_argument("--allow-empty", action="store_true",
                     help="exit 0 even if no bundles are discovered (default: error)")
     sc.set_defaults(func=cmd_scan)
+
+    # workshop: governed proposal queue (Issue #14). `apply` is the operator-only boundary that
+    # actually changes active skills; everything else is queue inspection/management.
+    ws = sub.add_parser("workshop", parents=[common, jsn],
+                        help="review agent-proposed skills (list/inspect/apply/reject/revise/quarantine/rollback)")
+    wsa = ws.add_subparsers(dest="workshop_action")
+    wsa.add_parser("list", parents=[common, jsn], help="list proposals + status")
+    for act in ("inspect", "apply", "reject", "revise", "quarantine", "rollback"):
+        sp = wsa.add_parser(act, parents=[common, jsn])
+        sp.add_argument("id", help="proposal id")
+        if act == "apply":
+            sp.add_argument("--approve", action="store_true",
+                            help="explicitly approve HIGH-severity scan findings on apply")
+        if act in ("reject", "quarantine"):
+            sp.add_argument("--reason", help="audit reason")
+        if act == "revise":
+            sp.add_argument("--file", help="path to the new SKILL.md content")
+    ws.set_defaults(func=cmd_workshop)
     return p
 
 
