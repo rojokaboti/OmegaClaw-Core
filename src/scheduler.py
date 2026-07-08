@@ -1,0 +1,544 @@
+"""Cron, webhook & event-triggered autonomous runs (Issue #17).
+
+OmegaClaw was interactive/benchmark-loop oriented; automation (monitors, daily summaries,
+recurring benchmarks, CI watchers, external event handlers) needed ad hoc shell wrappers. This
+adds first-class **durable job definitions** + a **scheduler** + a **webhook adapter**:
+
+- Jobs live in a durable SQLite store, so due jobs **survive a process restart** (the persisted
+  ``next_run`` means an overdue job still fires exactly once — never lost, never duplicated).
+- Schedules: ``once`` (at an epoch), ``interval`` (every N seconds), and a minimal 5-field
+  ``cron`` (``*`` / int / ``*/n`` / comma-lists).
+- ``run_due(now, runner)`` fires everything due at ``now`` — the clock is **injected**, so tests
+  drive a simulated timeline deterministically. Each run executes in its **own session**
+  (Issue #16), delivers non-empty output via a delivery hook, and on failure (or an empty result
+  when ``on_empty="alert"``) raises an **alert**; ``on_empty="silent"`` watchdogs stay quiet.
+- **Context chaining**: a job may consume the previous job's output.
+- Safeguards: **recursion is refused** while a job runs (no self-scheduling storms) and a
+  per-job minimum interval guards against runaway loops.
+- **Webhooks**: subscriptions carry an HMAC secret; an event with a bad/missing signature is
+  **rejected** (no run); a valid one triggers a run carrying validated event metadata.
+
+Stdlib only. DB path ``OMEGACLAW_JOBS_DB`` (default ``memory/jobs.db``).
+"""
+
+from __future__ import annotations
+
+import hashlib
+import hmac
+import json
+import os
+import sqlite3
+import tempfile
+import threading
+import time
+from typing import Any, Callable, Dict, List, Optional
+
+try:
+    from skill_loader import is_safe_skill_name
+    from redaction import redact_secrets
+    import session_store
+except ImportError:  # pragma: no cover
+    from src.skill_loader import is_safe_skill_name
+    from src.redaction import redact_secrets
+    from src import session_store
+
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_MIN_INTERVAL = float(os.environ.get("OMEGACLAW_JOB_MIN_INTERVAL", "1"))   # runaway guard
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS jobs (
+    id TEXT PRIMARY KEY, kind TEXT, spec TEXT, prompt TEXT, skills TEXT, workdir TEXT,
+    delivery TEXT, on_empty TEXT, enabled INTEGER DEFAULT 1, created REAL,
+    next_run REAL, last_run REAL, last_status TEXT, last_output TEXT, fires INTEGER DEFAULT 0,
+    chain_from TEXT, meta TEXT
+);
+CREATE TABLE IF NOT EXISTS webhooks (
+    id TEXT PRIMARY KEY, secret TEXT, job_template TEXT, created REAL
+);
+CREATE INDEX IF NOT EXISTS idx_jobs_next ON jobs(enabled, next_run);
+"""
+
+_in_run = threading.local()   # recursion guard: create_job refused while a job runs
+
+
+class SchedulerError(Exception):
+    pass
+
+
+def db_path() -> str:
+    env = os.environ.get("OMEGACLAW_JOBS_DB")
+    if env:
+        return env if os.path.isabs(env) else os.path.join(_REPO_ROOT, env)
+    return os.path.join(_REPO_ROOT, "memory", "jobs.db")
+
+
+def connect(path: Optional[str] = None) -> sqlite3.Connection:
+    p = path or db_path()
+    if p != ":memory:":
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+    conn = sqlite3.connect(p)
+    conn.row_factory = sqlite3.Row
+    conn.executescript(_SCHEMA)
+    conn.commit()
+    return conn
+
+
+def reset(path: Optional[str] = None) -> None:
+    p = path or db_path()
+    if p != ":memory:" and os.path.exists(p):
+        os.remove(p)
+
+
+# --------------------------------------------------------------------------- cron
+
+def _cron_field_match(field: str, value: int, lo: int, hi: int) -> bool:
+    if field == "*":
+        return True
+    for part in field.split(","):
+        if part.startswith("*/"):
+            try:
+                if value % int(part[2:]) == 0:
+                    return True
+            except ValueError:
+                pass
+        elif "-" in part:
+            try:
+                a, b = part.split("-", 1)
+                if int(a) <= value <= int(b):
+                    return True
+            except ValueError:
+                pass
+        else:
+            try:
+                if int(part) == value:
+                    return True
+            except ValueError:
+                pass
+    return False
+
+
+def _cron_matches(spec: str, t: time.struct_time) -> bool:
+    fields = spec.split()
+    if len(fields) != 5:
+        raise SchedulerError("cron spec must have 5 fields (m h dom mon dow): {!r}".format(spec))
+    m, h, dom, mon, dow = fields
+    return (_cron_field_match(m, t.tm_min, 0, 59) and _cron_field_match(h, t.tm_hour, 0, 23)
+            and _cron_field_match(dom, t.tm_mday, 1, 31) and _cron_field_match(mon, t.tm_mon, 1, 12)
+            and _cron_field_match(dow, t.tm_wday if t.tm_wday != 6 else 0, 0, 6)
+            # normalize: cron dow 0=Sun; python tm_wday 0=Mon..6=Sun
+            or _cron_field_match(dow, (t.tm_wday + 1) % 7, 0, 6))
+
+
+def _cron_next(spec: str, after_epoch: float) -> Optional[float]:
+    """Next epoch (UTC, minute-aligned) strictly after ``after_epoch`` matching ``spec``."""
+    start = int(after_epoch // 60 + 1) * 60
+    for i in range(0, 366 * 24 * 60):        # cap: one year
+        cand = start + i * 60
+        if _cron_matches(spec, time.gmtime(cand)):
+            return float(cand)
+    return None
+
+
+def _compute_next(kind: str, spec: str, after: float) -> Optional[float]:
+    if kind == "once":
+        return float(spec)
+    if kind == "interval":
+        n = max(_MIN_INTERVAL, float(spec))
+        return after + n
+    if kind == "cron":
+        return _cron_next(spec, after)
+    raise SchedulerError("unknown job kind: {!r}".format(kind))
+
+
+# --------------------------------------------------------------------------- job store
+
+def create_job(job_id: str, kind: str, spec: str, *, prompt: str = "", skills: Optional[List[str]] = None,
+               workdir: str = "", delivery: str = "", on_empty: str = "silent",
+               chain_from: str = "", meta: Optional[Dict[str, Any]] = None, now: Optional[float] = None,
+               conn: Optional[sqlite3.Connection] = None) -> Dict[str, Any]:
+    """Create a durable job. ``now`` (injectable clock) seeds the first ``next_run``."""
+    if getattr(_in_run, "active", False):
+        return {"ok": False, "error": "recursive job creation refused while a job is running"}
+    if not is_safe_skill_name(job_id):
+        return {"ok": False, "error": "unsafe job id: {!r}".format(job_id)}
+    now = time.time() if now is None else now
+    own = conn is None
+    conn = conn or connect()
+    try:
+        if conn.execute("SELECT 1 FROM jobs WHERE id=?", (job_id,)).fetchone():
+            return {"ok": False, "error": "job already exists: {}".format(job_id)}
+        if kind == "interval" and float(spec) < _MIN_INTERVAL:
+            return {"ok": False, "error": "interval below min {}s (runaway guard)".format(_MIN_INTERVAL)}
+        try:
+            nxt = _compute_next(kind, spec, now)
+        except (SchedulerError, ValueError) as e:
+            return {"ok": False, "error": str(e)}
+        conn.execute(
+            "INSERT INTO jobs(id,kind,spec,prompt,skills,workdir,delivery,on_empty,enabled,created,"
+            "next_run,last_run,last_status,last_output,fires,chain_from,meta) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (job_id, kind, str(spec), redact_secrets(prompt or ""), json.dumps(skills or []),
+             workdir or "", delivery or "", on_empty, 1, now, nxt, None, None, None, 0,
+             chain_from or "", redact_secrets(json.dumps(meta or {}))))
+        conn.commit()
+        return {"ok": True, "id": job_id, "kind": kind, "next_run": nxt}
+    finally:
+        if own:
+            conn.close()
+
+
+def _set(conn, job_id, **fields):
+    cols = ", ".join("{}=?".format(k) for k in fields)
+    conn.execute("UPDATE jobs SET {} WHERE id=?".format(cols), (*fields.values(), job_id))
+    conn.commit()
+
+
+def list_jobs(conn: Optional[sqlite3.Connection] = None) -> List[Dict[str, Any]]:
+    own = conn is None
+    conn = conn or connect()
+    try:
+        return [dict(r) for r in conn.execute("SELECT * FROM jobs ORDER BY next_run").fetchall()]
+    finally:
+        if own:
+            conn.close()
+
+
+def get_job(job_id: str, conn: Optional[sqlite3.Connection] = None) -> Optional[Dict[str, Any]]:
+    own = conn is None
+    conn = conn or connect()
+    try:
+        r = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+        return dict(r) if r else None
+    finally:
+        if own:
+            conn.close()
+
+
+def pause(job_id, conn=None):
+    return _toggle(job_id, 0, conn)
+
+
+def resume(job_id, conn=None):
+    return _toggle(job_id, 1, conn)
+
+
+def _toggle(job_id, enabled, conn):
+    own = conn is None
+    conn = conn or connect()
+    try:
+        if not conn.execute("SELECT 1 FROM jobs WHERE id=?", (job_id,)).fetchone():
+            return {"ok": False, "error": "no such job: {}".format(job_id)}
+        _set(conn, job_id, enabled=enabled)
+        return {"ok": True, "id": job_id, "enabled": bool(enabled)}
+    finally:
+        if own:
+            conn.close()
+
+
+def remove(job_id, conn=None):
+    own = conn is None
+    conn = conn or connect()
+    try:
+        cur = conn.execute("DELETE FROM jobs WHERE id=?", (job_id,))
+        conn.commit()
+        return {"ok": cur.rowcount > 0, "id": job_id}
+    finally:
+        if own:
+            conn.close()
+
+
+def due_jobs(now: float, conn: Optional[sqlite3.Connection] = None) -> List[Dict[str, Any]]:
+    own = conn is None
+    conn = conn or connect()
+    try:
+        rows = conn.execute("SELECT * FROM jobs WHERE enabled=1 AND next_run IS NOT NULL "
+                            "AND next_run <= ? ORDER BY next_run", (now,)).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        if own:
+            conn.close()
+
+
+# --------------------------------------------------------------------------- execution
+
+def _default_runner(job: Dict[str, Any], ctx: Dict[str, Any]) -> str:
+    """Fallback runner: echoes the (redacted) prompt. A live deployment passes a runner that
+    drives an actual agent run with the job's prompt/skills/workdir."""
+    return "ran job {} (prompt chars={})".format(job["id"], len(job.get("prompt") or ""))
+
+
+def run_due(now: Optional[float] = None, runner: Optional[Callable] = None, *,
+            delivery_fn: Optional[Callable] = None, alert_fn: Optional[Callable] = None,
+            conn: Optional[sqlite3.Connection] = None) -> Dict[str, Any]:
+    """Fire every job due at ``now`` (injected clock). Each runs in its own session; the persisted
+    ``next_run`` is advanced BEFORE running so a crash mid-run can't double-fire it. Returns a
+    structured batch report."""
+    now = time.time() if now is None else now
+    runner = runner or _default_runner
+    own = conn is None
+    conn = conn or connect()
+    fired = []
+    try:
+        due = due_jobs(now, conn=conn)
+        for job in due:
+            jid = job["id"]
+            # advance schedule FIRST (durability: a restart mid-run won't refire this occurrence)
+            try:
+                nxt = None if job["kind"] == "once" else _compute_next(job["kind"], job["spec"], now)
+            except (SchedulerError, ValueError):
+                nxt = None
+            _set(conn, jid, next_run=nxt, last_run=now, fires=(job.get("fires") or 0) + 1)
+
+            sid = "cron-{}-{}".format(jid, int(job.get("fires") or 0) + 1)
+            wd = job.get("workdir") or tempfile.mkdtemp(prefix="omegaclaw-cron-{}-".format(jid))
+            os.makedirs(wd, exist_ok=True)
+            chain_out = None
+            if job.get("chain_from"):
+                prev = get_job(job["chain_from"], conn=conn)
+                chain_out = prev.get("last_output") if prev else None
+            ctx = {"job": job, "workdir": wd, "chain_output": chain_out, "now": now}
+            try:
+                session_store.begin_session(sid, channel="cron", task=job.get("prompt") or jid)
+            except Exception:  # noqa: BLE001
+                pass
+
+            _in_run.active = True
+            status, output, err = "ok", "", None
+            try:
+                output = str(runner(job, ctx) or "")
+            except Exception as e:  # noqa: BLE001 - a job failure is isolated + alerted
+                status, err = "error", str(e)
+            finally:
+                _in_run.active = False
+
+            _set(conn, jid, last_status=status, last_output=redact_secrets(output))
+            try:
+                session_store.record_snapshot(sid, 1, {"status": status, "output_chars": len(output)})
+                session_store.end_session(sid, status)
+            except Exception:  # noqa: BLE001
+                pass
+
+            # delivery / alert policy
+            delivered = alerted = False
+            if status == "error":
+                _alert(alert_fn, job, "job failed: {}".format(err))
+                alerted = True
+            elif not output.strip():
+                if job.get("on_empty") == "alert":
+                    _alert(alert_fn, job, "job produced empty output")
+                    alerted = True
+                # on_empty == "silent": watchdog stays quiet
+            else:
+                if delivery_fn is not None and job.get("delivery"):
+                    try:
+                        delivery_fn(job, output)
+                    except Exception:  # noqa: BLE001
+                        pass
+                delivered = True
+            fired.append({"id": jid, "status": status, "session_id": sid, "next_run": nxt,
+                          "delivered": delivered, "alerted": alerted, "error": err})
+        return {"ok": all(f["status"] != "error" for f in fired), "now": now,
+                "fired": fired, "count": len(fired)}
+    finally:
+        if own:
+            conn.close()
+
+
+def _alert(alert_fn, job, message):
+    if alert_fn is not None:
+        try:
+            alert_fn(job, message)
+        except Exception:  # noqa: BLE001
+            pass
+    else:
+        print("[scheduler] ALERT job={} {}".format(job.get("id"), redact_secrets(message)), flush=True)
+
+
+def run_now(job_id: str, runner: Optional[Callable] = None, **kw) -> Dict[str, Any]:
+    """Force-run a single job immediately (CLI ``cron run``), regardless of its schedule."""
+    conn = kw.pop("conn", None) or connect()
+    try:
+        job = get_job(job_id, conn=conn)
+        if not job:
+            return {"ok": False, "error": "no such job: {}".format(job_id)}
+        _set(conn, job_id, next_run=job.get("next_run") if job.get("next_run") is not None else 0)
+        # temporarily make it due
+        _set(conn, job_id, enabled=1, next_run=0)
+        r = run_due(now=time.time(), runner=runner, conn=conn, **kw)
+        # restore schedule for recurring jobs handled inside run_due; return the fired entry
+        entry = next((f for f in r["fired"] if f["id"] == job_id), None)
+        return {"ok": bool(entry) and entry["status"] != "error", "fired": entry}
+    finally:
+        conn.close()
+
+
+# --------------------------------------------------------------------------- webhooks
+
+def webhook_subscribe(sub_id: str, secret: str, job_template: Dict[str, Any],
+                      conn: Optional[sqlite3.Connection] = None) -> Dict[str, Any]:
+    if not is_safe_skill_name(sub_id):
+        return {"ok": False, "error": "unsafe subscription id"}
+    own = conn is None
+    conn = conn or connect()
+    try:
+        conn.execute("INSERT OR REPLACE INTO webhooks(id, secret, job_template, created) VALUES (?,?,?,?)",
+                     (sub_id, secret or "", json.dumps(job_template or {}), time.time()))
+        conn.commit()
+        return {"ok": True, "id": sub_id}
+    finally:
+        if own:
+            conn.close()
+
+
+def webhook_list(conn=None):
+    own = conn is None
+    conn = conn or connect()
+    try:
+        return [{"id": r["id"], "created": r["created"], "has_secret": bool(r["secret"])}
+                for r in conn.execute("SELECT * FROM webhooks ORDER BY created").fetchall()]
+    finally:
+        if own:
+            conn.close()
+
+
+def webhook_remove(sub_id, conn=None):
+    own = conn is None
+    conn = conn or connect()
+    try:
+        cur = conn.execute("DELETE FROM webhooks WHERE id=?", (sub_id,))
+        conn.commit()
+        return {"ok": cur.rowcount > 0, "id": sub_id}
+    finally:
+        if own:
+            conn.close()
+
+
+def _sign(secret: str, payload: bytes) -> str:
+    return hmac.new(secret.encode("utf-8"), payload, hashlib.sha256).hexdigest()
+
+
+def webhook_event(sub_id: str, payload, signature: Optional[str] = None,
+                  runner: Optional[Callable] = None, conn: Optional[sqlite3.Connection] = None) -> Dict[str, Any]:
+    """Validate an incoming event and, if valid, run a one-shot job from the subscription
+    template carrying the event metadata. A bad/missing signature (when a secret is configured)
+    is REJECTED without running anything."""
+    own = conn is None
+    conn = conn or connect()
+    try:
+        row = conn.execute("SELECT * FROM webhooks WHERE id=?", (sub_id,)).fetchone()
+        if not row:
+            return {"ok": False, "error": "no such subscription: {}".format(sub_id)}
+        raw = payload if isinstance(payload, (bytes, bytearray)) else json.dumps(payload, sort_keys=True).encode("utf-8")
+        if row["secret"]:
+            if not signature or not hmac.compare_digest(_sign(row["secret"], raw), signature):
+                return {"ok": False, "error": "invalid signature", "rejected": True}
+        template = json.loads(row["job_template"] or "{}")
+        try:
+            event = payload if isinstance(payload, dict) else json.loads(raw.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            event = {"raw": True}
+
+        def _webhook_runner(job, ctx):
+            if runner is not None:
+                return runner(job, ctx)
+            return "webhook {} event handled (keys={})".format(sub_id, ",".join(sorted(event.keys()))
+                                                               if isinstance(event, dict) else "?")
+        jid = "wh-{}-{}".format(sub_id, int(time.time() * 1000) % 1000000)
+        # create a transient one-shot job (due now) and run it immediately
+        create_job(jid, "once", str(time.time()), prompt=template.get("prompt", ""),
+                   skills=template.get("skills"), on_empty=template.get("on_empty", "silent"),
+                   meta={"webhook": sub_id, "event_keys": sorted(event.keys()) if isinstance(event, dict) else []},
+                   now=0, conn=conn)
+        r = run_due(now=time.time(), runner=_webhook_runner, conn=conn)
+        entry = next((f for f in r["fired"] if f["id"] == jid), None)
+        remove(jid, conn=conn)   # transient
+        return {"ok": bool(entry) and entry["status"] != "error", "sub_id": sub_id,
+                "fired": entry, "event_valid": True}
+    finally:
+        if own:
+            conn.close()
+
+
+# --------------------------------------------------------------------------- selftest
+
+def _selftest() -> None:
+    dbp = os.path.join(tempfile.mkdtemp(prefix="scheduler_selftest_"), "jobs.db")
+    os.environ["OMEGACLAW_JOBS_DB"] = dbp
+    os.environ["OMEGACLAW_SESSION_DB"] = os.path.join(os.path.dirname(dbp), "s.db")
+    reset(dbp)
+
+    t0 = 1_000_000.0
+    ran = []
+
+    def runner(job, ctx):
+        ran.append(job["id"])
+        if job.get("meta") and "boom" in (job.get("prompt") or ""):
+            raise RuntimeError("kaboom")
+        return "output for " + job["id"]
+
+    # once + interval + cron creation
+    assert create_job("once1", "once", str(t0 + 10), prompt="hi", now=t0)["ok"]
+    assert create_job("iv1", "interval", "60", prompt="tick", now=t0)["ok"]
+    assert create_job("cr1", "cron", "*/5 * * * *", prompt="cronjob", now=t0)["ok"]
+    # unsafe id + too-fast interval refused
+    assert create_job("../x", "once", str(t0))["ok"] is False
+    assert create_job("fast", "interval", "0.1", now=t0)["ok"] is False
+
+    # nothing due before t0+10; once1 due at t0+10
+    assert run_due(now=t0 + 5, runner=runner)["count"] == 0
+    r = run_due(now=t0 + 11, runner=runner)
+    assert "once1" in [f["id"] for f in r["fired"]]
+    # once job is now done (next_run None) -> not due again
+    assert get_job("once1")["next_run"] is None
+    assert "once1" not in [f["id"] for f in run_due(now=t0 + 100, runner=runner)["fired"]]
+
+    # interval reschedules
+    before = get_job("iv1")["next_run"]
+    run_due(now=before + 0.1, runner=runner)
+    assert get_job("iv1")["next_run"] > before
+
+    # restart safety: a due job persisted; a fresh connection still sees + fires it once
+    reset(dbp)
+    create_job("survive", "once", str(t0), prompt="x", now=t0)
+    # simulate restart: new process reads same DB (overdue) -> fires exactly once, not lost/dup
+    f1 = run_due(now=t0 + 1000, runner=runner)
+    f2 = run_due(now=t0 + 2000, runner=runner)
+    assert [f["id"] for f in f1["fired"]] == ["survive"] and f2["count"] == 0
+
+    # failure -> alert
+    alerts = []
+    create_job("boomjob", "once", str(t0), prompt="boom", now=t0, meta={"x": 1})
+    rb = run_due(now=t0 + 1, runner=runner, alert_fn=lambda job, msg: alerts.append((job["id"], msg)))
+    assert rb["fired"][0]["status"] == "error" and alerts and alerts[0][0] == "boomjob"
+
+    # on_empty: silent stays quiet, alert alerts
+    create_job("emptysilent", "once", str(t0), now=t0, on_empty="silent")
+    create_job("emptyalert", "once", str(t0), now=t0, on_empty="alert")
+    a2 = []
+    run_due(now=t0 + 1, runner=lambda j, c: "", alert_fn=lambda j, m: a2.append(j["id"]))
+    assert "emptyalert" in a2 and "emptysilent" not in a2
+
+    # recursion guard: a runner can't create jobs
+    create_job("recur", "once", str(t0), now=t0)
+    def _recur_runner(job, ctx):
+        return "nested={}".format(create_job("child", "once", str(t0), now=t0)["ok"])
+    rr = run_due(now=t0 + 1, runner=_recur_runner)
+    assert "nested=False" in get_job("recur")["last_output"]
+
+    # webhook: valid signature runs, invalid rejected
+    secret = "shh-secret"
+    webhook_subscribe("gh", secret, {"prompt": "handle push"})
+    import json as _json
+    payload = {"event": "push", "repo": "x"}
+    raw = _json.dumps(payload, sort_keys=True).encode("utf-8")
+    good = _sign(secret, raw)
+    assert webhook_event("gh", payload, good, runner=lambda j, c: "handled")["ok"]
+    assert webhook_event("gh", payload, "deadbeef").get("rejected") is True
+    assert webhook_event("gh", payload, None).get("rejected") is True
+
+    del os.environ["OMEGACLAW_JOBS_DB"], os.environ["OMEGACLAW_SESSION_DB"]
+    print("scheduler self-tests passed")
+
+
+if __name__ == "__main__":
+    _selftest()

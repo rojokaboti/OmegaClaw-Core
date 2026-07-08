@@ -291,6 +291,30 @@ isolation violations.
 
 ---
 
+## Scheduled & event-triggered runs (`src/scheduler.py`)
+
+OmegaClaw can run itself on a schedule or in response to events (Issue #17) — monitors, daily
+summaries, recurring benchmarks, CI watchers, webhook handlers — without ad hoc shell wrappers.
+Jobs live in a **durable SQLite store** (`memory/jobs.db`), so due jobs **survive a process
+restart** (the persisted `next_run` means an overdue job fires exactly once — never lost, never
+duplicated). Schedules are **one-shot**, **interval** (every N seconds), or a minimal **cron**
+(`m h dom mon dow`). Each fire runs in its **own session**; non-empty output is delivered, and a
+failure (or an empty result when `on_empty: alert`) raises an alert while `silent` watchdogs stay
+quiet. Jobs can **chain** on the previous run's output, self-scheduling storms are refused
+(recursion guard), and **webhook** subscriptions carry an **HMAC secret** — an event with a
+bad/missing signature is rejected. Manage it with `scripts/omegaclaw-cron`:
+
+```
+scripts/omegaclaw-cron create daily --kind cron --spec "0 9 * * *" --prompt "daily summary"
+scripts/omegaclaw-cron list | run <id> | pause <id> | resume <id> | remove <id>
+scripts/omegaclaw-cron tick                                  # scheduler heartbeat: fire due jobs
+scripts/omegaclaw-cron webhook subscribe gh --secret <hmac>  # then: webhook event gh --payload ..
+```
+
+DB path: `OMEGACLAW_JOBS_DB` (default `memory/jobs.db`).
+
+---
+
 ## Filesystem skills (SKILL.md bundles)
 
 Beyond the built-in MeTTa skills, OmegaClaw loads portable **OpenClaw/Hermes-style
