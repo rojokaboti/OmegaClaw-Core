@@ -181,19 +181,34 @@ reported):
 
 | Game/epoch | PLN cities/units/techs | plain cities/units/techs | cities |
 |---|---|---|---|
-| old-code g1 | 3 / 21 / 32 | 7 / 69 / 33 | plain **+4** |
+| old-code g1 (PLN=side0) | 3 / 21 / 32 | 7 / 69 / 33 | plain **+4** |
+| old-code g2 (PLN=side1) | 2 / 27 / 15 | 3 / 33 / 19 | plain **+1** |
 | fixed g1 epoch 1 (→t751) | 3 / 28 / 21 | 3 / 35 / 25 | **tied** |
 | fixed g1 epoch 2 (→t890) | 3 / 28 / 25 | 3 / 38 / 21 | **tied** |
+| **fixed g2 mirror (→t890)** | **6 / 30 / 73** | 3 / 26 / 28 | **PLN +3** |
 
-**Fixing the injection turned a plain blowout (7–3 cities) into a tie (3–3).** PLN no longer loses
-on cities; a modest unit gap (~28 vs 35–38) remains and techs split (PLN ahead in epoch 2). Both
-arms now plateau at 3 cities — consistent with a shared map/base-agent expansion ceiling rather than
-a PLN-specific deficit. Caveats: (a) the mid-game reset means g1 is two ~short games, not one long
-one; (b) the mirror game **g2 (PLN=side1) is still running** — verdict updated when it completes;
-(c) still one seed. **Bottom line so far:** the earlier "PLN hurts" result was largely an artifact
-of *how* the recommendations were injected, not the reasoning itself — once injected as hints, PLN
-plays on par with the plain LLM here. Whether it can *exceed* it needs the expansion-rule work
-(Fix B) and multiple seeds.
+**The mirror completes the reversal.** Under the old code plain won BOTH slots (g1 +4, g2 +1). With
+the injection fixed, PLN **tied** the g1 slot (3–3) and **won** the g2 mirror slot outright:
+**6 cities vs 3, 73 techs vs 28** — a clean single game to turn 890 (no reset, 5 reconnects,
+anchoring broken at 2.93 actions/turn). That 6-city result is the first time any PLN arm broke past
+3 cities, which retires the "shared 3-city ceiling" reading of g1: PLN *can* out-expand once it is
+not anchored — in g1 it happened to land level, in g2 it pulled ahead.
+
+**Bottom line (head-to-head, fixed vs old code):**
+
+| | old block ("priorities") | hints reframe (Fix A) |
+|---|---|---|
+| PLN actions/turn | 2.06 (anchored, 97%) | ~2.9 (free, ~1–12%) |
+| g1 slot (PLN=side0) | plain wins 7–3 | **tied 3–3** |
+| g2 slot (PLN=side1) | plain wins 3–2 | **PLN wins 6–3** |
+
+The earlier "PLN hurts" finding was **an artifact of how the recommendations were injected, not the
+reasoning**. A one-line reframing (list → optional hints, keep the full action budget) flipped the
+head-to-head from *plain wins both slots* to *PLN ties one and wins the other*. Honest caveats: one
+seed per slot; g1 had a mid-game server reset (two short games, both consistent); score/gold/science
+still proxy-unavailable so the verdict rests on cities/units/techs. This is a strong, direction-
+consistent signal — not yet a statistical claim. Next: multiple seeds, and the expansion-rule work
+(Fix B) to see whether PLN can widen the lead further.
 
 ## What this experiment did establish
 - A reproducible in-container A/B harness (`ab_sim.py`/`ab_report.py`/`ab_run.sh`) with matched
