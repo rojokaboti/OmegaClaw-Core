@@ -37,7 +37,7 @@ This reads a command-line override via `argk` (`name=value` on the MeTTa command
 
 | Parameter | Default | Meaning |
 |---|---|---|
-| `commchannel` | `irc` | Active channel — `irc`, `telegram`, `slack`, or `mattermost`. |
+| `commchannel` | `irc` | Active channel — `irc`, `telegram`, `slack`, `mattermost`, or `websocket`. |
 | `IRC_channel` | `##omegaclaw` | IRC channel to join. |
 | `IRC_server` | `irc.quakenet.org` | IRC server hostname. |
 | `IRC_port` | 6667 | IRC port. |
@@ -48,6 +48,9 @@ This reads a command-line override via `argk` (`name=value` on the MeTTa command
 | `SL_POLL_INTERVAL` | 60 | Slack poll interval in seconds (minimum effective value is 60). |
 | `MM_URL` | `https://chat.singularitynet.io` | Mattermost base URL. |
 | `MM_CHANNEL_ID` | `8fjrmabjx7gupy7e5kjznpt5qh` | Target channel ID. |
+| `WS_URL` | *(empty — set at runtime)* | WebSocket endpoint URL. Required when `commchannel=websocket`. Must be `wss://` (encrypted); cleartext `ws://` is refused unless the host is loopback (`localhost`/`127.0.0.1`/`::1`) or `OMEGACLAW_WS_ALLOW_INSECURE=1` is set. |
+| `OMEGACLAW_WS_ALLOW_INSECURE` | *(unset)* | Set to `1` to explicitly allow a cleartext `ws://` WebSocket endpoint to a non-loopback host (unsafe/dev only; logs a loud warning). |
+| `WS_TOKEN` | *(empty — required for `websocket`)* | Bearer token sent as `Authorization: Bearer <token>`. **Required** together with `WS_URL` when `commchannel=websocket`; the channel is fail-closed and declines to start if either is empty. |
 
 | Environment variable | Meaning |
 |---|---|
@@ -67,6 +70,12 @@ Slack example:
 
 ```bash
 SL_BOT_TOKEN=xoxb-... metta run.metta commchannel=slack SL_CHANNEL_ID=C0123456789
+```
+
+WebSocket example:
+
+```bash
+metta run.metta commchannel=websocket WS_URL=wss://chat.example.com/agent WS_TOKEN=...
 ```
 
 The `argk` helper parses `key=value` pairs from `argv`.

@@ -1,6 +1,6 @@
 # Reference — Channels
 
-Channels are the I/O surface the agent uses to talk to the outside world. Adapters live in `channels/`; MeTTa-side dispatch lives in `src/channels.metta`.
+Channels are the I/O surface the agent uses to talk to the outside world. Adapters live in `channels/`; the MeTTa side (`src/channels.metta`) is a thin facade that resolves config from CLI args and delegates start/receive/send to the Python channel registry (`src/channel_registry.py`, Issue #9).
 
 ## The adapter contract
 
@@ -12,18 +12,18 @@ Each adapter exposes:
 | `getLastMessage()` | Returns the next unread inbound message as a string. Returns `""` if none. |
 | `send_message(str)` | Posts an outbound message. |
 
-The MeTTa side reads `commchannel` and branches:
+The MeTTa side no longer hardcodes a per-channel `if` chain. `commchannel` (and the resolved
+config keys) are passed straight to the registry, which dispatches by name:
 
 ```metta
 (= (receive)
-   (if (== (commchannel) irc)
-       (py-call (irc.getLastMessage))
-       (if (== (commchannel) telegram)
-           (py-call (telegram.getLastMessage))
-           (if (== (commchannel) slack)
-               (py-call (slack.getLastMessage))
-               (py-call (mattermost.getLastMessage))))))
+   (py-call (channel_registry.receive (commchannel))))
 ```
+
+`send` and `initChannels` delegate the same way (`channel_registry.send` / `.start_channel`). The
+registry maps each name to a `Channel` object (`src/channel_registry.py`); adding a channel is one
+`register(...)` call rather than editing three branches. An unknown `commchannel` resolves to
+`channels/mock.py`, the in-process test channel used when no real channel is selected.
 
 ## `channels/irc.py`
 
@@ -58,6 +58,35 @@ Slack adapter using Slack Web API polling.
 - If `SL_CHANNEL_ID` is empty, the adapter auto-binds to the first channel where auth succeeds.
 - Adapter respects Slack `Retry-After` backoff on HTTP 429 and enforces a minimum 60s poll interval.
 - Uses the same one-time `auth <secret>` ownership gate as the other adapters.
+
+## `channels/wschat.py`
+
+Minimal JSON chat adapter over a WebSocket connection. Selected with `commchannel=websocket` — the Python module is `wschat`, exposing `start_websocket` / `stop_websocket` alongside the usual `getLastMessage` / `send_message`.
+
+- `start_websocket(ws_url, ws_token)` — connect and spawn the listener thread. URL and token are read from `WS_URL` / `WS_TOKEN`, or passed directly.
+- **Fail-closed (this fork):** because inbound frames drive the agent (the channel is effectively a control plane) and — unlike the polling adapters — there is no in-frame one-time `auth <secret>` gate, the channel registry **requires a non-empty `WS_URL` and `WS_TOKEN`, and requires `WS_URL` to be `wss://`** (encrypted) when `commchannel=websocket`. Cleartext `ws://` is refused unless the host is loopback (`localhost`/`127.0.0.1`/`::1`) or `OMEGACLAW_WS_ALLOW_INSECURE=1` is set (an explicit unsafe/dev opt-in that logs a loud warning) — otherwise the bearer token and control frames would traverse the network in cleartext. On any violation the registry **declines to start** the channel (reported as `CHANNEL-DISABLED:websocket`) rather than connecting to / advertising an unauthenticated or interceptable endpoint; OmegaClaw itself still starts and continues without an active WebSocket connection.
+- `stop_websocket()` — stop the listener thread and close the socket.
+- Requires the `websockets` Python package.
+- `WS_TOKEN` is sent as an `Authorization: Bearer <token>` header, establishing trust with the endpoint (which server the agent connects to, authenticated by the bearer token).
+- Reconnects automatically with exponential backoff (1s → 30s, ±20% jitter) and is safe to start once at process startup.
+
+### Frame protocol
+
+All frames are UTF-8 JSON objects with a `type` field; unknown types are logged and ignored.
+
+| Direction | `type` | Payload |
+|---|---|---|
+| server → client | `user_message` | `{seq, text}` — a new inbound message. `seq` is a server-assigned, monotonically increasing integer used for ordering and dedup. |
+| server → client | `ack` | `{seq, client_seq}` — acknowledges a previously sent `agent_message`. Informational; logged only. |
+| server → client | `error` | `{code, message}` — server-side error. Logged; the connection is left open. |
+| client → server | `agent_message` | `{client_seq, text}` — an outbound message. `client_seq` is a client-generated UUID idempotency key so the server can dedupe retries after reconnect. |
+| client → server | `resume` | `{last_seen_seq}` — sent on every (re)connect so the server can replay any `user_message` with `seq > last_seen_seq` (null on the first connect). |
+
+### Delivery semantics
+
+- Inbound messages buffer in a bounded inbox (256 entries). `getLastMessage` drains it, joins pending texts with `" | "`, and advances `last_seen_seq`.
+- Outbound messages produced while disconnected queue in a bounded outbox (100 entries) and flush after the next successful connect, before any new inbound traffic is processed.
+- Duplicate `user_message` frames (`seq <= last_seen_seq`, or already buffered) are dropped, so server replays after `resume` are idempotent.
 
 ## `channels/websearch.py`
 

@@ -19,6 +19,7 @@
 !(import! &self (library OmegaClaw-Core ./src/skill_workshop.py))
 !(import! &self (library OmegaClaw-Core ./src/freeciv_tool.py))
 !(import! &self (library OmegaClaw-Core ./src/agentverse.py))
+!(import! &self (library OmegaClaw-Core ./channels/wschat.py))
 !(import! &self (library OmegaClaw-Core ./channels/irc.py))
 !(import! &self (library OmegaClaw-Core ./channels/mattermost.py))
 !(import! &self (library OmegaClaw-Core ./channels/telegram.py))
