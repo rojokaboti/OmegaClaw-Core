@@ -64,6 +64,48 @@ The LLM should emit `(word-count "the quick brown fox")` and respond with `4`.
 - The LLM invokes it without prompting tweaks.
 - The return value shows up in `LAST_SKILL_USE_RESULTS` on the next turn.
 
+> **Native tools under the JSON action protocol (Issue #1).** The default action
+> protocol (`OMEGACLAW_ACTION_PROTOCOL=json`) validates every tool against
+> `helper.LLM_COMMANDS` and `action_protocol.ARG_SPEC`. A new *native* tool therefore
+> needs **four** edits, not two: the `getSkills` line, its `(= (my-skill …) …)` MeTTa
+> body, an entry in `helper.LLM_COMMANDS`, and an `ARG_SPEC` entry (which also drives
+> the generated `OUTPUT_FORMAT` block). Miss the last two and the tool is rejected as
+> `unknown_tool`.
+
+## Filesystem skills (SKILL.md bundles) — Issue #11
+
+Most reusable skills are **not** new native tools — they are *procedural playbooks* the
+agent follows using the tools it already has (`shell`, `read-file`, `send`, `metta`, …).
+OmegaClaw loads OpenClaw/Hermes-style `SKILL.md` bundles from disk with no code edits:
+
+1. Drop a bundle under a configured skill root (default `skills/`, see
+   `profile/skills.yaml`):
+   ```
+   skills/my-skill/
+     SKILL.md            # YAML frontmatter (name, description, …) + Markdown instructions
+     scripts/ references/ templates/   # optional support files
+   ```
+2. `src/skill_loader.py` discovers and validates it, then injects a compact
+   `LOADED_SKILLS:` catalogue (name + description) into the prompt.
+3. The agent calls the single native tool **`use-skill <name>`** to read a skill's full
+   instructions on demand (progressive disclosure), with `{baseDir}`/`{skillDir}`
+   resolved to the bundle's absolute path so it can reference support files. It then
+   carries out the steps using its existing tools.
+
+Bundles that fail validation (missing `name`/`description`, unparseable frontmatter,
+duplicate name, unsafe name, or a path escaping the root) are skipped with an
+actionable error — never silently. Roots, allow/deny lists and prompt knobs live in
+`profile/skills.yaml`. This is how you reuse an existing skill ecosystem without
+rewriting each skill as MeTTa.
+
+**Eligibility (Issue #13).** A skill can declare prerequisites in its frontmatter
+(`metadata.openclaw.requires.{env,bins,anyBins,config}`, `os`, `always`; or Hermes
+`platforms` / `required_environment_variables` / `metadata.hermes.requires_toolsets`).
+Only skills whose prerequisites are satisfied *here* are advertised to the agent; the rest
+appear as a concise `SKILL_UNAVAILABLE:` note (no secret values). Run
+`scripts/omegaclaw-skills doctor` to see exactly what each blocked skill needs, or set
+`OMEGACLAW_SKILLS_DEBUG=1` to advertise everything.
+
 ## Next steps
 
 - [reference-internals-skill-dispatch.md](./reference-internals-skill-dispatch.md) — how dispatch works.

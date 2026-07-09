@@ -40,6 +40,13 @@ _DEFAULT_RISK = {
     "write-file": "medium",
     "append-file": "medium",
     "read-file": "low",
+    # read-only fetch of a loaded skill's instructions (Issue #11)
+    "use-skill": "low",
+    # runs plugin-defined code (Issue #15) -> escape-hatch risk like shell/metta
+    "plugin-invoke": "high",
+    # drafts a proposal into the review queue (Issue #14); sandboxed to the pending dir, never
+    # touches active skills (an operator applies) -> low risk
+    "propose-skill": "low",
 }
 
 # Tools whose first positional value is a filesystem path / a shell command.

@@ -1,0 +1,34 @@
+name: Renovate
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "10 3 * * 1"
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    # Fork-safe: this workflow targets asi-alliance/OmegaClaw-Core and needs the upstream
+    # Renovate GitHub App + RENOVATE_* secrets. In this fork (rojokaboti/...) it would fail
+    # every week and would otherwise attempt to automate against upstream, so skip it here.
+    # The scheduled/dispatch triggers stay a no-op in the fork; remove this guard (and point
+    # .github/renovate-config.js at the fork) if the fork ever runs its own Renovate app.
+    if: github.repository == 'asi-alliance/OmegaClaw-Core'
+    steps:
+      - name: Get token
+        id: get_token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          private-key: ${{ secrets.RENOVATE_PRIVATE_KEY }}
+          client-id: ${{ secrets.RENOVATE_CLIENT_ID }}
+          owner: ${{ github.repository_owner }}
+          repositories: "asi-alliance/OmegaClaw-Core"
+
+      - name: Checkout
+        uses: actions/checkout@v7.0.0
+
+      - name: Self-hosted Renovate
+        uses: renovatebot/github-action@v46.1.18
+        env:
+          LOG_LEVEL: debug
+        with:
+          configurationFile: .github/renovate-config.js
+          token: "${{ steps.get_token.outputs.token }}"

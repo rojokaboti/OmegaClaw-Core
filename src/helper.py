@@ -16,6 +16,8 @@ LLM_COMMANDS = {
     "metta-session-infer",
     "metta-session-snapshot",
     "pin",
+    "plugin-invoke",
+    "propose-skill",
     "query",
     "query-claims",
     "read-file",
@@ -26,6 +28,7 @@ LLM_COMMANDS = {
     "shell",
     "tavily-search",
     "technical-analysis",
+    "use-skill",
     "write-file",
 }
 

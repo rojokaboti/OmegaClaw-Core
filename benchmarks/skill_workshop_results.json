@@ -1,0 +1,18 @@
+{
+  "baseline": {
+    "valid_proposals": 5,
+    "valid_apply_rate": 0.0,
+    "active_writes_before_apply": 0,
+    "malformed_unsafe_quarantined": false,
+    "quarantine_blocks_apply": false,
+    "rollback_restores": false
+  },
+  "candidate": {
+    "valid_proposals": 5,
+    "valid_apply_rate": 1.0,
+    "active_writes_before_apply": 0,
+    "malformed_unsafe_quarantined": true,
+    "quarantine_blocks_apply": true,
+    "rollback_restores": true
+  }
+}

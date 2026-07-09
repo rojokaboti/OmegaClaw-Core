@@ -74,7 +74,8 @@ ALLOWED_TOOLS = set(LLM_COMMANDS)
 # The session tools reach the same sread/eval path as `metta` (infer evaluates,
 # add stores expressions that infer later evaluates), so they share metta's risk.
 _METTA_EVAL_TOOLS = {"metta-session-infer", "metta-session-add"}
-HIGH_RISK_TOOLS = {"shell", "metta"} | _METTA_EVAL_TOOLS
+# plugin-invoke runs plugin-defined code, so it is an escape hatch like shell/metta.
+HIGH_RISK_TOOLS = {"shell", "metta", "plugin-invoke"} | _METTA_EVAL_TOOLS
 
 
 def _max_actions():
@@ -110,6 +111,15 @@ ARG_SPEC = {
     "read-file": [("path", "file", "filename")],
     "shell": [("command", "cmd", "text")],
     "metta": [("expr", "code", "text")],
+    # Progressive disclosure for filesystem SKILL.md bundles (Issue #11): return a
+    # loaded skill's full instructions on demand. One static tool, not one-per-skill.
+    "use-skill": [("name", "skill", "text")],
+    # Generic dispatch for plugin/MCP tools (Issue #15): call a plugin tool by name with a
+    # single string arg (pass "" for no-arg tools). One static tool, not one-per-plugin-tool.
+    "plugin-invoke": [("name", "tool"), ("arg", "input", "text")],
+    # Governed skill workshop (Issue #14): draft a SKILL.md proposal into the review queue.
+    # Sandboxed to the pending dir — it NEVER changes active skills (an operator applies).
+    "propose-skill": [("name", "skill"), ("body", "skill_md", "content", "text")],
     "write-file": [("path", "file", "filename"), ("content", "text", "str")],
     "append-file": [("path", "file", "filename"), ("content", "text", "str")],
     # FreeCiv benchmark tools (Issue #6). observe takes no args (reads current game state);
@@ -636,6 +646,12 @@ def _selftest():
     r = parse_actions('{"actions":[{"tool":"shell","args":{"command":"ls"}}]}')
     authd, errs = authorize_actions(r.actions)
     assert errs == [] and len(authd) == 1, (authd, errs)
+
+    # use-skill tool (Issue #11) validates + renders end-to-end, incl. its alias.
+    assert "use-skill" in ALLOWED_TOOLS and "use-skill" in ARG_SPEC
+    assert parse_and_render_metta('{"actions":[{"tool":"use-skill","args":{"name":"demo"}}]}') == '((use-skill "demo"))'
+    assert parse_and_render_metta('{"actions":[{"tool":"use-skill","args":{"skill":"x"}}]}') == '((use-skill "x"))'
+    assert "use-skill{name}" in output_format_block()
 
     print("action_protocol self-tests passed")
 

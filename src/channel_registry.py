@@ -18,8 +18,12 @@ Design constraints honored:
 """
 
 import importlib
+import os
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict
+from urllib.parse import urlparse
+
+_LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 FALLBACK = "mock"
 
@@ -90,6 +94,60 @@ def _mattermost_start(cfg):
     )
 
 
+def _ws_insecure_opt_in():
+    return str(os.environ.get("OMEGACLAW_WS_ALLOW_INSECURE", "")).strip().lower() in (
+        "1", "true", "yes", "on")
+
+
+def _ws_scheme_ok(ws_url):
+    """Return (ok, reason). The websocket channel is an agent control plane carrying the bearer
+    token + inbound command frames, so cleartext ``ws://`` is rejected by default (interception /
+    tampering risk). ``ws://`` is allowed only for loopback hosts (traffic never leaves the box)
+    or when ``OMEGACLAW_WS_ALLOW_INSECURE=1`` is set as an explicit unsafe/dev opt-in."""
+    parsed = urlparse(ws_url)
+    scheme = (parsed.scheme or "").lower()
+    if scheme == "wss":
+        return True, ""
+    if scheme != "ws":
+        return False, "WS_URL must use wss:// (or ws:// for loopback); got scheme {!r}".format(scheme)
+    host = (parsed.hostname or "").lower()
+    if host in _LOOPBACK_HOSTS:
+        return True, ""
+    if _ws_insecure_opt_in():
+        print("[channel_registry] WARNING: starting websocket over CLEARTEXT ws:// to {!r} "
+              "(OMEGACLAW_WS_ALLOW_INSECURE set) — bearer token and control frames are "
+              "unencrypted on the network.".format(host or ws_url))
+        return True, ""
+    return False, ("cleartext ws:// to non-loopback host {!r} is refused; use wss:// or set "
+                   "OMEGACLAW_WS_ALLOW_INSECURE=1 for an explicit unsafe/dev opt-in".format(host or ws_url))
+
+
+def _websocket_start(cfg):
+    """Start the websocket channel, fail-closed.
+
+    The websocket channel is effectively an agent control plane: inbound frames drive the agent.
+    Unlike the polling adapters it has no in-frame ``auth <secret>`` ownership gate, so we refuse
+    to bring it up against an unauthenticated or cleartext endpoint. Both ``WS_URL`` and a
+    non-empty ``WS_TOKEN`` (sent as ``Authorization: Bearer``) are required, and ``WS_URL`` must
+    be ``wss://`` (cleartext ``ws://`` allowed only for loopback or with an explicit opt-in — see
+    ``_ws_scheme_ok``). On any violation we DECLINE to start (returning ``False`` so
+    ``start_channel`` reports it truthfully as disabled) rather than connecting to / advertising
+    an open or interceptable control path.
+    """
+    ws_url = (cfg.get("WS_URL") or "").strip()
+    ws_token = (cfg.get("WS_TOKEN") or "").strip()
+    missing = [k for k, v in (("WS_URL", ws_url), ("WS_TOKEN", ws_token)) if not v]
+    if missing:
+        print("[channel_registry] websocket channel disabled: {} required (fail-closed)".format(
+            " and ".join(missing)))
+        return False
+    scheme_ok, reason = _ws_scheme_ok(ws_url)
+    if not scheme_ok:
+        print("[channel_registry] websocket channel disabled: {}".format(reason))
+        return False
+    return _lazy("wschat", "start_websocket")(ws_url, ws_token) or False
+
+
 def _mock_start(cfg):
     return _lazy("mock", "start_mock")()
 
@@ -106,6 +164,8 @@ CHANNELS: Dict[str, Channel] = {
                           _lazy("mattermost", "send_message"),
                           {"MM_URL": "https://chat.singularitynet.io",
                            "MM_CHANNEL_ID": "8fjrmabjx7gupy7e5kjznpt5qh"}),
+    "websocket": Channel("websocket", _websocket_start, _lazy("wschat", "getLastMessage"),
+                         _lazy("wschat", "send_message"), {"WS_URL": "", "WS_TOKEN": ""}),
     "mock": Channel("mock", _mock_start, _lazy("mock", "getLastMessage"),
                     _lazy("mock", "send_message"), {}),
 }
@@ -130,7 +190,7 @@ def _resolve(name):
 
 def start_channel(name, irc_channel="", irc_server="", irc_port="", irc_user="",
                   tg_chat_id="", tg_poll_timeout="", sl_channel_id="", sl_poll_interval="",
-                  mm_url="", mm_channel_id=""):
+                  mm_url="", mm_channel_id="", ws_url="", ws_token=""):
     """Start the selected channel. Config is passed positionally from the MeTTa facade (already
     resolved from CLI args); only the selected channel's keys are used."""
     cfg = {
@@ -138,9 +198,14 @@ def start_channel(name, irc_channel="", irc_server="", irc_port="", irc_user="",
         "TG_CHAT_ID": tg_chat_id, "TG_POLL_TIMEOUT": tg_poll_timeout,
         "SL_CHANNEL_ID": sl_channel_id, "SL_POLL_INTERVAL": sl_poll_interval,
         "MM_URL": mm_url, "MM_CHANNEL_ID": mm_channel_id,
+        "WS_URL": ws_url, "WS_TOKEN": ws_token,
     }
     ch = _resolve(name)
-    ch.start(cfg)
+    # A channel may decline to start (e.g. websocket without WS_URL/WS_TOKEN); reflect that
+    # truthfully instead of reporting a channel that isn't actually running. Only an explicit
+    # False means "declined" — channels that legitimately return None (e.g. mock) are started.
+    if ch.start(cfg) is False:
+        return "CHANNEL-DISABLED:" + ch.name
     return "CHANNEL-STARTED:" + ch.name
 
 
@@ -180,9 +245,17 @@ def _selftest():
         assert calls["sent"] == ["a\\nb"], calls["sent"]
         # unknown channel resolves to the mock fallback (no import triggered by _resolve)
         assert _resolve("does-not-exist").name == "mock"
-        # the five real channels are registered
-        for name in ("irc", "telegram", "slack", "mattermost", "mock"):
+        # the real channels are registered (incl. the upstream websocket/wschat channel)
+        for name in ("irc", "telegram", "slack", "mattermost", "websocket", "mock"):
             assert name in list_channels()
+        # websocket is fail-closed: without WS_URL + WS_TOKEN, or over cleartext ws:// to a
+        # non-loopback host, it declines to start (and does NOT import wschat), so start_channel
+        # reports it as disabled rather than started.
+        assert start_channel("websocket") == "CHANNEL-DISABLED:websocket"
+        assert start_channel("websocket", ws_url="wss://x") == "CHANNEL-DISABLED:websocket"
+        assert start_channel("websocket", ws_token="t") == "CHANNEL-DISABLED:websocket"
+        assert start_channel("websocket", ws_url="ws://example.test", ws_token="t") == "CHANNEL-DISABLED:websocket"
+        assert start_channel("websocket", ws_url="http://example.test", ws_token="t") == "CHANNEL-DISABLED:websocket"
     finally:
         CHANNELS.pop("echo", None)
     print("channel_registry self-tests passed")

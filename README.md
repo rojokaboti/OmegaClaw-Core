@@ -162,7 +162,7 @@ If you want to skip preloading the knowledge then run `export IMPORT_KB_ON_START
 
 | Parameter | Default | Meaning |
 |---|---|---|
-| `commchannel` | `irc` | Type of the communication channel for agent to use - `irc`, `telegram`, `mattermost` or `slack` |
+| `commchannel` | `irc` | Type of the communication channel for agent to use - `irc`, `telegram`, `mattermost`, `slack` or `websocket` |
 | `IRC_channel` | `##omegaclaw` | IRC channel to join |
 | `IRC_server` | `irc.quakenet.org` | IRC server hostname |
 | `IRC_port` | 6667 | IRC port |
@@ -173,6 +173,8 @@ If you want to skip preloading the knowledge then run `export IMPORT_KB_ON_START
 | `SL_POLL_INTERVAL` | 60 | Slack polling interval in seconds (minimum effective value is 60). |
 | `MM_URL` | `https://chat.singularitynet.io` | Mattermost base URL. |
 | `MM_CHANNEL_ID` | `8fjrmabjx7gupy7e5kjznpt5qh` | Mattermost channel ID. |
+| `WS_URL` |  | WebSocket endpoint URL. Required when `commchannel=websocket`. Must be `wss://`; cleartext `ws://` is refused unless loopback or `OMEGACLAW_WS_ALLOW_INSECURE=1`. |
+| `WS_TOKEN` |  | Bearer token sent as `Authorization: Bearer <token>`. Required together with `WS_URL` when `commchannel=websocket` (the channel is fail-closed and declines to start if either is empty). |
 
 | Environment variable | Meaning |
 |---|---|
@@ -187,6 +189,12 @@ If you want to skip preloading the knowledge then run `export IMPORT_KB_ON_START
 | `OMEGACLAW_LLM_LOG_PATH` | Optional path to append per-response JSONL log records (metadata always; redacted raw only when `OMEGACLAW_DEBUG_LLM_RAW` is set). |
 | `OMEGACLAW_LLM_CONFIG_PATH` | Path to the provider/model config YAML (default `profile/llm_providers.yaml`). Relative values resolve against the install root. **Failure model:** an absent *shipped default* (no env set) fails open to built-in defaults; an **explicit** path that is missing/invalid **fails closed** (no external provider registered) so prompts can't silently route to a cloud default. |
 | `OMEGACLAW_LLM_CONFIG_FAIL_OPEN` | `1`/`true` to opt an explicit `OMEGACLAW_LLM_CONFIG_PATH` back into fail-open (fall back to built-in defaults instead of failing closed). |
+| `OMEGACLAW_SKILLS_CONFIG_PATH` | Path to the filesystem-skill loader config YAML (default `profile/skills.yaml`) listing skill roots + allow/deny lists. Relative values resolve against the install root. Fails open to a safe empty set, so a missing/invalid file simply loads no external skills. |
+| `OMEGACLAW_SKILL_BODY_MAX_CHARS` | Max characters of a skill's instructions returned by `use-skill` (default `20000`); longer bodies are truncated. |
+| `OMEGACLAW_INSTALL_POLICY` | Untrusted-skill scan policy (Issue #19): `enforce` (default — HIGH findings block install), `warn` (flag but allow), or `off` (no scan gating). |
+| `OMEGACLAW_INSTALL_INTERACTIVE` | `1`/`true` to allow operator approval of HIGH-severity install findings; default off ⇒ **fail-closed** (HIGH denied in the agent's non-interactive runtime). |
+| `OMEGACLAW_SESSION_DB` | Path to the SQLite session store (Issue #16; default `memory/sessions.db`). Relative values resolve against the install root. Browse with `scripts/omegaclaw-sessions`. |
+| `OMEGACLAW_SKILLS_DEBUG` | `1`/`true` to advertise ALL loaded skills in the prompt, including those blocked by eligibility gates (Issue #13). Default off — only eligible skills are advertised; blocked ones show as a concise `SKILL_UNAVAILABLE:` note. |
 
 ---
 
@@ -250,7 +258,142 @@ comparable across benchmark runs.
 
 ---
 
-## Security: two layers
+## Session persistence & recall (`src/session_store.py`)
+
+Beyond raw logs, OmegaClaw keeps a queryable **SQLite session store** (Issue #16) so you can ask
+"where did we leave off?", search prior decisions, compare runs, and resume interrupted work
+without parsing `history.metta`. It records turns, tool calls, and resumable snapshots, with an
+**FTS5 full-text index** (LIKE fallback) and **redaction applied before persistence** (searchable
+and exported content can never leak a secret). Browse it with `scripts/omegaclaw-sessions`:
+
+```
+scripts/omegaclaw-sessions list
+scripts/omegaclaw-sessions search "widget deploy"
+scripts/omegaclaw-sessions show <id> | resume <id> | export <id>
+scripts/omegaclaw-sessions ingest memory/traces/<date>.jsonl   # backfill from a reasoning trace
+```
+
+`resume` reconstructs enough state (latest snapshot + recent context) to continue an interrupted
+task. Over a 1,000-session synthetic corpus, search returns in well under a millisecond. DB path:
+`OMEGACLAW_SESSION_DB` (default `memory/sessions.db`).
+
+---
+
+## Multi-agent delegation (`src/delegation.py`)
+
+For work that parallelizes — independent investigations, review agents, sandboxed workers —
+OmegaClaw can **delegate** a batch of subtasks to concurrent subagents (Issue #18). Each subagent
+runs in its **own isolated workdir + session** (recorded in the session store), under a
+**concurrency limit** and per-worker **timeout**, and can affect the parent **only through
+declared artifacts** (`write_artifact` rejects any path escaping the workdir). Parent
+interruption **cancels children cleanly**, and **nested delegation is refused by default** (no
+runaway recursion). Results are structured — per-subagent status, session id, artifact paths,
+duration. On a 12-subtask fixture, concurrent delegation runs ~88% faster than serial with zero
+isolation violations.
+
+---
+
+## Scheduled & event-triggered runs (`src/scheduler.py`)
+
+OmegaClaw can run itself on a schedule or in response to events (Issue #17) — monitors, daily
+summaries, recurring benchmarks, CI watchers, webhook handlers — without ad hoc shell wrappers.
+Jobs live in a **durable SQLite store** (`memory/jobs.db`), so due jobs **survive a process
+restart** (the persisted `next_run` means an overdue job fires exactly once — never lost, never
+duplicated). Schedules are **one-shot**, **interval** (every N seconds), or a minimal **cron**
+(`m h dom mon dow`). Each fire runs in its **own session**; non-empty output is delivered, and a
+failure (or an empty result when `on_empty: alert`) raises an alert while `silent` watchdogs stay
+quiet. Jobs can **chain** on the previous run's output, self-scheduling storms are refused
+(recursion guard), and **webhook** subscriptions carry an **HMAC secret** — an event with a
+bad/missing signature is rejected. Manage it with `scripts/omegaclaw-cron`:
+
+```
+scripts/omegaclaw-cron create daily --kind cron --spec "0 9 * * *" --prompt "daily summary"
+scripts/omegaclaw-cron list | run <id> | pause <id> | resume <id> | remove <id>
+scripts/omegaclaw-cron tick                                  # scheduler heartbeat: fire due jobs
+scripts/omegaclaw-cron webhook subscribe gh --secret <hmac>  # then: webhook event gh --payload ..
+```
+
+DB path: `OMEGACLAW_JOBS_DB` (default `memory/jobs.db`).
+
+---
+
+## Filesystem skills (SKILL.md bundles)
+
+Beyond the built-in MeTTa skills, OmegaClaw loads portable **OpenClaw/Hermes-style
+`SKILL.md` bundles** from disk with no code edits (`src/skill_loader.py`). A bundle is a
+directory with a `SKILL.md` (YAML frontmatter — `name`, `description`, `version`,
+`metadata`, `platforms`, `required_environment_variables` — plus Markdown instructions)
+and optional `scripts/` / `references/` / `templates/` support files. A `SKILL.md` is a
+*procedural playbook the agent follows using its existing tools*, not a new native tool.
+
+Discovered skills appear in the prompt as a compact `LOADED_SKILLS:` catalogue
+(name + description); the agent reads a skill's full instructions on demand with the
+`use-skill <name>` tool (progressive disclosure), with `{baseDir}`/`{skillDir}` resolved
+so it can reference support files. Drop bundles under a root listed in
+`profile/skills.yaml` (default `skills/`). Validation is fail-safe: a malformed, unsafe,
+duplicate, or root-escaping bundle is skipped with an **actionable error**, never
+silently, and secret-shaped tokens in a skill body are redacted before they reach the
+prompt.
+
+**Eligibility gates & readiness (`src/skill_policy.py`).** Only skills that can actually run
+here are advertised, so the agent never tries a skill whose prerequisites are missing. A
+bundle declares requirements in its frontmatter — OpenClaw `metadata.openclaw.requires`
+(`env` / `bins` / `anyBins` / `config`), `os`, `always`; Hermes `platforms`,
+`required_environment_variables`, `metadata.hermes.requires_toolsets` — normalized into one
+schema and checked against the current OS, environment, `PATH`, config, and tool policy.
+Blocked skills are not advertised (they appear as a concise `SKILL_UNAVAILABLE:` note that
+never prints secret values); set `OMEGACLAW_SKILLS_DEBUG=1` to advertise all. Run
+`scripts/omegaclaw-skills doctor` for a full readiness report with remediation for every
+blocked bundle. Per-skill allow/deny and overrides live in `profile/skills.yaml`
+(`enabled` / `disabled` / `entries` / `config`).
+
+**Install lifecycle (`src/skill_install.py`).** Rather than hand-copying skills, install them
+from a **local path**, a **Git repo** (pinned ref), or a **ClawHub-compatible HTTP registry**
+(slug):
+
+```
+scripts/omegaclaw-skills install local:/path/to/skill
+scripts/omegaclaw-skills install git:owner/repo@v1.2.0
+scripts/omegaclaw-skills install clawhub:my-skill@2.0      # OMEGACLAW_CLAWHUB_URL
+scripts/omegaclaw-skills list | update [--all] | verify | pin <name> | remove <name>
+```
+
+Each install fetches into a temp staging dir, **validates** it with the loader, and only then
+commits into the skill root — a bad source is a no-op (rollback), never a corrupted root.
+Reinstalls are idempotent (no duplicate directories). A workspace lockfile
+(`<root>/.omegaclaw-skills.lock.json`) plus a per-skill `.omegaclaw-origin.json` record the
+source, ref/version, a content hash, install time, and trust status; `verify` re-hashes an
+installed skill against its lock to detect tampering, and `pin` protects a skill from
+`update --all`. (Sandboxing/approvals for untrusted sources are Issue #19; installs are
+recorded as `trust: unverified` today.)
+
+**Skill workshop (`src/skill_workshop.py`, Issue #14).** The agent can capture a repeated or
+tricky workflow into a reusable skill — safely. Calling `propose-skill <name> <SKILL.md>` drafts
+the skill into a **review queue** under `memory/skill-workshop/` (validated + scanned on the
+spot; malformed or unsafe drafts are **quarantined**, never applyable). The agent has **no path
+that writes the active skill root** — only an operator, via `omegaclaw-skills workshop apply
+<id>`, promotes a proposal to a live skill (reusing the install validate/scan/lock pipeline and
+snapshotting the prior version for `workshop rollback`). Manage the queue with
+`omegaclaw-skills workshop list | inspect | apply | reject | revise | quarantine | rollback`.
+This is durable learning without uncontrolled self-modification.
+
+**Plugins & tools (`src/plugin_registry.py`).** Skills describe *how* to use capabilities;
+plugins *provide* them. A plugin is a directory with a manifest (`plugin.json`) declaring an
+`id`, `version`, and `entrypoint` (a Python module exposing `register() -> [tool spec, …]`),
+plus optional `skill_dirs` and `requires` (`env`/`bins`/`config`). Point `profile/plugins.yaml`
+`roots:` at a plugin (or a parent dir of plugins) to enable it — **no core edits**. Discovered
+tools are advertised as a `PLUGIN_TOOLS:` prompt catalogue and called through one generic tool,
+`plugin-invoke <name> <arg>` (an MCP-style call interface); plugin `skill_dirs` are surfaced
+through the same SKILL.md loader. A disabled plugin contributes nothing; a bad manifest,
+failing import, unmet requirement, or duplicate tool name is skipped with an actionable
+`PLUGIN_LOAD_ERRORS` note, never crashing the agent. `plugin-invoke` runs plugin-defined code,
+so it is **high-risk** in the tool policy (gate it in hardened mode). See
+`plugins/example-calculator/` for a worked example (disabled by default). Out-of-box
+`roots:` is empty, so the default toolset is unchanged.
+
+---
+
+## Security: three layers
 
 OmegaClaw applies defense-in-depth around tool use:
 
@@ -265,6 +408,21 @@ OmegaClaw applies defense-in-depth around tool use:
    enabled/disabled, `allowed_roots` for file reads/writes (path-resolved to block
    `../` escapes), and shell `allow`/`deny` glob lists. Denials are structured and
    logged (`[tool_policy] POLICY_DENIAL …`) and reject the whole action batch.
+
+3. **Install trust boundary (`src/install_policy.py`, Issue #19)** — before a fetched
+   skill/plugin bundle is committed, it is **statically scanned** for network
+   exfiltration, destructive commands, credential access, and suspicious dynamic
+   execution (HIGH), plus undeclared env references (MEDIUM). The policy is
+   **fail-closed**: in the agent's default non-interactive mode a HIGH finding
+   **denies** the install (`rejected_policy`, never written to the root); MEDIUM findings
+   only flag (keeping the benign false-positive rate low). The scan verdict is recorded as
+   the skill's `trust` (`clean`/`flagged`/`approved`). Inspect any bundle before installing with
+   `scripts/omegaclaw-skills scan <path>` (non-zero exit on a blocked/invalid/empty target); an
+   operator may explicitly accept a HIGH bundle with `install --approve` (records
+   `trust: approved`). Path/symlink containment is already enforced by
+   the loader (#11) and installer (#12); this adds the *content* boundary. Tune via
+   `OMEGACLAW_INSTALL_POLICY` (`enforce` default / `warn` / `off`) and
+   `OMEGACLAW_INSTALL_INTERACTIVE` (allow operator approval prompts; off ⇒ fail-closed).
 
 The shipped default (`tool_policy.yaml`) is **permissive** (preserves normal
 behavior). A strict, opt-in example lives in `tool_policy.hardened.yaml`

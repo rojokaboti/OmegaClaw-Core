@@ -16,6 +16,14 @@ tools:
   pin: {enabled: true}
   episodes: {enabled: true}
   metta: {enabled: true}
+  # Read-only disclosure of a loaded filesystem skill's instructions (Issue #11).
+  # Enabled so the advertised use-skill tool is not policy-denied under default-deny;
+  # it only returns text, it does not touch the filesystem or shell.
+  use-skill: {enabled: true}
+
+  # Draft a skill proposal into the governed review queue (Issue #14). Enabled because it is
+  # sandboxed to the pending dir and NEVER changes active skills — an operator applies via CLI.
+  propose-skill: {enabled: true}
 
   # Approval-gating demo: committing to long-term memory needs sign-off. The
   # interactive approval workflow is deferred, so `requires_approval` currently

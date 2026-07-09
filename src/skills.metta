@@ -20,6 +20,12 @@
     "- Observe the current FreeCiv game state as PLN reasoning premises (facts with truth values): freeciv-observe"
     "- Validate and submit a FreeCiv action given as a JSON string; illegal moves are refused before submission: freeciv-action json"
     "  Action JSON examples: {\"type\":\"unit_move\",\"unit_id\":7,\"dest_x\":11,\"dest_y\":5} ; {\"type\":\"unit_build_city\",\"unit_id\":7} ; {\"type\":\"city_production\",\"city_id\":1,\"production_type\":\"Granary\"} ; {\"type\":\"end_turn\"}"
+    ;FILESYSTEM SKILLS (see LOADED_SKILLS catalogue for available names):
+    "- Read a loaded filesystem skill's full instructions before following it: use-skill name"
+    ;PLUGIN TOOLS (see PLUGIN_TOOLS catalogue for available names; pass \"\" arg if none needed):
+    "- Call a plugin/MCP tool by name with one string argument: plugin-invoke name arg"
+    ;SKILL WORKSHOP (capture reusable workflows for review; never changes active skills directly):
+    "- After a repeated or tricky workflow worth reusing, draft it as a SKILL.md proposal for operator review: propose-skill name skillmd"
     ;CODE EXECUTION:
     "- Execute MeTTa expression: metta sexpression"
     "Example to invoke Non-Axiomatic Logic via MeTTa: "
@@ -74,3 +80,19 @@
 
 (= (pin $x)
    PIN-SUCCESS)
+
+; Filesystem SKILL.md progressive disclosure (Issue #11). The compact LOADED_SKILLS
+; catalogue (injected in getContext) advertises names+descriptions; this returns the
+; chosen skill's full instructions on demand, with {baseDir}/{skillDir} resolved.
+(= (use-skill $name)
+   (py-call (skill_loader.get_skill_body $name)))
+
+; Generic plugin/MCP tool dispatch (Issue #15). The PLUGIN_TOOLS catalogue (injected in
+; getContext) advertises available tool names; this routes a call to the registered handler.
+(= (plugin-invoke $name $arg)
+   (py-call (plugin_registry.invoke $name $arg)))
+
+; Governed skill workshop (Issue #14). Drafts a SKILL.md proposal into the review queue; it
+; NEVER modifies active skills — an operator applies via the workshop CLI.
+(= (propose-skill $name $body)
+   (py-call (skill_workshop.propose_tool $name $body)))

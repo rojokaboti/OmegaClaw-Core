@@ -1,0 +1,25 @@
+# Plugin & MCP-style tool registry configuration (Issue #15).
+#
+# Selected via OMEGACLAW_PLUGINS_CONFIG_PATH (relative values resolve against the install
+# root). A missing/invalid file fails OPEN to the defaults below — an empty plugin set is a
+# safe no-op, so the out-of-box runtime toolset is unchanged.
+#
+# A plugin is a directory with a manifest (plugin.json / plugin.yaml) declaring an id,
+# version, and entrypoint (a Python module exposing register() -> [tool spec, ...]). Its
+# tools are called through the generic `plugin-invoke <name> <arg>` tool; its skill_dirs are
+# discovered by the SKILL.md loader. A bad/failing/disabled plugin contributes nothing and is
+# reported (PLUGIN_LOAD_ERRORS / `skills doctor`), never crashing the agent.
+version: 1
+
+# Directories scanned for plugin manifests (each immediate subdir may be a plugin). Relative
+# paths resolve against the install root. EMPTY by default — enable plugins explicitly, e.g.:
+#   roots:
+#     - plugins/example-calculator   # (or a parent dir containing several plugins)
+roots: []
+
+# Plugin ids to skip even when discovered.
+disabled: []
+
+# Presence values for a plugin manifest's `requires.config` (non-secret feature flags;
+# credentials belong in env vars checked via `requires.env`).
+config: {}
