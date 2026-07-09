@@ -161,6 +161,40 @@ LLM instead of augmenting it. Fix plan (`benchmarks/freeciv/docs/anchoring-fix-p
 block as *optional hints, not a checklist*, explicitly preserve the full 1–3 action budget, and add
 an expansion signal — then rerun the duel and check that PLN's actions/turn rises to ≈3.
 
+### Rerun with the anchoring fix (commit 9b46234) — 2026-07-08/09
+Applied **Fix A only** (reframe the block to "optional strategic hints (NOT a to-do list)" + an
+explicit "still choose the FULL 1–3 actions … including expansion"); left the shared system prompt
+and the rules untouched so the rerun cleanly isolates the reframing. Run:
+`ab_runs/duelfix_20260708T195741Z`, seed 42, size 2.
+
+**The fix removed the anchoring, exactly as predicted:**
+
+| | avg actions/turn | proposed == recs |
+|---|---|---|
+| PLN **before** (old block) | 2.06 | **97%** |
+| PLN **after** (hints reframe) | **2.87–2.96** | **0–2%** |
+| plain (unchanged) | ~2.95 | — |
+
+PLN now uses its full action budget on ~every turn, matching the plain arm. **And the head-to-head
+gap collapsed** (g1, PLN=side0; the run had one mid-game server reset → two clean epochs, both
+reported):
+
+| Game/epoch | PLN cities/units/techs | plain cities/units/techs | cities |
+|---|---|---|---|
+| old-code g1 | 3 / 21 / 32 | 7 / 69 / 33 | plain **+4** |
+| fixed g1 epoch 1 (→t751) | 3 / 28 / 21 | 3 / 35 / 25 | **tied** |
+| fixed g1 epoch 2 (→t890) | 3 / 28 / 25 | 3 / 38 / 21 | **tied** |
+
+**Fixing the injection turned a plain blowout (7–3 cities) into a tie (3–3).** PLN no longer loses
+on cities; a modest unit gap (~28 vs 35–38) remains and techs split (PLN ahead in epoch 2). Both
+arms now plateau at 3 cities — consistent with a shared map/base-agent expansion ceiling rather than
+a PLN-specific deficit. Caveats: (a) the mid-game reset means g1 is two ~short games, not one long
+one; (b) the mirror game **g2 (PLN=side1) is still running** — verdict updated when it completes;
+(c) still one seed. **Bottom line so far:** the earlier "PLN hurts" result was largely an artifact
+of *how* the recommendations were injected, not the reasoning itself — once injected as hints, PLN
+plays on par with the plain LLM here. Whether it can *exceed* it needs the expansion-rule work
+(Fix B) and multiple seeds.
+
 ## What this experiment did establish
 - A reproducible in-container A/B harness (`ab_sim.py`/`ab_report.py`/`ab_run.sh`) with matched
   controls and per-turn metrics.
