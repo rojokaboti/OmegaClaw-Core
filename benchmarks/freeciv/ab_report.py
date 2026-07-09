@@ -108,6 +108,18 @@ def _trajectory(out_dir, arm):
 
 def final(out_dir):
     s = {a: _arm_stats(out_dir, a) for a in ARMS}
+    # Fail closed: without raw per-turn logs (gitignored) the stats are empty, and writing would
+    # overwrite a tracked comparison with an empty tie (PR #44 review). Reprint the committed
+    # comparison if present, else refuse — never clobber.
+    if not any(s[a]["turns_logged"] for a in ARMS):
+        prior = os.path.join(out_dir, "comparison.md")
+        if os.path.isfile(prior):
+            sys.stderr.write("ab_report: raw logs absent — reprinting committed comparison.md "
+                             "(not regenerating).\n")
+            return open(prior, encoding="utf-8").read()
+        sys.stderr.write("ab_report: no raw *.jsonl and no committed comparison.md under %s — "
+                         "refusing to write an empty comparison. Run against the run data.\n" % out_dir)
+        return None
     traj = {a: _trajectory(out_dir, a) for a in ARMS}
 
     def better(key, hi=True):
@@ -166,7 +178,10 @@ def main():
         print("run dir not found: %s" % args.out_dir, file=sys.stderr)
         return 2
     if args.final:
-        print(final(args.out_dir))
+        text = final(args.out_dir)
+        if text is None:
+            return 2
+        print(text)
     else:
         text, _ = snapshot(args.out_dir)
         print(text)

@@ -20,7 +20,7 @@
       "avg_conclusions": 1.9,
       "llm_errors": 0,
       "reconnects": 0,
-      "heartbeat_age_s": 53,
+      "heartbeat_age_s": 79425,
       "peak_score": 0
     },
     "plain": {
@@ -43,7 +43,7 @@
       "avg_conclusions": 0.0,
       "llm_errors": 0,
       "reconnects": 0,
-      "heartbeat_age_s": 53,
+      "heartbeat_age_s": 79425,
       "peak_score": 0
     }
   },
@@ -4710,5 +4710,5 @@
       }
     ]
   },
-  "generated": "2026-07-08 14:55:36"
+  "generated": "2026-07-09 12:58:28"
 }

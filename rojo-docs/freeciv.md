@@ -66,6 +66,17 @@ was rejected with `E220` (never producing `PACKET_PLAYER_PHASE_DONE`, pid 52). K
 Fix = the `client.end_turn_message()` nested envelope. Also required: `player_ready` on all human
 players before `/start`. Detail: [`benchmarks/freeciv/docs/issue-25-freeciv-turn-cycle.md`].
 
+**#25 follow-up — live `submit_action` auth (was PR #34, folded in here).** The `freeciv-action`
+tool path (`freeciv_tool.act()` → `client.py`) couldn't authenticate: it nested `api_token` under
+`data` (the proxy requires it **top-level**, else `E220`) and targeted the llm-gateway
+`/ws/agent` route instead of the proxy `/llmsocket/<port>` handler. Fixed in `client.py`
+(`connect_message()` top-level token, `_ws_uri()` verbatim proxy endpoint, `from_env()` defaulting
+to `/llmsocket/8002` and honoring `FREECIV_WS_URL`→`FREECIV_PROXY_WS`); `action_message()` now also
+preserves a pre-shaped `actor_id`. Guarded by `Autotests/test_freeciv_client_ws.py` (6 tests pinning
+the full `llm_connect`→`action` wire sequence and the E220 regression) plus an offline `client.py`
+self-test, both wired into `run_mandatory`. (The A/B/duel sims were unaffected — they connect with
+their own correct inline handshake and only borrow `client.action_message`.)
+
 ---
 
 ## 2. The benchmark harness
@@ -152,34 +163,41 @@ froze at 2–3 cities; plain reached 7). **The reasoning is correct; the *inject
 the block narrowed the LLM instead of augmenting it. (Secondary: the rule vocabulary — Defend / Food /
 Settle-in-place — is consolidation-biased with no expansion signal.)
 
-### 3d. The fix and the reversal
+### 3d. The fix and the 1-1 swing
 **Fix A** (commit `9b46234`, `reason.py::format_for_llm`): reframe the block header to
 *"optional strategic hints (NOT a to-do list)"* and append *"Hints only — still choose the FULL 1–3
 actions using your own judgment, including expansion such as founding new cities with settlers."*
 Shared system prompt and rules left untouched, so the rerun cleanly isolates the reframing. Rerun:
 `ab_runs/duelfix_20260708T195741Z`, seed 42, size 2.
 
-The fix removed the anchoring exactly as predicted, and the head-to-head **flipped**:
+The fix removed the anchoring exactly as predicted, and the head-to-head **swung from plain-wins-both
+to a 1-1 split** (verified from committed artifacts — `duelfix_20260708T195741Z/duel_comparison.md`;
+territory verdict = cities > units > techs):
 
 | | old block ("priorities") | hints reframe (Fix A) |
 |---|---|---|
-| PLN actions/turn | 2.06 (anchored, **97%**) | **~2.9** (free, ~1–12%) |
-| g1 slot (PLN=side0) | plain wins **7–3** | **tied 3–3** |
-| g2 slot (PLN=side1) | plain wins **3–2** | **PLN wins 6–3** (73 vs 28 techs) |
+| PLN actions/turn | 2.06 (anchored, **97%**) | **~2.9** (free, ~2–12%) |
+| g1 slot (PLN=side0) | plain wins **7–3 cities** | cities **tied 3–3**; plain edges units 38–28 → narrow plain hold |
+| g2 slot (PLN=side1) | plain wins **3–2 cities** | **PLN wins 6–3 cities** (73 vs 28 techs) |
+| mirror aggregate | **plain 2 – 0** | **1 – 1 split** |
 
 The g2 mirror was a clean single game to turn 890 (no reset, 5 reconnects): **PLN 6 cities / 30
-units / 73 techs vs plain 3 / 26 / 28** — the first time any PLN arm broke past 3 cities, retiring
-the "shared 3-city ceiling" reading. (Fixed g1 had one mid-game server reset → two clean epochs,
-both showing a 3–3 tie.)
+units / 73 techs vs plain 3 / 27 / 28** — the first time any PLN arm broke past 3 cities, retiring
+the "shared 3-city ceiling" reading. Fixed g1 had one mid-game server reset → two clean epochs; the
+last epoch is **cities 3–3** with plain ahead on units (38 vs 28), so by the strict territory
+tiebreak g1 is still a *narrow* plain hold — but a 3–3 city tie is a world away from the old 7–3
+blowout.
 
 ### Verdict
 The earlier **"PLN hurts" finding was largely an artifact of *how* recommendations were injected, not
 the reasoning itself.** A one-line reframing (checklist → optional hints, preserve the action budget)
-turned *plain wins both slots* into *PLN ties one slot and wins the other*. This is a **strong,
+moved the mirror from **plain 2–0** to a **1–1 split** — PLN's first outright win (g2, decisively),
+and its other slot going from a 7–3 blowout loss to a 3–3 city tie. This is a **strong,
 direction-consistent signal — not yet a statistical claim.**
 
-**Honest caveats:** one seed per slot; fixed-g1 had a mid-game server reset; `score/gold/science`
-are proxy-unavailable (verdicts rest on cities/units/techs/survival); the PLN treatment is still
+**Honest caveats:** one seed per slot; fixed-g1 had a mid-game server reset (summarized on its last
+epoch); the g1 "tie" is on cities (plain still edges units); `score/gold/science` are
+proxy-unavailable (verdicts rest on cities/units/techs/survival); the PLN treatment is still
 one-hop rules.
 
 ---
@@ -203,6 +221,14 @@ python3 benchmarks/freeciv/duel_report.py benchmarks/freeciv/ab_runs/duel_<ts> -
 python3 benchmarks/freeciv/benchmark.py             # #6 adapter/validation
 python3 benchmarks/freeciv/turn_cycle_benchmark.py  # #25 turn cycle
 ```
+
+**Data package / regenerating comparisons.** The tracked record for each run is its
+`comparison.{md,json}` (duel: `duel_comparison.{md,json}`), computed by the reporters from the raw
+per-turn `*.jsonl` (gitignored — large). The reporters extract the *final* standing robustly (last
+epoch, skipping the plateau tail — see `run_summary.py`). `--final` **fails closed**: if the raw logs
+are absent it reprints / reuses the committed comparison and refuses to overwrite it with empty
+output, so a fresh checkout can never clobber the tracked results. To fully regenerate from scratch,
+re-run against a dir that still holds the raw `*.jsonl`.
 
 ---
 
