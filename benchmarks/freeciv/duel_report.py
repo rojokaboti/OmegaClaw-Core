@@ -115,6 +115,17 @@ def report(base, final=False):
             "refusing to produce a verdict (would be empty). Run against the dir that holds the "
             "run data.\n" % base)
         return None
+    # Raw logs absent: the committed comparison IS the record. Reprint it byte-for-byte and NEVER
+    # rewrite (even under --final) — regenerating from the committed JSON would only churn volatile
+    # metadata (base path, source, timestamp) and dirty a clean checkout. Mirrors the A/B reporter.
+    if source != "raw":
+        md = os.path.join(base, "duel_comparison.md")
+        if os.path.isfile(md):
+            sys.stderr.write("duel_report: raw logs absent — reprinting committed "
+                             "duel_comparison.md (not regenerating).\n")
+            return open(md, encoding="utf-8").read()
+        text, _, _ = _render(base, games, source)  # only JSON committed: display, do not write
+        return text
     text, pln_wins, plain_wins = _render(base, games, source)
     if final:
         payload = {"base": base, "games": games, "pln_wins": pln_wins, "plain_wins": plain_wins,
