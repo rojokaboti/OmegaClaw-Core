@@ -1,6 +1,6 @@
 # Reference — Channels
 
-Channels are the I/O surface the agent uses to talk to the outside world. Adapters live in `channels/`; MeTTa-side dispatch lives in `src/channels.metta`.
+Channels are the I/O surface the agent uses to talk to the outside world. Adapters live in `channels/`; the MeTTa side (`src/channels.metta`) is a thin facade that resolves config from CLI args and delegates start/receive/send to the Python channel registry (`src/channel_registry.py`, Issue #9).
 
 ## The adapter contract
 
@@ -12,24 +12,18 @@ Each adapter exposes:
 | `getLastMessage()` | Returns the next unread inbound message as a string. Returns `""` if none. |
 | `send_message(str)` | Posts an outbound message. |
 
-The MeTTa side reads `commchannel` and branches:
+The MeTTa side no longer hardcodes a per-channel `if` chain. `commchannel` (and the resolved
+config keys) are passed straight to the registry, which dispatches by name:
 
 ```metta
 (= (receive)
-   (if (== (commchannel) websocket)
-       (py-call (wschat.getLastMessage))
-       (if (== (commchannel) irc)
-           (py-call (irc.getLastMessage))
-           (if (== (commchannel) telegram)
-               (py-call (telegram.getLastMessage))
-               (if (== (commchannel) slack)
-                   (py-call (slack.getLastMessage))
-                   (if (== (commchannel) mattermost)
-                       (py-call (mattermost.getLastMessage))
-                       (py-call (mock.getLastMessage))))))))
+   (py-call (channel_registry.receive (commchannel))))
 ```
 
-The final branch falls through to `channels/mock.py`, the in-process test channel used when no real channel is selected.
+`send` and `initChannels` delegate the same way (`channel_registry.send` / `.start_channel`). The
+registry maps each name to a `Channel` object (`src/channel_registry.py`); adding a channel is one
+`register(...)` call rather than editing three branches. An unknown `commchannel` resolves to
+`channels/mock.py`, the in-process test channel used when no real channel is selected.
 
 ## `channels/irc.py`
 
@@ -69,10 +63,11 @@ Slack adapter using Slack Web API polling.
 
 Minimal JSON chat adapter over a WebSocket connection. Selected with `commchannel=websocket` — the Python module is `wschat`, exposing `start_websocket` / `stop_websocket` alongside the usual `getLastMessage` / `send_message`.
 
-- `start_websocket(ws_url, ws_token)` — connect and spawn the listener thread. URL and optional token are read from `WS_URL` / `WS_TOKEN`, or passed directly. `WS_URL` is required when `commchannel=websocket`; if it is missing, OmegaClaw still starts, the adapter logs that the WebSocket channel is disabled, and the process continues without an active WebSocket connection.
+- `start_websocket(ws_url, ws_token)` — connect and spawn the listener thread. URL and token are read from `WS_URL` / `WS_TOKEN`, or passed directly.
+- **Fail-closed (this fork):** because inbound frames drive the agent (the channel is effectively a control plane) and — unlike the polling adapters — there is no in-frame one-time `auth <secret>` gate, the channel registry **requires both a non-empty `WS_URL` and a non-empty `WS_TOKEN`** when `commchannel=websocket`. If either is missing the registry **declines to start** the channel (reported as `CHANNEL-DISABLED:websocket`) rather than connecting to / advertising an unauthenticated endpoint; OmegaClaw itself still starts and continues without an active WebSocket connection.
 - `stop_websocket()` — stop the listener thread and close the socket.
 - Requires the `websockets` Python package.
-- When `WS_TOKEN` is set it is sent as an `Authorization: Bearer <token>` header. Unlike the IRC/Telegram/Slack adapters there is no one-time `auth <secret>` gate — trust is established by the endpoint URL and bearer token.
+- `WS_TOKEN` is sent as an `Authorization: Bearer <token>` header, establishing trust with the endpoint (which server the agent connects to, authenticated by the bearer token).
 - Reconnects automatically with exponential backoff (1s → 30s, ±20% jitter) and is safe to start once at process startup.
 
 ### Frame protocol

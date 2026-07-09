@@ -203,9 +203,15 @@ def _choose_channel():
                     print("WebSocket URL must start with ws:// or wss://.", file=sys.stderr)
                     continue
 
-                token = getpass.getpass("Optional bearer token (press ENTER to skip) or 'q' to exit: ").strip()
+                # Fail-closed: the websocket channel drives the agent and has no in-frame auth
+                # gate, so a bearer token is required (the channel registry declines to start
+                # without one). See docs/reference-channels.md.
+                token = getpass.getpass("Enter bearer token (required) or 'q' to exit: ").strip()
                 if token.lower() == "q":
                     sys.exit(1)
+                if not token:
+                    print("A bearer token is required for the WebSocket channel.", file=sys.stderr)
+                    continue
 
                 return {
                     "commchannel": "websocket",

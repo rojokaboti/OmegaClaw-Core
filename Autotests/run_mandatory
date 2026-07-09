@@ -9,6 +9,7 @@ test_tracing.py
 test_errors.py
 test_metta_sessions.py
 test_channel_registry.py
+test_wschat.py
 test_skill_loader.py
 test_skill_policy.py
 test_skill_install.py

@@ -91,7 +91,23 @@ def _mattermost_start(cfg):
 
 
 def _websocket_start(cfg):
-    return _lazy("wschat", "start_websocket")(cfg.get("WS_URL") or "", cfg.get("WS_TOKEN") or "")
+    """Start the websocket channel, fail-closed.
+
+    The websocket channel is effectively an agent control plane: inbound frames drive the agent.
+    Unlike the polling adapters it has no in-frame ``auth <secret>`` ownership gate, so we refuse
+    to bring it up against an unauthenticated endpoint. Both ``WS_URL`` and a non-empty
+    ``WS_TOKEN`` (sent as ``Authorization: Bearer``) are required; otherwise we DECLINE to start
+    (returning ``False`` so ``start_channel`` reports it truthfully as disabled) rather than
+    silently connecting to / advertising an open control path.
+    """
+    ws_url = (cfg.get("WS_URL") or "").strip()
+    ws_token = (cfg.get("WS_TOKEN") or "").strip()
+    missing = [k for k, v in (("WS_URL", ws_url), ("WS_TOKEN", ws_token)) if not v]
+    if missing:
+        print("[channel_registry] websocket channel disabled: {} required (fail-closed)".format(
+            " and ".join(missing)))
+        return False
+    return _lazy("wschat", "start_websocket")(ws_url, ws_token) or False
 
 
 def _mock_start(cfg):
@@ -147,7 +163,11 @@ def start_channel(name, irc_channel="", irc_server="", irc_port="", irc_user="",
         "WS_URL": ws_url, "WS_TOKEN": ws_token,
     }
     ch = _resolve(name)
-    ch.start(cfg)
+    # A channel may decline to start (e.g. websocket without WS_URL/WS_TOKEN); reflect that
+    # truthfully instead of reporting a channel that isn't actually running. Only an explicit
+    # False means "declined" — channels that legitimately return None (e.g. mock) are started.
+    if ch.start(cfg) is False:
+        return "CHANNEL-DISABLED:" + ch.name
     return "CHANNEL-STARTED:" + ch.name
 
 
@@ -190,6 +210,11 @@ def _selftest():
         # the real channels are registered (incl. the upstream websocket/wschat channel)
         for name in ("irc", "telegram", "slack", "mattermost", "websocket", "mock"):
             assert name in list_channels()
+        # websocket is fail-closed: without WS_URL + WS_TOKEN it declines to start (and does
+        # NOT import wschat), so start_channel reports it as disabled rather than started.
+        assert start_channel("websocket") == "CHANNEL-DISABLED:websocket"
+        assert start_channel("websocket", ws_url="wss://x") == "CHANNEL-DISABLED:websocket"
+        assert start_channel("websocket", ws_token="t") == "CHANNEL-DISABLED:websocket"
     finally:
         CHANNELS.pop("echo", None)
     print("channel_registry self-tests passed")

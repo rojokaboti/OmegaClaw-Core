@@ -49,7 +49,7 @@ This reads a command-line override via `argk` (`name=value` on the MeTTa command
 | `MM_URL` | `https://chat.singularitynet.io` | Mattermost base URL. |
 | `MM_CHANNEL_ID` | `8fjrmabjx7gupy7e5kjznpt5qh` | Target channel ID. |
 | `WS_URL` | *(empty — set at runtime)* | WebSocket endpoint URL (`ws://` or `wss://`). Required when `commchannel=websocket`. |
-| `WS_TOKEN` | *(empty — optional)* | Bearer token sent as `Authorization: Bearer <token>`. Leave empty for an unauthenticated endpoint. |
+| `WS_TOKEN` | *(empty — required for `websocket`)* | Bearer token sent as `Authorization: Bearer <token>`. **Required** together with `WS_URL` when `commchannel=websocket`; the channel is fail-closed and declines to start if either is empty. |
 
 | Environment variable | Meaning |
 |---|---|

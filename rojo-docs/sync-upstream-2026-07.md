@@ -69,6 +69,41 @@ python3 Autotests/test_channel_registry.py   # 6/6
 git show --stat HEAD                          # the merge commit; only channels.metta was hand-resolved
 ```
 
+## 5b. Post-review fixes (PR #43 review — 4 blockers + doc nits)
+
+The reviewer found four blockers (all reproduced before fixing) plus two doc nits. Three of the
+four are in upstream's newly-merged code; fixes were kept **minimal / low-divergence** to avoid
+future merge friction on the next sync.
+
+1. **WebSocket outbox dropped unsent messages after a mid-flush failure** (`channels/wschat.py`
+   `_drain_outbox`). It cleared the whole outbox, then on a send failure requeued **only** the
+   failed payload — every later unsent payload was lost. Reproduced: queue `[1,2,3]`, fail on `2`
+   → `3` vanished. **Fix:** requeue the failed payload **and all remaining unsent ones**, in
+   order. Regression: `Autotests/test_wschat.py`.
+2. **WebSocket permitted an unauthenticated control path** (inbound frames drive the agent, but
+   the adapter has no `auth <secret>` ownership gate like IRC/Slack/etc.). **Fix (chosen approach:
+   registry-level, fail-closed, low upstream divergence):** the Issue #9 channel registry now
+   **requires both a non-empty `WS_URL` and `WS_TOKEN`** for `commchannel=websocket`; without them
+   `_websocket_start` **declines** and no connection/import happens.
+3. **A declined/disabled channel was reported as started.** `start_channel` returned
+   `CHANNEL-STARTED` unconditionally, so a websocket with missing config looked healthy. **Fix:**
+   a channel start builder may return `False` to decline; `start_channel` then reports
+   `CHANNEL-DISABLED:<name>` (only an explicit `False` — channels that return `None`, e.g. mock,
+   still count as started). Covers the missing-`WS_URL` case truthfully.
+4. **Renovate workflow/config was hardcoded to `asi-alliance/OmegaClaw-Core`** and needs upstream
+   secrets — in this fork it would fail every week and could try to automate against upstream.
+   **Fix (fork-safe):** guard the job with `if: github.repository == 'asi-alliance/OmegaClaw-Core'`
+   so it is a no-op in the fork (files kept for parity; guard documented inline).
+
+Doc nits: `docs/reference-channels.md` still described the **old nested-`if` MeTTa dispatch** that
+Issue #9 removed → rewritten to describe the registry. `WS_TOKEN` docs (reference-channels /
+reference-configuration / README) and the interactive `scripts/omegaclaw` setup flipped from
+"optional" to **required (fail-closed)** to match the new registry behavior.
+
+Regression/verification for the fix round: `channel_registry` self-test + `test_channel_registry.py`
+(8 tests, incl. fail-closed websocket), new `test_wschat.py` (2 tests), embedded-Python compile of
+`scripts/omegaclaw`, and the full `@run_mandatory` sweep (unchanged host baseline).
+
 ## 6. Risk / rollback
 
 - **Low risk, additive.** Upstream's 16 commits are two isolated features; our 94 commits are

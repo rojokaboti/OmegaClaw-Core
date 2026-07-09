@@ -200,12 +200,16 @@ def _drain_outbox(ws):
     with _msg_lock:
         pending = list(_outbox)
         _outbox.clear()
-    for payload in pending:
+    for index, payload in enumerate(pending):
         try:
             _send_json(payload, ws=ws)
         except Exception:
+            # Requeue the failed payload AND every payload after it, preserving order, so a
+            # mid-flush failure doesn't silently drop the not-yet-sent messages (only the one
+            # that failed was requeued before).
             with _msg_lock:
-                _outbox.appendleft(payload)
+                for queued in reversed(pending[index:]):
+                    _outbox.appendleft(queued)
             raise
 
 

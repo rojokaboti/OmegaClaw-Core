@@ -108,6 +108,30 @@ def test_start_channel_maps_config_per_channel():
     assert seen["mattermost"]["MM_URL"] == "http://mm"
 
 
+def test_websocket_is_fail_closed_without_credentials():
+    # The websocket channel is an agent control plane; without both WS_URL and a non-empty
+    # WS_TOKEN it must DECLINE to start (fail-closed) and must not import/connect wschat.
+    assert cr.start_channel("websocket") == "CHANNEL-DISABLED:websocket"
+    assert cr.start_channel("websocket", ws_url="wss://x") == "CHANNEL-DISABLED:websocket"
+    assert cr.start_channel("websocket", ws_token="tok") == "CHANNEL-DISABLED:websocket"
+
+
+def test_websocket_starts_when_url_and_token_present():
+    # With both credentials present it starts, threading WS_URL/WS_TOKEN into the adapter.
+    import types
+    fake = types.ModuleType("wschat")
+    started = {}
+    fake.start_websocket = lambda url, tok: started.update(url=url, tok=tok) or "thread"
+    fake.getLastMessage = lambda: ""
+    fake.send_message = lambda m: None
+    sys.modules["wschat"] = fake
+    try:
+        assert cr.start_channel("websocket", ws_url="wss://x", ws_token="tok") == "CHANNEL-STARTED:websocket"
+        assert started == {"url": "wss://x", "tok": "tok"}
+    finally:
+        sys.modules.pop("wschat", None)
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
