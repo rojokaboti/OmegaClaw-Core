@@ -173,7 +173,7 @@ If you want to skip preloading the knowledge then run `export IMPORT_KB_ON_START
 | `SL_POLL_INTERVAL` | 60 | Slack polling interval in seconds (minimum effective value is 60). |
 | `MM_URL` | `https://chat.singularitynet.io` | Mattermost base URL. |
 | `MM_CHANNEL_ID` | `8fjrmabjx7gupy7e5kjznpt5qh` | Mattermost channel ID. |
-| `WS_URL` |  | WebSocket endpoint URL (`ws://` or `wss://`). Required when `commchannel=websocket`. |
+| `WS_URL` |  | WebSocket endpoint URL. Required when `commchannel=websocket`. Must be `wss://`; cleartext `ws://` is refused unless loopback or `OMEGACLAW_WS_ALLOW_INSECURE=1`. |
 | `WS_TOKEN` |  | Bearer token sent as `Authorization: Bearer <token>`. Required together with `WS_URL` when `commchannel=websocket` (the channel is fail-closed and declines to start if either is empty). |
 
 | Environment variable | Meaning |

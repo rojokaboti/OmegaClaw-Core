@@ -193,6 +193,8 @@ def _choose_channel():
         if c == "4":
             while True:
                 print("Please enter your WebSocket chat server URL. Example: wss://chat.example.com/agent")
+                print("Use wss:// (encrypted). Cleartext ws:// is only accepted for loopback "
+                      "(localhost) or with OMEGACLAW_WS_ALLOW_INSECURE=1 at runtime.")
                 url = input("Enter WebSocket URL or 'q' to exit: ").strip()
                 if url.lower() == "q":
                     sys.exit(1)

@@ -104,6 +104,23 @@ Regression/verification for the fix round: `channel_registry` self-test + `test_
 (8 tests, incl. fail-closed websocket), new `test_wschat.py` (2 tests), embedded-Python compile of
 `scripts/omegaclaw`, and the full `@run_mandatory` sweep (unchanged host baseline).
 
+### Post-review fix round 2 (PR #43 second pass) — cleartext `ws://` control path
+
+The second pass confirmed the round-1 fixes and found one remaining blocker: the registry required
+`WS_URL`/`WS_TOKEN` but **did not validate the scheme**, so a cleartext `ws://example.test` endpoint
+started successfully — sending the bearer token and inbound control frames over the network
+unencrypted (interception/tampering risk for a control plane). Reproduced:
+`start_channel('websocket', ws_url='ws://example.test/agent', ws_token='secret')` → `CHANNEL-STARTED`.
+
+**Fix (`src/channel_registry._ws_scheme_ok`):** `WS_URL` must be `wss://`. Cleartext `ws://` is
+allowed **only** for loopback hosts (`localhost`/`127.0.0.1`/`::1`, traffic never leaves the box) or
+when `OMEGACLAW_WS_ALLOW_INSECURE=1` is set as an explicit unsafe/dev opt-in (logs a loud warning).
+Any other scheme/host → the channel declines (`CHANNEL-DISABLED:websocket`), before importing wschat.
+Regression tests: `test_websocket_rejects_cleartext_non_loopback`,
+`test_websocket_allows_loopback_cleartext`, `test_websocket_cleartext_allowed_with_explicit_opt_in`
+(registry suite now 11 tests). Docs (reference-channels / reference-configuration / README) and the
+interactive `scripts/omegaclaw` prompt updated to state `wss://`-by-default + the opt-in.
+
 ## 6. Risk / rollback
 
 - **Low risk, additive.** Upstream's 16 commits are two isolated features; our 94 commits are
