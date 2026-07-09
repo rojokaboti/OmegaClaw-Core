@@ -26,4 +26,4 @@ Fixture dataset: **6 `llm_optimized` states** (schema-grounded, verified against
 
 The candidate converts every state into deterministic PLN atoms and rejects **100%** of the illegal candidate actions before they reach `action_submit`, while accepting all legal ones. The baseline (raw text, no gate) would submit every illegal action. Live win-rate/score KPIs require a running game and are measured in the live E2E phase (report §5).
 
-Reproduce: `python3 benchmarks/freeciv_benchmark.py`
+Reproduce: `python3 benchmarks/freeciv/benchmark.py`

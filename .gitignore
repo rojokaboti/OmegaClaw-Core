@@ -28,6 +28,16 @@ Autotests/logs/
 # reasoning traces (runtime, Issue #7)
 memory/traces/
 
+# FreeCiv A/B run artifacts (keep only the final comparison.{md,json})
+benchmarks/freeciv/ab_runs/**/*.jsonl
+benchmarks/freeciv/ab_runs/**/*.heartbeat
+benchmarks/freeciv/ab_runs/**/*_summary.json
+benchmarks/freeciv/ab_runs/LATEST*
+benchmarks/freeciv/ab_runs/**/*.log
+benchmarks/freeciv/ab_runs/duel_launch*.log
+# throwaway experiment build (in-container model prefetch)
+Dockerfile.reason
+
 # installed filesystem skills (runtime, Issue #12): the default skill root ships only its
 # README; installed bundles + lock/origin metadata are runtime artifacts, never committed.
 /skills/*

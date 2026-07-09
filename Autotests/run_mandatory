@@ -5,6 +5,8 @@ test_provider_config.py
 test_memory_schema.py
 test_freeciv_adapter.py
 test_freeciv_turn_cycle.py
+test_freeciv_client_ws.py
+test_freeciv_ab.py
 test_tracing.py
 test_errors.py
 test_metta_sessions.py

@@ -65,7 +65,7 @@ class MockProxyWS:
 # The two wire shapes under test.
 def candidate_end_turn():
     """Correct (#25 fix) envelope built by the shipping helper."""
-    from freeciv import client
+    from . import client
     return client.end_turn_message()
 
 
@@ -76,7 +76,7 @@ def baseline_end_turn():
 
 async def drive_turns(end_turn_msg, k, timeout=5):
     """Attempt to advance `k` turns using `end_turn_msg`; return the list of turns observed."""
-    from freeciv import turncycle
+    from . import turncycle
     ws = MockProxyWS(start_turn=1)
     seen = []
     cur = turncycle.turn_of(await turncycle.get_state(ws))

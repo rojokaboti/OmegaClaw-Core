@@ -10,8 +10,8 @@ measures how many turns advance in K attempts:
 * **candidate** = `client.end_turn_message()` → `{"type":"action","action":{"action_type":"end_turn"}}`,
   which passes validation, is normalized, and converts to pid 52 → the turn advances every attempt.
 
-Writes `freeciv_turn_cycle_results.{md,json}`. Exit non-zero if the KPI gate fails.
-Run: `python3 benchmarks/freeciv_turn_cycle_benchmark.py`
+Writes `turn_cycle_results.{md,json}` (next to this file). Exit non-zero if the KPI gate fails.
+Run: `python3 benchmarks/freeciv/turn_cycle_benchmark.py`
 """
 
 import asyncio
@@ -19,13 +19,12 @@ import json
 import os
 import sys
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_REPO_ROOT = os.path.dirname(_HERE)
-for _p in (_HERE, _REPO_ROOT):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+_HERE = os.path.dirname(os.path.abspath(__file__))          # benchmarks/freeciv
+_BENCH = os.path.dirname(_HERE)                             # benchmarks (has the `freeciv` package)
+if _BENCH not in sys.path:
+    sys.path.insert(0, _BENCH)
 
-from freeciv_turn_cycle_fixtures import baseline_end_turn, candidate_end_turn, drive_turns  # noqa: E402
+from freeciv.turn_cycle_fixtures import baseline_end_turn, candidate_end_turn, drive_turns  # noqa: E402
 
 ATTEMPTS = 5
 
@@ -79,17 +78,17 @@ def render_md(s):
         "The candidate advances the turn on **every** attempt (1→2→3→…); the baseline stays stuck on "
         "turn 1 (0 advances), reproducing the Issue #25 symptom and proving the envelope is the cause.",
         "",
-        "Reproduce: `python3 benchmarks/freeciv_turn_cycle_benchmark.py`",
+        "Reproduce: `python3 benchmarks/freeciv/turn_cycle_benchmark.py`",
         "",
     ])
 
 
 def main():
     s = evaluate()
-    with open(os.path.join(_HERE, "freeciv_turn_cycle_results.json"), "w", encoding="utf-8") as f:
+    with open(os.path.join(_HERE, "turn_cycle_results.json"), "w", encoding="utf-8") as f:
         json.dump(s, f, indent=2)
     md = render_md(s)
-    with open(os.path.join(_HERE, "freeciv_turn_cycle_results.md"), "w", encoding="utf-8") as f:
+    with open(os.path.join(_HERE, "turn_cycle_results.md"), "w", encoding="utf-8") as f:
         f.write(md)
     print(md)
 

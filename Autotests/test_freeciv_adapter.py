@@ -18,9 +18,9 @@ for _p in (_SRC, _BENCHMARKS, _REPO_ROOT):
         sys.path.insert(0, _p)
 
 from freeciv import adapter, atoms, actions, schemas  # noqa: E402
-from freeciv_fixtures import FIXTURES  # noqa: E402
+from freeciv.fixtures import FIXTURES  # noqa: E402
+from freeciv import freeciv_tool  # noqa: E402
 import action_protocol as ap  # noqa: E402
-import freeciv_tool  # noqa: E402
 
 
 # --- determinism -----------------------------------------------------------
