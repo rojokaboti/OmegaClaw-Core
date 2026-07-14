@@ -188,6 +188,31 @@ last epoch is **cities 3–3** with plain ahead on units (38 vs 28), so by the s
 tiebreak g1 is still a *narrow* plain hold — but a 3–3 city tie is a world away from the old 7–3
 blowout.
 
+### 3e. Reproduction (2026-07-14): fresh mirror pair — **PLN 2–0**
+A clean re-run on a freshly-built stack (`taso-ventures/freeciv-llm` re-cloned; seed 42, size 2),
+run as a **sequential** mirror. Run `ab_runs/duelseq_20260713T150716Z`, both games clean
+(g1: 838 turns / 8 reconnects; g2: 1671 turns / 18 reconnects):
+
+| Game | PLN slot | Plateau | PLN c/u/t | plain c/u/t | Winner |
+|---|---|---|---|---|---|
+| g1 | side 0 | 840 | 3 / 43 / 27 | 3 / 37 / 29 | **PLN** (units 43>37; cities tied 3–3) |
+| g2 | side 1 | 1675 | 6 / 7 / 87 | 3 / 37 / 31 | **PLN** (cities 6>3, techs 87>31) |
+
+Both arms acted at ~2.95 actions/turn with only **2–7%** of actions matching the recommendation
+count (no anchoring — the Fix-A reframe holds). **PLN won BOTH slots** — a step up from the earlier
+1–1 split, and g2's PLN played a striking tech/builder game (6 cities, 87 techs, few units).
+
+**Reproduction notes.** The stack came up from a bare clone; getting a clean run required (a)
+recreating the root-owned `logs/` bind-mount dir as writable (else every game server dies on launch),
+(b) running the mirror games **sequentially** (the `:8002` proxy carries one active game at a time —
+concurrent games reconnect-storm), and (c) a new pregame line **`/set timeout 0`** in `duel_sim.py`
+(server waits for both players' `end_turn` instead of auto-advancing on a timer). Without (c) the game
+auto-advances during pregame; if the sim hasn't latched onto turn 1 yet, the runaway turn-updates
+flood `recv_until` past its drain and `get_state` never succeeds (sim hangs in setup). g1 above ran
+*before* (c) was added — it self-paced identically by driving every turn, so gameplay is unbiased
+(`timeout` only affects server pacing, not agent decisions); a perfectly symmetric mirror would re-run
+g1 with the same line. Single seed / one pair — a strong signal, not a statistical claim.
+
 ### Verdict
 The earlier **"PLN hurts" finding was largely an artifact of *how* recommendations were injected, not
 the reasoning itself.** A one-line reframing (checklist → optional hints, preserve the action budget)

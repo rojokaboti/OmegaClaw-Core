@@ -123,7 +123,13 @@ async def run(game_id, seed, pln_side, hours, max_turns, out_dir, size):
                 print("[duel] connected (attempt %d): A=%s B=%s" % (attempt, pid0, pid1), flush=True)
                 st = await turncycle.get_state(ws0)
                 if not st or not st.get("units"):
-                    for cmd in ("/set aifill 0", "/set minplayers 2", "/set size %d" % size,
+                    # timeout 0 = server WAITS for both players' end_turn instead of auto-advancing
+                    # on a timer. Without it the game auto-advances during pregame; if the sim hasn't
+                    # latched onto turn 1 yet, the runaway turn-updates flood recv_until past its drain
+                    # and get_state can never succeed (the sim hangs in setup forever). Sent by ws0
+                    # (duel-A, the first-come admin connection) so it applies directly, not as a vote.
+                    for cmd in ("/set timeout 0", "/set aifill 0", "/set minplayers 2",
+                                "/set size %d" % size,
                                 "/set mapseed %d" % seed, "/set gameseed %d" % seed):
                         await ws0.send(json.dumps({"type": "chat", "message": cmd}))
                         await asyncio.sleep(1.0)
