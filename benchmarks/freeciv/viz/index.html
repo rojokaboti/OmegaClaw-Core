@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FreeCiv Benchmark — PLN vs plain-LLM</title>
+<style>
+  /* Validated data-viz palette (blue = PLN, orange = plain; CVD ΔE 96.7). Roles as CSS vars so
+     light/dark swap in one place. */
+  :root {
+    --surface-1: #fcfcfb; --page: #f9f9f7;
+    --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+    --pln: #2a78d6; --plain: #eb6834;
+    --good: #0ca30c; --critical: #d03b3b;
+    --tile: #ffffff;
+  }
+  :root[data-theme="dark"] {
+    --surface-1: #1a1a19; --page: #0d0d0d;
+    --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --pln: #3987e5; --plain: #d95926;
+    --good: #0ca30c; --critical: #d03b3b;
+    --tile: #201f1e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.5;
+  }
+  header { padding: 22px 28px 10px; }
+  h1 { font-size: 20px; margin: 0 0 4px; font-weight: 650; }
+  .sub { color: var(--ink-2); font-size: 13px; }
+  .caveat {
+    margin: 12px 28px 0; padding: 8px 12px; font-size: 12.5px; color: var(--ink-2);
+    background: color-mix(in srgb, var(--critical) 8%, var(--surface-1));
+    border: 1px solid var(--border); border-radius: 8px;
+  }
+  .controls {
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+    padding: 16px 28px; position: sticky; top: 0; z-index: 5;
+    background: var(--page); border-bottom: 1px solid var(--border);
+  }
+  label.ctl { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 3px; }
+  select, button {
+    font: inherit; font-size: 13px; color: var(--ink); background: var(--surface-1);
+    border: 1px solid var(--axis); border-radius: 7px; padding: 6px 10px;
+  }
+  button { cursor: pointer; }
+  .legend { display: flex; gap: 16px; align-items: center; margin-left: auto; font-size: 12.5px; }
+  .legend .dot { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  main { padding: 8px 28px 60px; }
+  section { margin-top: 26px; }
+  h2 { font-size: 14px; font-weight: 600; margin: 0 0 4px; letter-spacing: .01em; }
+  .note { color: var(--muted); font-size: 12px; margin: 0 0 12px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .tile {
+    background: var(--tile); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+  }
+  .tile .k { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-size: 22px; font-weight: 640; margin-top: 3px; }
+  .tile .vs { display: flex; gap: 10px; align-items: baseline; margin-top: 3px; }
+  .tile .vs b { font-size: 22px; font-weight: 640; }
+  .tile .pln { color: var(--pln); } .tile .plain { color: var(--plain); }
+  .tile .lbl { font-size: 11px; color: var(--muted); }
+  .charts { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+  .chart { background: var(--tile); border: 1px solid var(--border); border-radius: 10px; padding: 12px 12px 6px; }
+  .chart .ct { font-size: 12.5px; font-weight: 600; margin: 0 2px 4px; }
+  svg { display: block; width: 100%; height: auto; }
+  .grid line { stroke: var(--grid); stroke-width: 1; }
+  .axis line, .axis path { stroke: var(--axis); }
+  .axis text, .tick { fill: var(--muted); font-size: 10px; }
+  .serieslabel { font-size: 10.5px; font-weight: 600; }
+  .crosshair { stroke: var(--axis); stroke-width: 1; stroke-dasharray: 3 3; }
+  .tooltip {
+    position: fixed; pointer-events: none; z-index: 20; background: var(--surface-1);
+    border: 1px solid var(--axis); border-radius: 8px; padding: 7px 9px; font-size: 12px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.18); opacity: 0; transition: opacity .08s; max-width: 260px;
+  }
+  .tooltip .tt-t { color: var(--muted); font-size: 11px; margin-bottom: 3px; }
+  .tooltip .row { display: flex; justify-content: space-between; gap: 14px; }
+  table.mv { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  table.mv th, table.mv td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); }
+  table.mv th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
+  td.tag { font-variant-numeric: tabular-nums; }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .pill.pln { background: color-mix(in srgb, var(--pln) 18%, transparent); color: var(--pln); }
+  .pill.plain { background: color-mix(in srgb, var(--plain) 18%, transparent); color: var(--plain); }
+  .pill.ok { color: var(--good); } .pill.bad { color: var(--critical); }
+  .rec { color: var(--good); font-weight: 600; }
+  .empty { color: var(--muted); font-style: italic; padding: 10px 2px; }
+  /* atomspace graph */
+  .atom { font-size: 10.5px; }
+  .atomnode rect { rx: 6; }
+  .atomedge { stroke: var(--axis); fill: none; stroke-width: 1.5; opacity: .55; }
+  .atomedge.confirmed { stroke: var(--good); opacity: .9; }
+</style>
+</head>
+<body>
+<header>
+  <h1>FreeCiv Benchmark — OmegaClaw+PLN vs plain-LLM</h1>
+  <div class="sub">Moves, stats, and the PLN player's atomspace across every benchmark run.</div>
+</header>
+<div class="caveat" id="caveat">
+  Note: <b>score, gold, and science are always 0</b> (proxy-unavailable in these runs) — verdicts
+  rest on cities, units, techs, and survival.
+</div>
+
+<div class="controls">
+  <label class="ctl">Run
+    <select id="runSel"></select>
+  </label>
+  <label class="ctl" id="gameWrap">Game
+    <select id="gameSel"></select>
+  </label>
+  <span class="sub" id="runMeta"></span>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--pln)"></span>PLN</span>
+    <span><span class="dot" style="background:var(--plain)"></span>plain</span>
+    <button id="themeBtn" title="Toggle light/dark">◐ theme</button>
+  </div>
+</div>
+
+<main>
+  <section id="statsSec">
+    <h2>Stats</h2>
+    <p class="note" id="verdictNote"></p>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <section id="trajSec">
+    <h2>Moves over time — game state</h2>
+    <p class="note">Per-turn territory. PLN (blue) vs plain (orange).</p>
+    <div class="charts" id="trajCharts"></div>
+  </section>
+
+  <section id="actSec">
+    <h2>Moves over time — activity &amp; reasoning</h2>
+    <p class="note" id="actNote"></p>
+    <div class="charts" id="actCharts"></div>
+  </section>
+
+  <section id="movesSec">
+    <h2>Per-unit moves</h2>
+    <p class="note" id="movesNote"></p>
+    <div id="movesBox"></div>
+  </section>
+
+  <section id="atomSec">
+    <h2>Atomspace — OmegaClaw+PLN player</h2>
+    <p class="note" id="atomNote"></p>
+    <div class="chart" id="atomBox"></div>
+  </section>
+
+  <section id="fxSec">
+    <h2>Static KPI micro-benchmarks</h2>
+    <div class="tiles" id="fxTiles"></div>
+  </section>
+</main>
+
+<div class="tooltip" id="tt"></div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const el = (t, cls, txt) => { const e = document.createElement(t); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const fmt = v => (v == null || v === "" ) ? "—" : (typeof v === "number" ? (Number.isInteger(v) ? v : v.toFixed(2)) : v);
+const COL = { pln: "var(--pln)", plain: "var(--plain)" };
+
+let INDEX = null, ATOMS = null, curRun = null, curGame = null;
+
+// ---- theme toggle (defaults to system) -----------------------------------------------------
+(function initTheme(){
+  const sysDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.setAttribute("data-theme", sysDark ? "dark" : "light");
+  $("#themeBtn").onclick = () => {
+    const now = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", now);
+    render(); // re-render so SVG picks up new CSS var colors baked into attributes
+  };
+})();
+
+// ---- data load ------------------------------------------------------------------------------
+Promise.all([
+  fetch("data/index.json").then(r => r.json()).catch(() => null),
+  fetch("data/atoms.json").then(r => r.json()).catch(() => null),
+]).then(([idx, atoms]) => {
+  INDEX = idx; ATOMS = atoms;
+  if (!INDEX || !INDEX.runs || !INDEX.runs.length) {
+    $("#tiles").innerHTML = '<div class="empty">No index.json found. Run <code>python3 benchmarks/freeciv/viz/build_index.py</code> first.</div>';
+    return;
+  }
+  const rs = $("#runSel");
+  INDEX.runs.forEach((r, i) => {
+    const o = el("option", null, `${r.id}  ·  ${r.type}${r.has_moves ? "  ·  moves" : ""}`);
+    o.value = i; rs.appendChild(o);
+  });
+  rs.onchange = () => selectRun(+rs.value);
+  $("#gameSel").onchange = () => { curGame = curRun.games[+$("#gameSel").value]; render(); };
+  buildFixtures();
+  buildAtoms();
+  selectRun(0);
+});
+
+function selectRun(i){
+  curRun = INDEX.runs[i];
+  const gs = $("#gameSel");
+  gs.innerHTML = "";
+  curRun.games.forEach((g, j) => {
+    const lbl = g.subdir ? `${g.subdir} (PLN=slot ${g.pln_side})` : "A/B (parallel)";
+    const o = el("option", null, lbl); o.value = j; gs.appendChild(o);
+  });
+  $("#gameWrap").style.display = curRun.games.length > 1 ? "" : "none";
+  curGame = curRun.games[0];
+  $("#runMeta").textContent = `source: ${curRun.source}`;
+  render();
+}
+
+function getFinal(s){ if (!s) return {}; return s.final || { n_cities: s.n_cities, n_units: s.n_units, n_techs: s.n_techs }; }
+
+// ---- render all -----------------------------------------------------------------------------
+function render(){
+  renderStats();
+  renderTrajectory();
+  renderActivity();
+  renderMoves();
+}
+
+function tile(k, inner){ const t = el("div", "tile"); t.appendChild(el("div", "k", k)); t.appendChild(inner); return t; }
+function vsTile(k, pln, plain){
+  const wrap = el("div", "vs");
+  const a = el("b", "pln", fmt(pln)); const sep = el("span", "lbl", "vs"); const b = el("b", "plain", fmt(plain));
+  wrap.append(a, sep, b); return tile(k, wrap);
+}
+function oneTile(k, v, cls){ const d = el("div", "v" + (cls ? " " + cls : ""), fmt(v)); return tile(k, d); }
+
+function renderStats(){
+  const t = $("#tiles"); t.innerHTML = "";
+  const p = curGame.stats && curGame.stats.pln, q = curGame.stats && curGame.stats.plain;
+  const pf = getFinal(p), qf = getFinal(q);
+  const winner = curGame.winner;
+  const wTile = tile("Winner", el("div", "v " + (winner === "pln" ? "pln" : winner === "plain" ? "plain" : ""), (winner || "—").toUpperCase()));
+  t.appendChild(wTile);
+  t.appendChild(vsTile("Final cities", pf.n_cities, qf.n_cities));
+  t.appendChild(vsTile("Final units", pf.n_units, qf.n_units));
+  t.appendChild(vsTile("Final techs", pf.n_techs, qf.n_techs));
+  if (p && p.peak) { t.appendChild(vsTile("Peak cities", p.peak.n_cities, q && q.peak && q.peak.n_cities)); }
+  const turns = (p && (p.plateau_turn || p.turns)) || (q && (q.plateau_turn || q.turns));
+  t.appendChild(oneTile("Turns", turns));
+  if (p && p.avg_proposed != null) t.appendChild(vsTile("Actions / turn", p.avg_proposed, q && q.avg_proposed));
+  if (p && p.avg_conclusions != null) t.appendChild(oneTile("PLN conclusions / turn", p.avg_conclusions, "pln"));
+  if (p && p.pct_actions_eq_recs != null) t.appendChild(oneTile("% actions = recs (anchoring)", (p.pct_actions_eq_recs) + "%", "pln"));
+  if (p && p.illegal_rate != null) t.appendChild(vsTile("Illegal rate", p.illegal_rate, q && q.illegal_rate));
+  if (p && p.avg_llm_ms != null) t.appendChild(vsTile("Avg LLM ms", p.avg_llm_ms, q && q.avg_llm_ms));
+  if (p && p.avg_reason_ms != null) t.appendChild(oneTile("Avg PLN reason ms", p.avg_reason_ms, "pln"));
+  $("#verdictNote").textContent = `${curRun.verdict}${curGame.moves_logged ? "" : "  ·  (this run logs per-turn aggregates only; per-unit moves appear on runs recorded after move-logging was added)"}`;
+}
+
+// ---- line chart (SVG, crosshair + tooltip) --------------------------------------------------
+function seriesFrom(key){
+  const mk = arm => (curGame.trajectory[arm] || []).map(p => ({ x: p.turn, y: p[key] })).filter(d => d.x != null && d.y != null);
+  return [
+    { label: "PLN", color: COL.pln, pts: mk("pln") },
+    { label: "plain", color: COL.plain, pts: mk("plain") },
+  ].filter(s => s.pts.length);
+}
+
+function lineChart(title, series, unit){
+  const box = el("div", "chart");
+  box.appendChild(el("div", "ct", title));
+  if (!series.length) { box.appendChild(el("div", "empty", "no data")); return box; }
+  const W = 460, H = 220, m = { t: 12, r: 46, b: 26, l: 40 };
+  const xs = series.flatMap(s => s.pts.map(d => d.x)), ys = series.flatMap(s => s.pts.map(d => d.y));
+  const xMin = Math.min(...xs), xMax = Math.max(...xs), yMin = Math.min(0, ...ys), yMax = Math.max(...ys) || 1;
+  const px = x => m.l + (xMax === xMin ? 0 : (x - xMin) / (xMax - xMin)) * (W - m.l - m.r);
+  const py = y => H - m.b - (yMax === yMin ? 0 : (y - yMin) / (yMax - yMin)) * (H - m.t - m.b);
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const mk = (tag, attrs, cls) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (cls) e.setAttribute("class", cls); return e; };
+  // gridlines + y ticks
+  const g = mk("g", {}, "grid");
+  const nTicks = 4;
+  for (let i = 0; i <= nTicks; i++){
+    const yv = yMin + (yMax - yMin) * i / nTicks, y = py(yv);
+    g.appendChild(mk("line", { x1: m.l, x2: W - m.r, y1: y, y2: y }));
+    const tx = mk("text", { x: m.l - 6, y: y + 3, "text-anchor": "end" }, "tick"); tx.textContent = Math.round(yv);
+    svg.appendChild(tx);
+  }
+  svg.appendChild(g);
+  // x ticks (start / mid / end)
+  [xMin, Math.round((xMin + xMax) / 2), xMax].forEach(xv => {
+    const tx = mk("text", { x: px(xv), y: H - 8, "text-anchor": "middle" }, "tick"); tx.textContent = xv;
+    svg.appendChild(tx);
+  });
+  // baseline
+  svg.appendChild(mk("line", { x1: m.l, x2: W - m.r, y1: py(yMin), y2: py(yMin), stroke: "var(--axis)" }));
+  // lines + end labels
+  series.forEach(s => {
+    const d = s.pts.map((p, i) => (i ? "L" : "M") + px(p.x).toFixed(1) + " " + py(p.y).toFixed(1)).join(" ");
+    svg.appendChild(mk("path", { d, fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round" }));
+    const last = s.pts[s.pts.length - 1];
+    const lbl = mk("text", { x: Math.min(px(last.x) + 5, W - 2), y: py(last.y) + 3, fill: s.color, "text-anchor": "start" }, "serieslabel");
+    lbl.textContent = s.label; svg.appendChild(lbl);
+  });
+  // hover layer
+  const cross = mk("line", { x1: 0, x2: 0, y1: m.t, y2: H - m.b }, "crosshair"); cross.style.opacity = 0; svg.appendChild(cross);
+  const dots = series.map(s => { const c = mk("circle", { r: 3.5, fill: s.color, stroke: "var(--surface-1)", "stroke-width": 1.5 }); c.style.opacity = 0; svg.appendChild(c); return c; });
+  const rect = mk("rect", { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: "transparent" });
+  svg.appendChild(rect);
+  const tt = $("#tt");
+  rect.addEventListener("mousemove", ev => {
+    const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+    const loc = pt.matrixTransform(svg.getScreenCTM().inverse());
+    const xv = xMin + (xMax === xMin ? 0 : (loc.x - m.l) / (W - m.l - m.r) * (xMax - xMin));
+    cross.style.opacity = 1; cross.setAttribute("x1", loc.x); cross.setAttribute("x2", loc.x);
+    let rows = "";
+    series.forEach((s, i) => {
+      let best = null; for (const p of s.pts) if (best == null || Math.abs(p.x - xv) < Math.abs(best.x - xv)) best = p;
+      if (best){ dots[i].style.opacity = 1; dots[i].setAttribute("cx", px(best.x)); dots[i].setAttribute("cy", py(best.y));
+        rows += `<div class="row"><span style="color:${s.color}">${s.label}</span><b>${fmt(best.y)}${unit || ""}</b></div>`; }
+    });
+    let bx = null; for (const p of series[0].pts) if (bx == null || Math.abs(p.x - xv) < Math.abs(bx - xv)) bx = p.x;
+    tt.innerHTML = `<div class="tt-t">turn ${bx}</div>${rows}`;
+    tt.style.opacity = 1; tt.style.left = (ev.clientX + 14) + "px"; tt.style.top = (ev.clientY + 12) + "px";
+  });
+  rect.addEventListener("mouseleave", () => { cross.style.opacity = 0; dots.forEach(d => d.style.opacity = 0); tt.style.opacity = 0; });
+  box.appendChild(svg);
+  return box;
+}
+
+function renderTrajectory(){
+  const c = $("#trajCharts"); c.innerHTML = "";
+  [["Cities", "n_cities"], ["Units", "n_units"], ["Techs", "n_techs"]].forEach(([t, k]) =>
+    c.appendChild(lineChart(t, seriesFrom(k))));
+}
+
+function renderActivity(){
+  const c = $("#actCharts"); c.innerHTML = "";
+  const hasAct = (curGame.trajectory.pln || []).some(p => p.proposed != null);
+  if (!hasAct){ $("#actNote").textContent = "This run does not carry per-turn activity (A/B or committed-only run)."; c.innerHTML = ""; return; }
+  $("#actNote").textContent = "Actions proposed / blocked, PLN conclusions, and reasoning latency per turn.";
+  [["Actions proposed", "proposed", ""], ["Actions blocked (illegal)", "blocked", ""],
+   ["PLN conclusions", "n_conclusions", ""], ["Reasoning latency", "reason_ms", " ms"],
+   ["LLM latency", "llm_ms", " ms"]].forEach(([t, k, u]) =>
+    c.appendChild(lineChart(t, seriesFrom(k), u)));
+}
+
+// ---- per-unit moves -------------------------------------------------------------------------
+function renderMoves(){
+  const box = $("#movesBox"); box.innerHTML = "";
+  const moves = curGame.moves || [];
+  if (!moves.length){ $("#movesNote").textContent = "No per-unit moves recorded for this run."; box.innerHTML = '<div class="empty">Per-unit moves are captured by duel_sim.py for runs recorded after move-logging was added. Older runs show aggregates above.</div>'; return; }
+  $("#movesNote").textContent = `${moves.length} turn(s) with recorded moves. ✓ = PLN-recommended actor.`;
+  // turn selector
+  const sel = el("select");
+  moves.forEach((mv, i) => { const o = el("option", null, "turn " + mv.turn); o.value = i; sel.appendChild(o); });
+  const tbl = el("div");
+  const draw = i => {
+    const mv = moves[i]; tbl.innerHTML = "";
+    const recs = (mv.recommendations || []).map(r => `${r.entity}→${r.action}`).join(", ");
+    if (recs) { const p = el("p", "note", "PLN recommendations this turn: " + recs); tbl.appendChild(p); }
+    const table = el("table", "mv");
+    table.innerHTML = "<thead><tr><th>Side</th><th>Actor</th><th>Action</th><th>Target</th><th>Valid</th><th>PLN</th></tr></thead>";
+    const tb = el("tbody");
+    ["pln", "plain"].forEach(arm => (mv[arm] || []).forEach(a => {
+      const tr = el("tr");
+      const tgt = a.target ? (a.target.x != null ? `(${a.target.x},${a.target.y})` : (a.target.production_type || JSON.stringify(a.target))) : "—";
+      tr.innerHTML = `<td><span class="pill ${arm}">${arm}</span></td>`
+        + `<td class="tag">${a.actor_kind ? a.actor_kind.replace("_id","") : "?"} ${a.actor}</td>`
+        + `<td>${a.action_type || "—"}</td><td class="tag">${tgt}</td>`
+        + `<td class="${a.valid ? "pill ok" : "pill bad"}">${a.valid ? "✓" : "✗"}</td>`
+        + `<td>${a.pln_recommended ? '<span class="rec">✓</span>' : ""}</td>`;
+      tb.appendChild(tr);
+    }));
+    table.appendChild(tb); tbl.appendChild(table);
+  };
+  sel.onchange = () => draw(+sel.value);
+  const lbl = el("label", "ctl", "Turn"); lbl.appendChild(sel);
+  box.append(lbl, tbl); draw(0);
+}
+
+// ---- atomspace graph (layered: facts -> rules -> recommendations) ---------------------------
+function buildAtoms(){
+  const box = $("#atomBox");
+  if (!ATOMS || !ATOMS.facts){ $("#atomNote").textContent = "No atoms.json — run dump_atoms.py."; box.innerHTML = '<div class="empty">Run <code>python3 benchmarks/freeciv/viz/dump_atoms.py</code>.</div>'; return; }
+  $("#atomNote").innerHTML = `Reconstructed from <code>${ATOMS.state_file}</code> (turn ${ATOMS.turn}) via adapter→atoms→rules. `
+    + `${ATOMS.n_facts} facts → ${ATOMS.n_recommendations} recommendations. Source: <b>${ATOMS.source}</b>`
+    + (ATOMS.source === "host-fallback" ? " (host rule-match; the in-container MeTTa/PLN engine confirms these live)." : ".");
+  // facts that produced a recommendation get an edge; keep the graph readable by showing recs +
+  // their source facts prominently, other facts listed compactly.
+  const recFacts = new Set(ATOMS.recommendations.map(r => r.from_fact));
+  const NS = "http://www.w3.org/2000/svg";
+  const recs = ATOMS.recommendations;
+  const srcFacts = ATOMS.facts.filter(f => recFacts.has(f.statement));
+  const rowH = 30, padT = 14;
+  const H = Math.max(srcFacts.length, recs.length, 1) * rowH + padT * 2;
+  const W = 720, colF = 20, colR = 440, boxW = 260, recW = 240;
+  const svg = document.createElementNS(NS, "svg"); svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("class", "atom");
+  const mk = (tag, attrs, cls) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (cls) e.setAttribute("class", cls); return e; };
+  const fY = {}, rY = {};
+  srcFacts.forEach((f, i) => fY[f.statement] = padT + i * rowH + rowH / 2);
+  recs.forEach((r, i) => rY[i] = padT + i * rowH + rowH / 2);
+  // edges first
+  recs.forEach((r, i) => {
+    const y1 = fY[r.from_fact], y2 = rY[i];
+    if (y1 == null) return;
+    const x1 = colF + boxW, x2 = colR;
+    const d = `M ${x1} ${y1} C ${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2}`;
+    svg.appendChild(mk("path", { d }, "atomedge" + (r.engine_confirmed ? " confirmed" : "")));
+  });
+  // fact nodes
+  const tt = $("#tt");
+  srcFacts.forEach(f => {
+    const y = fY[f.statement];
+    const gnode = mk("g", {}, "atomnode");
+    gnode.appendChild(mk("rect", { x: colF, y: y - 11, width: boxW, height: 22, fill: "var(--tile)", stroke: "var(--pln)", "stroke-width": 1.2 }));
+    const t = mk("text", { x: colF + 8, y: y + 3.5, fill: "var(--ink)" }); t.textContent = truncate(f.statement, 40);
+    gnode.appendChild(t);
+    gnode.addEventListener("mousemove", ev => showTT(ev, `<div class="tt-t">${f.category}</div>${f.statement}<br><span style="color:var(--muted)">${f.stv}</span>`));
+    gnode.addEventListener("mouseleave", () => tt.style.opacity = 0);
+    svg.appendChild(gnode);
+  });
+  // recommendation nodes
+  recs.forEach((r, i) => {
+    const y = rY[i];
+    const gnode = mk("g", {}, "atomnode");
+    const col = r.engine_confirmed ? "var(--good)" : "var(--plain)";
+    gnode.appendChild(mk("rect", { x: colR, y: y - 11, width: recW, height: 22, fill: "var(--tile)", stroke: col, "stroke-width": 1.2 }));
+    const t = mk("text", { x: colR + 8, y: y + 3.5, fill: "var(--ink)" }); t.textContent = `Recommend ${r.entity} ${r.action}`;
+    gnode.appendChild(t);
+    gnode.addEventListener("mousemove", ev => showTT(ev, `<div class="tt-t">${r.rule}</div>Recommend ${r.entity} ${r.action}<br><span style="color:var(--muted)">engine confirmed: ${r.engine_confirmed}</span>`));
+    gnode.addEventListener("mouseleave", () => tt.style.opacity = 0);
+    svg.appendChild(gnode);
+  });
+  // column headers
+  const h1 = mk("text", { x: colF, y: 10, fill: "var(--muted)" }); h1.textContent = "observed facts";
+  const h2 = mk("text", { x: colR, y: 10, fill: "var(--muted)" }); h2.textContent = "derived recommendations";
+  svg.append(h1, h2);
+  box.innerHTML = ""; box.appendChild(svg);
+  // also a compact list of the other (non-firing) facts
+  const rest = ATOMS.facts.filter(f => !recFacts.has(f.statement));
+  if (rest.length){
+    const p = el("p", "note", `+ ${rest.length} other observed fact(s): ` + rest.map(f => f.statement).join("  ·  "));
+    box.appendChild(p);
+  }
+}
+function truncate(s, n){ return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+function showTT(ev, html){ const tt = $("#tt"); tt.innerHTML = html; tt.style.opacity = 1; tt.style.left = (ev.clientX + 14) + "px"; tt.style.top = (ev.clientY + 12) + "px"; }
+
+// ---- static fixtures ------------------------------------------------------------------------
+function buildFixtures(){
+  const t = $("#fxTiles");
+  if (!INDEX.fixtures || !INDEX.fixtures.length){ $("#fxSec").style.display = "none"; return; }
+  INDEX.fixtures.forEach(fx => {
+    const s = fx.summary || {};
+    const keys = Object.keys(s);
+    if (!keys.length){ t.appendChild(oneTile(fx.label, "no summary")); return; }
+    keys.forEach(k => {
+      const v = s[k];
+      t.appendChild(oneTile(`${fx.label} · ${k}`, typeof v === "number" ? (Number.isInteger(v) ? v : v.toFixed(3)) : String(v)));
+    });
+  });
+}
+</script>
+</body>
+</html>

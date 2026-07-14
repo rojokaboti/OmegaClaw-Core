@@ -17,6 +17,7 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import sys
 import time
 
@@ -29,6 +30,43 @@ from freeciv import adapter, atoms, actions, client, turncycle, metrics, llm_age
 
 WS = os.environ.get("FREECIV_PROXY_WS", "ws://localhost:8002/llmsocket/8002")
 TOKEN = os.environ.get("FREECIV_API_TOKEN", "test-token-fc3d-001")
+
+
+# A derived recommendation atom, e.g. "(Recommend City_1 Defend)".
+_REC_RE = re.compile(r"\(Recommend\s+([^\s()]+)\s+([^\s()]+)\)")
+# adapter/atoms token prefix per action's actor field (see adapter._tok).
+_ACTOR_TOKEN = {"unit_id": "Unit", "city_id": "City", "tech_id": "Tech"}
+
+
+def _parse_recs(recs):
+    """['(Recommend City_1 Defend)', ...] -> [{'entity','action'}, ...] (+ set of entities)."""
+    out, ents = [], set()
+    for r in recs or []:
+        m = _REC_RE.search(r)
+        if m:
+            out.append({"entity": m.group(1), "action": m.group(2)})
+            ents.add(m.group(1))
+    return out, ents
+
+
+def _move_record(act, valid, rec_ents):
+    """One per-unit move record from a NORMALIZED action (actions.normalize_action output).
+
+    ``pln_recommended`` marks that PLN derived a recommendation for this action's actor entity
+    that turn (best-effort entity match; empty set => always False for the plain side).
+    """
+    kind = next((k for k in ("unit_id", "city_id", "tech_id") if act.get(k) is not None), None)
+    actor = act.get(kind) if kind else None
+    if act.get("dest_x") is not None:
+        target = {"x": act.get("dest_x"), "y": act.get("dest_y")}
+    elif act.get("production_type") is not None:
+        target = {"production_type": act.get("production_type")}
+    else:
+        target = None
+    tok = _ACTOR_TOKEN.get(kind)
+    recommended = bool(tok and actor is not None and ("%s_%s" % (tok, actor)) in rec_ents)
+    return {"actor": actor, "actor_kind": kind, "action_type": act.get("type"),
+            "target": target, "valid": bool(valid), "pln_recommended": recommended}
 
 
 def _log(out_dir, record):
@@ -64,27 +102,34 @@ async def _play_side(ws, is_pln):
     plain = llm_agent.render_plain(norm)
     reason_ms, n_conc = None, 0
     ctx = plain
+    recommendations, rec_ents = [], set()
     if is_pln:
         facts = atoms.sentences_from_facts(adapter.facts_from_state(norm))
         t0 = time.time(); recs = reason.derive(facts); reason_ms = int((time.time() - t0) * 1000)
         n_conc = len(recs)
+        recommendations, rec_ents = _parse_recs(recs)
         block = reason.format_for_llm(recs)
         ctx = plain + ("\n\n" + block if block else "")
     acts, meta = llm_agent.decide(ctx, mine)
     proposed = submitted = blocked = 0
+    moves = []
     for a in acts:
         proposed += 1
-        if actions.validate_action(a, st).is_valid:
-            await ws.send(json.dumps(client.action_message(actions.normalize_action(a))))
+        na = actions.normalize_action(a)
+        valid = actions.validate_action(a, st).is_valid
+        if valid:
+            await ws.send(json.dumps(client.action_message(na)))
             submitted += 1
         else:
             blocked += 1
+        moves.append(_move_record(na, valid, rec_ents))
     await turncycle.send_end_turn(ws)
     # a side is "alive" while it still has a city or a unit
     alive = (m["n_cities"] or 0) > 0 or (m["n_units"] or 0) > 0
     return {"alive": alive, "metrics": m, "proposed": proposed, "submitted": submitted,
             "blocked": blocked, "reason_ms": reason_ms, "n_conclusions": n_conc,
-            "llm_ms": meta.get("llm_ms"), "error": meta.get("error")}
+            "llm_ms": meta.get("llm_ms"), "error": meta.get("error"),
+            "moves": moves, "recommendations": recommendations}
 
 
 def _winner(sideinfo):
@@ -123,7 +168,13 @@ async def run(game_id, seed, pln_side, hours, max_turns, out_dir, size):
                 print("[duel] connected (attempt %d): A=%s B=%s" % (attempt, pid0, pid1), flush=True)
                 st = await turncycle.get_state(ws0)
                 if not st or not st.get("units"):
-                    for cmd in ("/set aifill 0", "/set minplayers 2", "/set size %d" % size,
+                    # timeout 0 = server WAITS for both players' end_turn instead of auto-advancing
+                    # on a timer. Without it the game auto-advances during pregame; if the sim hasn't
+                    # latched onto turn 1 yet, the runaway turn-updates flood recv_until past its drain
+                    # and get_state can never succeed (the sim hangs in setup forever). Sent by ws0
+                    # (duel-A, the first-come admin connection) so it applies directly, not as a vote.
+                    for cmd in ("/set timeout 0", "/set aifill 0", "/set minplayers 2",
+                                "/set size %d" % size,
                                 "/set mapseed %d" % seed, "/set gameseed %d" % seed):
                         await ws0.send(json.dumps({"type": "chat", "message": cmd}))
                         await asyncio.sleep(1.0)
@@ -208,10 +259,12 @@ async def run(game_id, seed, pln_side, hours, max_turns, out_dir, size):
             rec = {"turn": cur, "advanced_to": nt, "reconnects": reconnects,
                    "side0": {"arm": roles["0"], **{k: last["0"].get(k) for k in
                              ("metrics", "proposed", "submitted", "blocked", "reason_ms",
-                              "n_conclusions", "llm_ms", "alive", "error")}},
+                              "n_conclusions", "llm_ms", "alive", "error", "moves",
+                              "recommendations")}},
                    "side1": {"arm": roles["1"], **{k: last["1"].get(k) for k in
                              ("metrics", "proposed", "submitted", "blocked", "reason_ms",
-                              "n_conclusions", "llm_ms", "alive", "error")}}}
+                              "n_conclusions", "llm_ms", "alive", "error", "moves",
+                              "recommendations")}}}
             _log(out_dir, rec)
             _heartbeat(out_dir, turn=(nt if nt is not None else cur), turns_played=turns_played,
                        pln_side=pln_side, reconnects=reconnects)
