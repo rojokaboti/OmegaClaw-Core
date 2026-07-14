@@ -35,6 +35,8 @@ benchmarks/freeciv/ab_runs/**/*_summary.json
 benchmarks/freeciv/ab_runs/LATEST*
 benchmarks/freeciv/ab_runs/**/*.log
 benchmarks/freeciv/ab_runs/duel_launch*.log
+# viz page data is regenerated from run artifacts by build_index.py / dump_atoms.py
+benchmarks/freeciv/viz/data/
 # throwaway experiment build (in-container model prefetch)
 Dockerfile.reason
 

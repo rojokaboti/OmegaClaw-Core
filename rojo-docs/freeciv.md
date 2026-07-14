@@ -255,6 +255,18 @@ are absent it reprints / reuses the committed comparison and refuses to overwrit
 output, so a fresh checkout can never clobber the tracked results. To fully regenerate from scratch,
 re-run against a dir that still holds the raw `*.jsonl`.
 
+**Visualize.** A self-contained webpage (`benchmarks/freeciv/viz/`) explores every run — moves
+over time, per-run stats, and the PLN player's atomspace (facts → rules → recommendations):
+```bash
+bash benchmarks/freeciv/viz/serve.sh            # regenerates data, serves http://localhost:8009
+```
+It reads raw `duel.jsonl` when present and falls back to the committed `comparison.json` /
+`duel_comparison.json` otherwise. Per-unit moves (unit, action, target, PLN-recommended flag) are
+logged by `duel_sim.py` and appear for runs recorded after that logging was added; the atomspace is
+reconstructed offline from a captured state via `dump_atoms.py`. See `benchmarks/freeciv/viz/README.md`.
+For a step-by-step operator's guide (run a duel end-to-end, then visualize it), see
+[`freeciv-duel-and-viz.md`](freeciv-duel-and-viz.md).
+
 ---
 
 ## 5. Follow-ups
