@@ -92,6 +92,89 @@ All under `benchmarks/freeciv/`:
 - **Metrics:** `metrics.py`. **Host tests:** `Autotests/test_freeciv_ab.py`,
   `test_freeciv_turn_cycle.py` (mock WS).
 
+### The AtomSpace — state → facts → atoms → recommendations
+The **AtomSpace** is the symbolic knowledge base the PLN arm reasons over each turn: the observed
+game state, re-expressed as PLN **word-form** atoms, loaded alongside the FreeCiv rule set into
+OmegaClaw's MeTTa/PeTTa space. It is what makes the `pln` arm different from the `plain` arm — the
+`plain` arm never builds it. The pipeline is a chain of pure functions plus one real reasoner call:
+
+```
+raw llm_optimized state
+  → adapter.normalize_state(raw)          # canonical, order-independent projection
+  → adapter.facts_from_state(norm)        # list of JSON facts (subj, pred, obj, f, c, category)
+  → atoms.{atoms_from,sentences_from}_facts(facts)   # PLN word-form strings
+  → [ loaded into the space with rules.metta ]
+  → reason.derive(sentences)              # lib_pln Modus Ponens (|~) in-container → Recommend atoms
+  → reason.format_for_llm(recs)           # optional-hints prompt block appended to the pln arm's view
+```
+
+**Dialect.** PLN word-form (matching what `src/memory_schema.py` stores as `atoms_json`), **not**
+NAL arrow-form. Every atom is one of the link constructors the reasoner accepts —
+`Inheritance`, `Similarity`, `Implication`, `Equivalence`, `Member`, `Evaluation` — and every
+premise carries a truth value `(stv frequency confidence)` with both in `[0,1]`. Each fact has two
+renderings: a bare **statement** `(Inheritance City_1 Undefended)` (what a `remember_claim(...,
+atoms=[...])` list stores) and a **sentence** `((Inheritance City_1 Undefended) (stv 1.0 0.99))`
+(the premise the engine consumes). Entity tokens are namespaced and sanitized (`City_1`, `Unit_102`,
+`Tech_Pottery`, `Type_settlers`, `Player_0`, `Enemy_5`, `Target_1`).
+
+**Fact vocabulary** (emitted by `adapter.py`, guarded by data presence — partial states yield
+partial, never bogus, facts):
+
+| Category | Example atom | Link / form |
+|---|---|---|
+| units | `(Inheritance Unit_102 Type_settlers)` · `(Evaluation (Predicate At) (List Unit_102 14 42))` · `(Evaluation (Predicate Has) (List Player_0 Type_settlers 3))` | Inheritance / Evaluation |
+| cities | `(Evaluation (Predicate Produces) (List City_1 Warriors))` · `(Evaluation (Predicate Population) (List City_1 2))` · `(Inheritance City_1 LowFood)` | Evaluation / Inheritance |
+| resources | `(Evaluation (Predicate Gold) (List Player_0 0))` · `(Evaluation (Predicate Science) (List Player_0 0))` | Evaluation |
+| techs | `(Inheritance Tech_Pottery Researched)` | Inheritance |
+| strategic | `(Evaluation (Predicate Score) (List Player_0 0))` · `(Inheritance Player_0 Strong)` | Evaluation / Inheritance |
+| threats | `(Evaluation (Predicate Threatens) (List Enemy_5 Target_1))` · `(Inheritance City_1 Undefended)` | Evaluation / Inheritance |
+
+Directly-observed facts get `(stv 1.0 0.99)` (`CONF_OBSERVED`); derived/heuristic ones (LowFood,
+Undefended, relative strength) get `(stv 1.0 0.9)` (`CONF_DERIVED`).
+
+**Rules** (`rules.metta`) are `Implication` atoms *"situation ⇒ recommended action"* held in the
+same space:
+
+```metta
+((Implication (Inheritance $c Undefended)    (Recommend $c Defend)) (stv 0.9 0.8))
+((Implication (Inheritance $c LowFood)        (Recommend $c Food))   (stv 0.9 0.8))
+((Implication (Inheritance $u Type_settlers)  (Recommend $u Settle)) (stv 0.8 0.7))
+```
+
+Pairing a fact sentence with a rule via `(|~ fact rule)` fires lib_pln's Modus Ponens: the rule's
+variable unifies with the fact's entity, deriving a grounded **recommendation** atom, e.g.
+`((Inheritance City_1 Undefended) (stv 1.0 0.99))` + the Undefended rule →
+`((Recommend City_1 Defend) (stv 0.9 0.71))`. (A fourth `Threatens ⇒ Retreat` `Evaluation`-form
+rule is kept but does **not** fire under current lib_pln clauses.) `reason.derive` filters out
+ungrounded templates (`(Recommend $c Defend)`) that leak from non-matching fact/rule pairs, so only
+concrete, grounded recommendations reach the LLM.
+
+**Determinism & validation.** Facts are sorted to byte-stable output and `adapter.state_hash` gives
+a SHA-256 of the canonical normalized state, so an identical state produces an identical AtomSpace
+(Issue #6's core KPI). `atoms.validate_atom` / `validate_sentence` parse each S-expression and check
+the link constructor, arity, and truth-value ranges; `assert_well_formed(statements, sentences)`
+raises before anything malformed is loaded into a space.
+
+**Worked example** (from `samples/real_state_turn1.json` — a real captured turn-1 state):
+
+```lisp
+(Inheritance Unit_102 Type_settlers)                        ; a settler we own
+(Inheritance Unit_112 Type_workers)
+(Inheritance Tech_AdvancedFlight Researched)
+(Evaluation (Predicate At)      (List Unit_102 14 42))      ; its position
+(Evaluation (Predicate Gold)    (List Player_0 0))          ; gold=0 (proxy-unavailable, see §1 caveat)
+(Evaluation (Predicate Science) (List Player_0 0))
+(Evaluation (Predicate Score)   (List Player_0 0))
+; each fact above is also emitted as a sentence, e.g.
+;   ((Inheritance Unit_102 Type_settlers) (stv 1.0 0.99))
+; and the settler facts fire the Settle rule → (Recommend Unit_102 Settle)
+```
+
+You can inspect the AtomSpace for any captured state offline with the viz generator
+`benchmarks/freeciv/viz/dump_atoms.py` (`--state PATH`; recommendations come from the real in-container
+engine, or a marked `host-fallback` rule-match on the host), and browse it as a
+fact → rule → recommendation graph in the **Atomspace** tab of the visualization page (§4, "Visualize").
+
 ### The PLN reasoning is real (not string formatting)
 `(|~ fact rule)` fires lib_pln's Modus Ponens: e.g. `((Inheritance City_1 Undefended) (stv 1.0
 0.99))` + the Undefended rule → `((Recommend City_1 Defend) (stv 0.9 0.71))`, the rule variable
