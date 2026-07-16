@@ -189,6 +189,17 @@ def _classify(run_dir):
     return None
 
 
+def _add_run(runs, run_dir, name):
+    kind = _classify(run_dir)
+    try:
+        run = _ab_run(run_dir, name) if kind == "ab" else \
+              _duel_run(run_dir, name) if kind == "duel" else None
+    except (ValueError, OSError, KeyError) as e:
+        sys.stderr.write("skip %s: %s\n" % (name, e)); run = None
+    if run:
+        runs.append(run)
+
+
 def build():
     runs = []
     if os.path.isdir(_AB_RUNS):
@@ -196,14 +207,15 @@ def build():
             run_dir = os.path.join(_AB_RUNS, name)
             if not os.path.isdir(run_dir):
                 continue  # skip LATEST / LATEST_DUEL pointer files
-            kind = _classify(run_dir)
-            try:
-                run = _ab_run(run_dir, name) if kind == "ab" else \
-                      _duel_run(run_dir, name) if kind == "duel" else None
-            except (ValueError, OSError, KeyError) as e:
-                sys.stderr.write("skip %s: %s\n" % (name, e)); run = None
-            if run:
-                runs.append(run)
+            # Batch layout: batch_<ts>/seed<n>/{duel,ab} — one catalog entry per game type per seed.
+            if name.startswith("batch_") and _classify(run_dir) is None:
+                for seed in sorted(os.listdir(run_dir)):
+                    if not seed.startswith("seed"):
+                        continue
+                    _add_run(runs, os.path.join(run_dir, seed, "duel"), "%s · %s · duel" % (name, seed))
+                    _add_run(runs, os.path.join(run_dir, seed, "ab"), "%s · %s · ab" % (name, seed))
+                continue
+            _add_run(runs, run_dir, name)
     # newest first (dir names are UTC timestamps, optionally prefixed)
     runs.sort(key=lambda r: r["id"], reverse=True)
     return {"generated": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
