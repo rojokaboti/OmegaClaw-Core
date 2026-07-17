@@ -213,6 +213,31 @@ flood `recv_until` past its drain and `get_state` never succeeds (sim hangs in s
 (`timeout` only affects server pacing, not agent decisions); a perfectly symmetric mirror would re-run
 g1 with the same line. Single seed / one pair — a strong signal, not a statistical claim.
 
+### 3f. Statistical batch (2026-07-16 → 17): 20 seeds — **null result**
+The single/mirror runs above were underpowered (first PLN 2–0, then 1–1 — small-sample noise). To
+settle it, a parallel batch harness (`benchmarks/freeciv/batch/`) ran **20 seeded repetitions of BOTH
+experiments** across 3 isolated freeciv-llm stacks (ports 8002/8012/8022), each stack running its
+seeds sequentially with a fresh turn-1 recreate per game. Run `ab_runs/batch_20260716T081149Z`
+(seeds 1001–1020, 250-turn cap; full stats in `aggregate.{md,json}`):
+
+| Experiment | games | PLN wins | plain wins | sign-test p |
+|---|---|---|---|---|
+| Duel (mirror slots) | 40 | 21 | 19 | **0.87** |
+| A/B (each vs AI) | 19* | 9 | 10 | **1.0** |
+
+Per-metric mean Δ (pln − plain) over the 40 duel games (paired t, normal-approx p): cities **−0.20**
+(p≈0.08), units **−1.25** (p≈0.24), techs **−0.68** (p≈0.39). *seed1011's A/B was incomplete (one
+arm plateaued out) → 19 usable.
+
+**Verdict — no measurable PLN effect.** Head-to-head win-rate is a coin flip (21–19, p=0.87), as is
+A/B (9–10). No metric reaches significance: the persistent faint cities lean toward plain (−0.20/game)
+is p≈0.08 *uncorrected* and **non-significant** after a 3-metric correction (~0.24). The earlier
+"PLN 2–0" was noise. In the current **one-hop-rule** configuration, PLN recommendations neither help
+nor hurt the LLM's play — consistent with the "rule vocabulary too thin to change outcomes" reading
+below. A real test of PLN's value now needs **richer, decision-changing rules** (Fix B / deeper-rules
+follow-up), not more seeds. Harness: `batch.sh` (stacks), `worker.sh` (durable per-stack conductor),
+`aggregate.py` (sign test + paired t); per-turn/per-move detail browsable in `viz/`.
+
 ### Verdict
 The earlier **"PLN hurts" finding was largely an artifact of *how* recommendations were injected, not
 the reasoning itself.** A one-line reframing (checklist → optional hints, preserve the action budget)

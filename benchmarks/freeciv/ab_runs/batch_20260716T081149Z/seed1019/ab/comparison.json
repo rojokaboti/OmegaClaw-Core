@@ -1,0 +1,4570 @@
+{
+  "stats": {
+    "pln": {
+      "arm": "pln",
+      "turns_logged": 250,
+      "turns_advanced": 250,
+      "last_turn": 250,
+      "score": 0,
+      "gold": 0,
+      "science": 0,
+      "n_cities": 3,
+      "n_units": 22,
+      "n_techs": 14,
+      "proposed": 697,
+      "submitted": 697,
+      "blocked": 0,
+      "illegal_rate": 0.0,
+      "avg_llm_ms": 4904.3,
+      "avg_reason_ms": 539.8,
+      "avg_conclusions": 1.3,
+      "llm_errors": 0,
+      "reconnects": 0,
+      "heartbeat_age_s": 1509,
+      "peak_score": 0
+    },
+    "plain": {
+      "arm": "plain",
+      "turns_logged": 250,
+      "turns_advanced": 250,
+      "last_turn": 250,
+      "score": 0,
+      "gold": 0,
+      "science": 0,
+      "n_cities": 3,
+      "n_units": 32,
+      "n_techs": 15,
+      "proposed": 735,
+      "submitted": 735,
+      "blocked": 0,
+      "illegal_rate": 0.0,
+      "avg_llm_ms": 4854.0,
+      "avg_reason_ms": null,
+      "avg_conclusions": 0.0,
+      "llm_errors": 0,
+      "reconnects": 0,
+      "heartbeat_age_s": 3,
+      "peak_score": 0
+    }
+  },
+  "verdict": {
+    "final_score": "tie",
+    "peak_score": "tie",
+    "cities": "tie",
+    "techs": "plain",
+    "turns_advanced": "tie",
+    "illegal_rate": "tie"
+  },
+  "verdict_wins": {
+    "pln": 0,
+    "plain": 1
+  },
+  "overall": "plain",
+  "trajectory": {
+    "pln": [
+      {
+        "turn": 1,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 0,
+        "n_units": 7,
+        "n_techs": 1
+      },
+      {
+        "turn": 2,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 6,
+        "n_techs": 1
+      },
+      {
+        "turn": 3,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 6,
+        "n_techs": 1
+      },
+      {
+        "turn": 4,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 6,
+        "n_techs": 1
+      },
+      {
+        "turn": 5,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 6,
+        "n_techs": 1
+      },
+      {
+        "turn": 6,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 6,
+        "n_techs": 1
+      },
+      {
+        "turn": 7,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 6,
+        "n_techs": 1
+      },
+      {
+        "turn": 8,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 6,
+        "n_techs": 1
+      },
+      {
+        "turn": 9,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 6,
+        "n_techs": 1
+      },
+      {
+        "turn": 10,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 6,
+        "n_techs": 1
+      },
+      {
+        "turn": 11,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 7,
+        "n_techs": 1
+      },
+      {
+        "turn": 12,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 7,
+        "n_techs": 1
+      },
+      {
+        "turn": 13,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 8,
+        "n_techs": 1
+      },
+      {
+        "turn": 14,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 8,
+        "n_techs": 1
+      },
+      {
+        "turn": 15,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 9,
+        "n_techs": 1
+      },
+      {
+        "turn": 16,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 9,
+        "n_techs": 1
+      },
+      {
+        "turn": 17,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 10,
+        "n_techs": 1
+      },
+      {
+        "turn": 18,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 10,
+        "n_techs": 1
+      },
+      {
+        "turn": 19,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 10,
+        "n_techs": 1
+      },
+      {
+        "turn": 20,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 11,
+        "n_techs": 2
+      },
+      {
+        "turn": 21,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 11,
+        "n_techs": 2
+      },
+      {
+        "turn": 22,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 11,
+        "n_techs": 2
+      },
+      {
+        "turn": 23,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 12,
+        "n_techs": 2
+      },
+      {
+        "turn": 24,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 12,
+        "n_techs": 2
+      },
+      {
+        "turn": 25,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 12,
+        "n_techs": 2
+      },
+      {
+        "turn": 26,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 12,
+        "n_techs": 2
+      },
+      {
+        "turn": 27,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 12,
+        "n_techs": 2
+      },
+      {
+        "turn": 28,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 13,
+        "n_techs": 2
+      },
+      {
+        "turn": 29,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 13,
+        "n_techs": 2
+      },
+      {
+        "turn": 30,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 13,
+        "n_techs": 2
+      },
+      {
+        "turn": 31,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 13,
+        "n_techs": 2
+      },
+      {
+        "turn": 32,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 13,
+        "n_techs": 2
+      },
+      {
+        "turn": 33,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 13,
+        "n_techs": 2
+      },
+      {
+        "turn": 34,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 13,
+        "n_techs": 3
+      },
+      {
+        "turn": 35,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 13,
+        "n_techs": 3
+      },
+      {
+        "turn": 36,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 13,
+        "n_techs": 3
+      },
+      {
+        "turn": 37,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 14,
+        "n_techs": 3
+      },
+      {
+        "turn": 38,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 14,
+        "n_techs": 3
+      },
+      {
+        "turn": 39,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 14,
+        "n_techs": 3
+      },
+      {
+        "turn": 40,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 14,
+        "n_techs": 3
+      },
+      {
+        "turn": 41,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 14,
+        "n_techs": 3
+      },
+      {
+        "turn": 42,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 14,
+        "n_techs": 3
+      },
+      {
+        "turn": 43,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 14,
+        "n_techs": 3
+      },
+      {
+        "turn": 44,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 14,
+        "n_techs": 3
+      },
+      {
+        "turn": 45,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 15,
+        "n_techs": 3
+      },
+      {
+        "turn": 46,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 15,
+        "n_techs": 3
+      },
+      {
+        "turn": 47,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 15,
+        "n_techs": 3
+      },
+      {
+        "turn": 48,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 15,
+        "n_techs": 4
+      },
+      {
+        "turn": 49,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 16,
+        "n_techs": 4
+      },
+      {
+        "turn": 50,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 16,
+        "n_techs": 4
+      },
+      {
+        "turn": 51,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 16,
+        "n_techs": 4
+      },
+      {
+        "turn": 52,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 16,
+        "n_techs": 4
+      },
+      {
+        "turn": 53,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 16,
+        "n_techs": 4
+      },
+      {
+        "turn": 54,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 16,
+        "n_techs": 4
+      },
+      {
+        "turn": 55,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 16,
+        "n_techs": 4
+      },
+      {
+        "turn": 56,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 16,
+        "n_techs": 4
+      },
+      {
+        "turn": 57,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 16,
+        "n_techs": 4
+      },
+      {
+        "turn": 58,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 16,
+        "n_techs": 4
+      },
+      {
+        "turn": 59,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 4
+      },
+      {
+        "turn": 60,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 4
+      },
+      {
+        "turn": 61,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 4
+      },
+      {
+        "turn": 62,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 5
+      },
+      {
+        "turn": 63,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 5
+      },
+      {
+        "turn": 64,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 5
+      },
+      {
+        "turn": 65,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 5
+      },
+      {
+        "turn": 66,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 5
+      },
+      {
+        "turn": 67,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 5
+      },
+      {
+        "turn": 68,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 5
+      },
+      {
+        "turn": 69,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 5
+      },
+      {
+        "turn": 70,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 5
+      },
+      {
+        "turn": 71,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 5
+      },
+      {
+        "turn": 72,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 5
+      },
+      {
+        "turn": 73,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 5
+      },
+      {
+        "turn": 74,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 5
+      },
+      {
+        "turn": 75,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 5
+      },
+      {
+        "turn": 76,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 6
+      },
+      {
+        "turn": 77,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 6
+      },
+      {
+        "turn": 78,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 17,
+        "n_techs": 6
+      },
+      {
+        "turn": 79,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 16,
+        "n_techs": 6
+      },
+      {
+        "turn": 80,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 16,
+        "n_techs": 6
+      },
+      {
+        "turn": 81,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 16,
+        "n_techs": 6
+      },
+      {
+        "turn": 82,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 16,
+        "n_techs": 6
+      },
+      {
+        "turn": 83,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 16,
+        "n_techs": 6
+      },
+      {
+        "turn": 84,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 16,
+        "n_techs": 6
+      },
+      {
+        "turn": 85,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 16,
+        "n_techs": 6
+      },
+      {
+        "turn": 86,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 16,
+        "n_techs": 6
+      },
+      {
+        "turn": 87,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 16,
+        "n_techs": 6
+      },
+      {
+        "turn": 88,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 17,
+        "n_techs": 6
+      },
+      {
+        "turn": 89,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 17,
+        "n_techs": 6
+      },
+      {
+        "turn": 90,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 17,
+        "n_techs": 6
+      },
+      {
+        "turn": 91,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 17,
+        "n_techs": 6
+      },
+      {
+        "turn": 92,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 17,
+        "n_techs": 6
+      },
+      {
+        "turn": 93,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 17,
+        "n_techs": 6
+      },
+      {
+        "turn": 94,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 17,
+        "n_techs": 7
+      },
+      {
+        "turn": 95,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 17,
+        "n_techs": 7
+      },
+      {
+        "turn": 96,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 17,
+        "n_techs": 7
+      },
+      {
+        "turn": 97,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 17,
+        "n_techs": 7
+      },
+      {
+        "turn": 98,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 18,
+        "n_techs": 7
+      },
+      {
+        "turn": 99,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 18,
+        "n_techs": 7
+      },
+      {
+        "turn": 100,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 18,
+        "n_techs": 7
+      },
+      {
+        "turn": 101,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 18,
+        "n_techs": 7
+      },
+      {
+        "turn": 102,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 18,
+        "n_techs": 7
+      },
+      {
+        "turn": 103,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 18,
+        "n_techs": 7
+      },
+      {
+        "turn": 104,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 18,
+        "n_techs": 7
+      },
+      {
+        "turn": 105,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 18,
+        "n_techs": 7
+      },
+      {
+        "turn": 106,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 18,
+        "n_techs": 7
+      },
+      {
+        "turn": 107,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 18,
+        "n_techs": 7
+      },
+      {
+        "turn": 108,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 19,
+        "n_techs": 7
+      },
+      {
+        "turn": 109,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 19,
+        "n_techs": 7
+      },
+      {
+        "turn": 110,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 19,
+        "n_techs": 7
+      },
+      {
+        "turn": 111,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 19,
+        "n_techs": 7
+      },
+      {
+        "turn": 112,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 19,
+        "n_techs": 7
+      },
+      {
+        "turn": 113,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 19,
+        "n_techs": 7
+      },
+      {
+        "turn": 114,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 19,
+        "n_techs": 7
+      },
+      {
+        "turn": 115,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 19,
+        "n_techs": 7
+      },
+      {
+        "turn": 116,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 19,
+        "n_techs": 7
+      },
+      {
+        "turn": 117,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 19,
+        "n_techs": 7
+      },
+      {
+        "turn": 118,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 7
+      },
+      {
+        "turn": 119,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 7
+      },
+      {
+        "turn": 120,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 7
+      },
+      {
+        "turn": 121,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 7
+      },
+      {
+        "turn": 122,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 7
+      },
+      {
+        "turn": 123,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 7
+      },
+      {
+        "turn": 124,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 7
+      },
+      {
+        "turn": 125,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 7
+      },
+      {
+        "turn": 126,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 7
+      },
+      {
+        "turn": 127,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 7
+      },
+      {
+        "turn": 128,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 21,
+        "n_techs": 7
+      },
+      {
+        "turn": 129,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 21,
+        "n_techs": 7
+      },
+      {
+        "turn": 130,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 21,
+        "n_techs": 7
+      },
+      {
+        "turn": 131,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 21,
+        "n_techs": 7
+      },
+      {
+        "turn": 132,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 21,
+        "n_techs": 7
+      },
+      {
+        "turn": 133,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 21,
+        "n_techs": 7
+      },
+      {
+        "turn": 134,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 21,
+        "n_techs": 8
+      },
+      {
+        "turn": 135,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 21,
+        "n_techs": 8
+      },
+      {
+        "turn": 136,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 21,
+        "n_techs": 8
+      },
+      {
+        "turn": 137,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 21,
+        "n_techs": 8
+      },
+      {
+        "turn": 138,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 139,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 140,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 141,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 142,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 143,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 144,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 145,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 146,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 147,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 148,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 149,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 150,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 151,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 152,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 153,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 154,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 155,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 156,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 157,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 8
+      },
+      {
+        "turn": 158,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 23,
+        "n_techs": 8
+      },
+      {
+        "turn": 159,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 23,
+        "n_techs": 8
+      },
+      {
+        "turn": 160,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 23,
+        "n_techs": 8
+      },
+      {
+        "turn": 161,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 23,
+        "n_techs": 9
+      },
+      {
+        "turn": 162,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 23,
+        "n_techs": 9
+      },
+      {
+        "turn": 163,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 23,
+        "n_techs": 9
+      },
+      {
+        "turn": 164,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 9
+      },
+      {
+        "turn": 165,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 9
+      },
+      {
+        "turn": 166,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 9
+      },
+      {
+        "turn": 167,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 9
+      },
+      {
+        "turn": 168,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 10
+      },
+      {
+        "turn": 169,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 10
+      },
+      {
+        "turn": 170,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 10
+      },
+      {
+        "turn": 171,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 10
+      },
+      {
+        "turn": 172,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 10
+      },
+      {
+        "turn": 173,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 22,
+        "n_techs": 10
+      },
+      {
+        "turn": 174,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 23,
+        "n_techs": 10
+      },
+      {
+        "turn": 175,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 23,
+        "n_techs": 10
+      },
+      {
+        "turn": 176,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 23,
+        "n_techs": 10
+      },
+      {
+        "turn": 177,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 23,
+        "n_techs": 10
+      },
+      {
+        "turn": 178,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 23,
+        "n_techs": 10
+      },
+      {
+        "turn": 179,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 23,
+        "n_techs": 10
+      },
+      {
+        "turn": 180,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 23,
+        "n_techs": 10
+      },
+      {
+        "turn": 181,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 23,
+        "n_techs": 10
+      },
+      {
+        "turn": 182,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 23,
+        "n_techs": 10
+      },
+      {
+        "turn": 183,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 24,
+        "n_techs": 10
+      },
+      {
+        "turn": 184,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 24,
+        "n_techs": 10
+      },
+      {
+        "turn": 185,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 24,
+        "n_techs": 10
+      },
+      {
+        "turn": 186,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 24,
+        "n_techs": 10
+      },
+      {
+        "turn": 187,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 24,
+        "n_techs": 10
+      },
+      {
+        "turn": 188,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 24,
+        "n_techs": 11
+      },
+      {
+        "turn": 189,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 24,
+        "n_techs": 11
+      },
+      {
+        "turn": 190,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 24,
+        "n_techs": 11
+      },
+      {
+        "turn": 191,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 24,
+        "n_techs": 11
+      },
+      {
+        "turn": 192,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 24,
+        "n_techs": 11
+      },
+      {
+        "turn": 193,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 24,
+        "n_techs": 11
+      },
+      {
+        "turn": 194,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 24,
+        "n_techs": 11
+      },
+      {
+        "turn": 195,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 24,
+        "n_techs": 11
+      },
+      {
+        "turn": 196,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 24,
+        "n_techs": 11
+      },
+      {
+        "turn": 197,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 24,
+        "n_techs": 11
+      },
+      {
+        "turn": 198,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 11
+      },
+      {
+        "turn": 199,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 11
+      },
+      {
+        "turn": 200,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 12
+      },
+      {
+        "turn": 201,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 12
+      },
+      {
+        "turn": 202,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 12
+      },
+      {
+        "turn": 203,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 12
+      },
+      {
+        "turn": 204,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 12
+      },
+      {
+        "turn": 205,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 12
+      },
+      {
+        "turn": 206,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 12
+      },
+      {
+        "turn": 207,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 12
+      },
+      {
+        "turn": 208,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 12
+      },
+      {
+        "turn": 209,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 12
+      },
+      {
+        "turn": 210,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 12
+      },
+      {
+        "turn": 211,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 12
+      },
+      {
+        "turn": 212,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 13
+      },
+      {
+        "turn": 213,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 13
+      },
+      {
+        "turn": 214,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 13
+      },
+      {
+        "turn": 215,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 13
+      },
+      {
+        "turn": 216,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 13
+      },
+      {
+        "turn": 217,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 13
+      },
+      {
+        "turn": 218,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 13
+      },
+      {
+        "turn": 219,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 14
+      },
+      {
+        "turn": 220,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 14
+      },
+      {
+        "turn": 221,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 14
+      },
+      {
+        "turn": 222,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 14
+      },
+      {
+        "turn": 223,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 14
+      },
+      {
+        "turn": 224,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 14
+      },
+      {
+        "turn": 225,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 14
+      },
+      {
+        "turn": 226,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 14
+      },
+      {
+        "turn": 227,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 14
+      },
+      {
+        "turn": 228,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 14
+      },
+      {
+        "turn": 229,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 14
+      },
+      {
+        "turn": 230,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 14
+      },
+      {
+        "turn": 231,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 14
+      },
+      {
+        "turn": 232,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 14
+      },
+      {
+        "turn": 233,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 14
+      },
+      {
+        "turn": 234,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 14
+      },
+      {
+        "turn": 235,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 14
+      },
+      {
+        "turn": 236,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 14
+      },
+      {
+        "turn": 237,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 14
+      },
+      {
+        "turn": 238,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 14
+      },
+      {
+        "turn": 239,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 14
+      },
+      {
+        "turn": 240,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 14
+      },
+      {
+        "turn": 241,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 14
+      },
+      {
+        "turn": 242,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 14
+      },
+      {
+        "turn": 243,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 22,
+        "n_techs": 14
+      },
+      {
+        "turn": 244,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 22,
+        "n_techs": 14
+      },
+      {
+        "turn": 245,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 22,
+        "n_techs": 14
+      },
+      {
+        "turn": 246,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 22,
+        "n_techs": 14
+      },
+      {
+        "turn": 247,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 22,
+        "n_techs": 14
+      },
+      {
+        "turn": 248,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 22,
+        "n_techs": 14
+      },
+      {
+        "turn": 249,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 22,
+        "n_techs": 14
+      },
+      {
+        "turn": 250,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 22,
+        "n_techs": 14
+      }
+    ],
+    "plain": [
+      {
+        "turn": 1,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 0,
+        "n_units": 7,
+        "n_techs": 1
+      },
+      {
+        "turn": 2,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 6,
+        "n_techs": 1
+      },
+      {
+        "turn": 3,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 6,
+        "n_techs": 1
+      },
+      {
+        "turn": 4,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 6,
+        "n_techs": 1
+      },
+      {
+        "turn": 5,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 6,
+        "n_techs": 1
+      },
+      {
+        "turn": 6,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 6,
+        "n_techs": 1
+      },
+      {
+        "turn": 7,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 6,
+        "n_techs": 1
+      },
+      {
+        "turn": 8,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 6,
+        "n_techs": 1
+      },
+      {
+        "turn": 9,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 6,
+        "n_techs": 1
+      },
+      {
+        "turn": 10,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 6,
+        "n_techs": 1
+      },
+      {
+        "turn": 11,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 7,
+        "n_techs": 1
+      },
+      {
+        "turn": 12,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 7,
+        "n_techs": 1
+      },
+      {
+        "turn": 13,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 8,
+        "n_techs": 1
+      },
+      {
+        "turn": 14,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 8,
+        "n_techs": 1
+      },
+      {
+        "turn": 15,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 9,
+        "n_techs": 1
+      },
+      {
+        "turn": 16,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 9,
+        "n_techs": 1
+      },
+      {
+        "turn": 17,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 10,
+        "n_techs": 1
+      },
+      {
+        "turn": 18,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 10,
+        "n_techs": 1
+      },
+      {
+        "turn": 19,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 10,
+        "n_techs": 1
+      },
+      {
+        "turn": 20,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 11,
+        "n_techs": 2
+      },
+      {
+        "turn": 21,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 11,
+        "n_techs": 2
+      },
+      {
+        "turn": 22,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 11,
+        "n_techs": 2
+      },
+      {
+        "turn": 23,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 12,
+        "n_techs": 2
+      },
+      {
+        "turn": 24,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 12,
+        "n_techs": 2
+      },
+      {
+        "turn": 25,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 12,
+        "n_techs": 2
+      },
+      {
+        "turn": 26,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 12,
+        "n_techs": 2
+      },
+      {
+        "turn": 27,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 12,
+        "n_techs": 2
+      },
+      {
+        "turn": 28,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 13,
+        "n_techs": 2
+      },
+      {
+        "turn": 29,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 13,
+        "n_techs": 2
+      },
+      {
+        "turn": 30,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 13,
+        "n_techs": 2
+      },
+      {
+        "turn": 31,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 13,
+        "n_techs": 2
+      },
+      {
+        "turn": 32,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 13,
+        "n_techs": 2
+      },
+      {
+        "turn": 33,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 13,
+        "n_techs": 2
+      },
+      {
+        "turn": 34,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 13,
+        "n_techs": 3
+      },
+      {
+        "turn": 35,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 13,
+        "n_techs": 3
+      },
+      {
+        "turn": 36,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 13,
+        "n_techs": 3
+      },
+      {
+        "turn": 37,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 14,
+        "n_techs": 3
+      },
+      {
+        "turn": 38,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 1,
+        "n_units": 14,
+        "n_techs": 3
+      },
+      {
+        "turn": 39,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 13,
+        "n_techs": 3
+      },
+      {
+        "turn": 40,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 13,
+        "n_techs": 3
+      },
+      {
+        "turn": 41,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 13,
+        "n_techs": 3
+      },
+      {
+        "turn": 42,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 13,
+        "n_techs": 3
+      },
+      {
+        "turn": 43,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 14,
+        "n_techs": 3
+      },
+      {
+        "turn": 44,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 14,
+        "n_techs": 3
+      },
+      {
+        "turn": 45,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 15,
+        "n_techs": 4
+      },
+      {
+        "turn": 46,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 15,
+        "n_techs": 4
+      },
+      {
+        "turn": 47,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 15,
+        "n_techs": 4
+      },
+      {
+        "turn": 48,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 16,
+        "n_techs": 4
+      },
+      {
+        "turn": 49,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 17,
+        "n_techs": 4
+      },
+      {
+        "turn": 50,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 17,
+        "n_techs": 4
+      },
+      {
+        "turn": 51,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 17,
+        "n_techs": 4
+      },
+      {
+        "turn": 52,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 17,
+        "n_techs": 4
+      },
+      {
+        "turn": 53,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 18,
+        "n_techs": 4
+      },
+      {
+        "turn": 54,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 18,
+        "n_techs": 5
+      },
+      {
+        "turn": 55,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 18,
+        "n_techs": 5
+      },
+      {
+        "turn": 56,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 18,
+        "n_techs": 5
+      },
+      {
+        "turn": 57,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 18,
+        "n_techs": 5
+      },
+      {
+        "turn": 58,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 19,
+        "n_techs": 5
+      },
+      {
+        "turn": 59,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 5
+      },
+      {
+        "turn": 60,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 5
+      },
+      {
+        "turn": 61,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 5
+      },
+      {
+        "turn": 62,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 5
+      },
+      {
+        "turn": 63,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 6
+      },
+      {
+        "turn": 64,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 6
+      },
+      {
+        "turn": 65,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 21,
+        "n_techs": 6
+      },
+      {
+        "turn": 66,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 6
+      },
+      {
+        "turn": 67,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 6
+      },
+      {
+        "turn": 68,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 6
+      },
+      {
+        "turn": 69,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 20,
+        "n_techs": 6
+      },
+      {
+        "turn": 70,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 21,
+        "n_techs": 6
+      },
+      {
+        "turn": 71,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 21,
+        "n_techs": 6
+      },
+      {
+        "turn": 72,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 21,
+        "n_techs": 6
+      },
+      {
+        "turn": 73,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 21,
+        "n_techs": 6
+      },
+      {
+        "turn": 74,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 2,
+        "n_units": 21,
+        "n_techs": 6
+      },
+      {
+        "turn": 75,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 20,
+        "n_techs": 6
+      },
+      {
+        "turn": 76,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 21,
+        "n_techs": 6
+      },
+      {
+        "turn": 77,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 21,
+        "n_techs": 6
+      },
+      {
+        "turn": 78,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 21,
+        "n_techs": 6
+      },
+      {
+        "turn": 79,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 22,
+        "n_techs": 6
+      },
+      {
+        "turn": 80,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 22,
+        "n_techs": 7
+      },
+      {
+        "turn": 81,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 22,
+        "n_techs": 7
+      },
+      {
+        "turn": 82,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 22,
+        "n_techs": 7
+      },
+      {
+        "turn": 83,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 22,
+        "n_techs": 7
+      },
+      {
+        "turn": 84,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 7
+      },
+      {
+        "turn": 85,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 7
+      },
+      {
+        "turn": 86,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 7
+      },
+      {
+        "turn": 87,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 7
+      },
+      {
+        "turn": 88,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 7
+      },
+      {
+        "turn": 89,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 7
+      },
+      {
+        "turn": 90,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 7
+      },
+      {
+        "turn": 91,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 7
+      },
+      {
+        "turn": 92,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 7
+      },
+      {
+        "turn": 93,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 23,
+        "n_techs": 7
+      },
+      {
+        "turn": 94,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 7
+      },
+      {
+        "turn": 95,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 7
+      },
+      {
+        "turn": 96,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 7
+      },
+      {
+        "turn": 97,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 8
+      },
+      {
+        "turn": 98,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 8
+      },
+      {
+        "turn": 99,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 8
+      },
+      {
+        "turn": 100,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 24,
+        "n_techs": 8
+      },
+      {
+        "turn": 101,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 25,
+        "n_techs": 8
+      },
+      {
+        "turn": 102,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 25,
+        "n_techs": 8
+      },
+      {
+        "turn": 103,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 25,
+        "n_techs": 8
+      },
+      {
+        "turn": 104,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 25,
+        "n_techs": 8
+      },
+      {
+        "turn": 105,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 25,
+        "n_techs": 8
+      },
+      {
+        "turn": 106,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 25,
+        "n_techs": 8
+      },
+      {
+        "turn": 107,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 25,
+        "n_techs": 9
+      },
+      {
+        "turn": 108,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 26,
+        "n_techs": 9
+      },
+      {
+        "turn": 109,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 26,
+        "n_techs": 9
+      },
+      {
+        "turn": 110,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 27,
+        "n_techs": 9
+      },
+      {
+        "turn": 111,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 27,
+        "n_techs": 9
+      },
+      {
+        "turn": 112,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 27,
+        "n_techs": 9
+      },
+      {
+        "turn": 113,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 27,
+        "n_techs": 9
+      },
+      {
+        "turn": 114,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 27,
+        "n_techs": 9
+      },
+      {
+        "turn": 115,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 27,
+        "n_techs": 9
+      },
+      {
+        "turn": 116,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 27,
+        "n_techs": 9
+      },
+      {
+        "turn": 117,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 27,
+        "n_techs": 9
+      },
+      {
+        "turn": 118,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 28,
+        "n_techs": 9
+      },
+      {
+        "turn": 119,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 28,
+        "n_techs": 9
+      },
+      {
+        "turn": 120,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 29,
+        "n_techs": 9
+      },
+      {
+        "turn": 121,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 29,
+        "n_techs": 9
+      },
+      {
+        "turn": 122,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 29,
+        "n_techs": 9
+      },
+      {
+        "turn": 123,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 29,
+        "n_techs": 9
+      },
+      {
+        "turn": 124,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 29,
+        "n_techs": 9
+      },
+      {
+        "turn": 125,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 29,
+        "n_techs": 9
+      },
+      {
+        "turn": 126,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 29,
+        "n_techs": 9
+      },
+      {
+        "turn": 127,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 29,
+        "n_techs": 9
+      },
+      {
+        "turn": 128,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 29,
+        "n_techs": 9
+      },
+      {
+        "turn": 129,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 29,
+        "n_techs": 9
+      },
+      {
+        "turn": 130,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 29,
+        "n_techs": 9
+      },
+      {
+        "turn": 131,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 29,
+        "n_techs": 10
+      },
+      {
+        "turn": 132,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 29,
+        "n_techs": 10
+      },
+      {
+        "turn": 133,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 29,
+        "n_techs": 10
+      },
+      {
+        "turn": 134,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 29,
+        "n_techs": 10
+      },
+      {
+        "turn": 135,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 29,
+        "n_techs": 10
+      },
+      {
+        "turn": 136,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 29,
+        "n_techs": 10
+      },
+      {
+        "turn": 137,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 29,
+        "n_techs": 10
+      },
+      {
+        "turn": 138,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 29,
+        "n_techs": 10
+      },
+      {
+        "turn": 139,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 10
+      },
+      {
+        "turn": 140,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 10
+      },
+      {
+        "turn": 141,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 10
+      },
+      {
+        "turn": 142,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 10
+      },
+      {
+        "turn": 143,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 10
+      },
+      {
+        "turn": 144,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 145,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 146,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 147,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 148,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 149,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 150,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 151,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 152,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 153,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 154,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 155,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 156,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 157,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 158,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 159,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 160,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 161,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 162,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 163,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 164,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 165,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 166,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 167,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 168,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 169,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 170,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 11
+      },
+      {
+        "turn": 171,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 12
+      },
+      {
+        "turn": 172,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 12
+      },
+      {
+        "turn": 173,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 30,
+        "n_techs": 12
+      },
+      {
+        "turn": 174,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 12
+      },
+      {
+        "turn": 175,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 12
+      },
+      {
+        "turn": 176,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 12
+      },
+      {
+        "turn": 177,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 12
+      },
+      {
+        "turn": 178,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 12
+      },
+      {
+        "turn": 179,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 12
+      },
+      {
+        "turn": 180,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 12
+      },
+      {
+        "turn": 181,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 12
+      },
+      {
+        "turn": 182,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 12
+      },
+      {
+        "turn": 183,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 12
+      },
+      {
+        "turn": 184,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 13
+      },
+      {
+        "turn": 185,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 13
+      },
+      {
+        "turn": 186,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 13
+      },
+      {
+        "turn": 187,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 13
+      },
+      {
+        "turn": 188,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 13
+      },
+      {
+        "turn": 189,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 13
+      },
+      {
+        "turn": 190,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 13
+      },
+      {
+        "turn": 191,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 13
+      },
+      {
+        "turn": 192,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 13
+      },
+      {
+        "turn": 193,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 31,
+        "n_techs": 13
+      },
+      {
+        "turn": 194,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 195,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 196,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 197,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 198,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 199,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 200,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 201,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 202,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 203,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 204,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 205,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 206,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 207,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 208,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 209,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 210,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 211,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 212,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 213,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 214,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 215,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 216,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 217,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 218,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 219,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 220,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 13
+      },
+      {
+        "turn": 221,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 222,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 223,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 224,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 225,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 226,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 227,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 228,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 229,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 230,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 231,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 232,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 233,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 234,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 235,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 236,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 237,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 238,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 239,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 240,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 241,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 242,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 243,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 244,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 245,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 246,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 247,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 14
+      },
+      {
+        "turn": 248,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 15
+      },
+      {
+        "turn": 249,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 15
+      },
+      {
+        "turn": 250,
+        "score": 0,
+        "gold": 0,
+        "science": 0,
+        "n_cities": 3,
+        "n_units": 32,
+        "n_techs": 15
+      }
+    ]
+  },
+  "generated": "2026-07-17 16:44:46"
+}

@@ -1,0 +1,191 @@
+{
+  "batch": "/home/rojo-dev/Repos/OmegaClaw-Core/benchmarks/freeciv/ab_runs/batch_20260716T081149Z",
+  "seeds_scanned": 20,
+  "duel": {
+    "label": "duel (mirror slots, PLN vs plain)",
+    "n_games": 40,
+    "wins": {
+      "pln": 21,
+      "plain": 19,
+      "tie": 0
+    },
+    "sign_test_p": 0.8746,
+    "deltas_pln_minus_plain": {
+      "n_cities": {
+        "n": 40,
+        "mean": -0.2,
+        "sd": 0.723,
+        "t": -1.749,
+        "p_approx": 0.0803
+      },
+      "n_units": {
+        "n": 40,
+        "mean": -1.25,
+        "sd": 6.789,
+        "t": -1.164,
+        "p_approx": 0.2442
+      },
+      "n_techs": {
+        "n": 40,
+        "mean": -0.675,
+        "sd": 4.937,
+        "t": -0.865,
+        "p_approx": 0.3872
+      }
+    }
+  },
+  "ab": {
+    "label": "A/B (PLN vs plain, each vs AI)",
+    "n_games": 19,
+    "wins": {
+      "pln": 9,
+      "plain": 10,
+      "tie": 0
+    },
+    "sign_test_p": 1.0,
+    "deltas_pln_minus_plain": {
+      "n_cities": {
+        "n": 19,
+        "mean": -0.263,
+        "sd": 1.195,
+        "t": -0.96,
+        "p_approx": 0.3369
+      },
+      "n_units": {
+        "n": 19,
+        "mean": -1.474,
+        "sd": 11.923,
+        "t": -0.539,
+        "p_approx": 0.59
+      },
+      "n_techs": {
+        "n": 19,
+        "mean": -0.105,
+        "sd": 3.315,
+        "t": -0.138,
+        "p_approx": 0.8899
+      }
+    }
+  },
+  "per_seed": [
+    {
+      "seed": "1001",
+      "duel_g1": "plain",
+      "duel_g2": "pln",
+      "ab": "pln"
+    },
+    {
+      "seed": "1002",
+      "duel_g1": "plain",
+      "duel_g2": "pln",
+      "ab": "pln"
+    },
+    {
+      "seed": "1003",
+      "duel_g1": "plain",
+      "duel_g2": "plain",
+      "ab": "plain"
+    },
+    {
+      "seed": "1004",
+      "duel_g1": "pln",
+      "duel_g2": "plain",
+      "ab": "plain"
+    },
+    {
+      "seed": "1005",
+      "duel_g1": "pln",
+      "duel_g2": "pln",
+      "ab": "plain"
+    },
+    {
+      "seed": "1006",
+      "duel_g1": "pln",
+      "duel_g2": "plain",
+      "ab": "plain"
+    },
+    {
+      "seed": "1007",
+      "duel_g1": "plain",
+      "duel_g2": "pln",
+      "ab": "pln"
+    },
+    {
+      "seed": "1008",
+      "duel_g1": "plain",
+      "duel_g2": "pln",
+      "ab": "pln"
+    },
+    {
+      "seed": "1009",
+      "duel_g1": "plain",
+      "duel_g2": "plain",
+      "ab": "pln"
+    },
+    {
+      "seed": "1010",
+      "duel_g1": "pln",
+      "duel_g2": "plain",
+      "ab": "plain"
+    },
+    {
+      "seed": "1011",
+      "duel_g1": "pln",
+      "duel_g2": "pln"
+    },
+    {
+      "seed": "1012",
+      "duel_g1": "plain",
+      "duel_g2": "pln",
+      "ab": "plain"
+    },
+    {
+      "seed": "1013",
+      "duel_g1": "pln",
+      "duel_g2": "plain",
+      "ab": "plain"
+    },
+    {
+      "seed": "1014",
+      "duel_g1": "pln",
+      "duel_g2": "plain",
+      "ab": "pln"
+    },
+    {
+      "seed": "1015",
+      "duel_g1": "pln",
+      "duel_g2": "plain",
+      "ab": "pln"
+    },
+    {
+      "seed": "1016",
+      "duel_g1": "pln",
+      "duel_g2": "plain",
+      "ab": "plain"
+    },
+    {
+      "seed": "1017",
+      "duel_g1": "pln",
+      "duel_g2": "pln",
+      "ab": "pln"
+    },
+    {
+      "seed": "1018",
+      "duel_g1": "plain",
+      "duel_g2": "pln",
+      "ab": "pln"
+    },
+    {
+      "seed": "1019",
+      "duel_g1": "plain",
+      "duel_g2": "pln",
+      "ab": "plain"
+    },
+    {
+      "seed": "1020",
+      "duel_g1": "pln",
+      "duel_g2": "plain",
+      "ab": "plain"
+    }
+  ]
+}
