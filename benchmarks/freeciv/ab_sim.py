@@ -97,6 +97,8 @@ async def run(arm, seed, hours, max_turns, out_dir):
     totals = {"proposed": 0, "submitted": 0, "blocked": 0, "turns_advanced": 0,
               "llm_errors": 0, "reconnects": 0}
     turns_seen = []
+    stalls = 0  # consecutive no-advance turns; a persistent plateau ends the game (else it would
+                # no_advance-loop until the hours cap when the game has effectively ended)
     ws = None
     try:
         while time.time() < deadline and totals["turns_advanced"] < max_turns:
@@ -140,10 +142,13 @@ async def run(arm, seed, hours, max_turns, out_dir):
                        "moves": moves, "recommendations": recommendations}
                 _log(out_dir, arm, rec)
                 if nt is not None:
-                    totals["turns_advanced"] += 1; turns_seen.append(nt)
+                    totals["turns_advanced"] += 1; turns_seen.append(nt); stalls = 0
                 _heartbeat(out_dir, arm, turn=(nt if nt is not None else cur), **totals)
                 if nt is None:
-                    _log(out_dir, arm, {"event": "no_advance", "at_turn": cur})
+                    stalls += 1
+                    _log(out_dir, arm, {"event": "no_advance", "at_turn": cur, "stalls": stalls})
+                    if stalls >= 8:  # game has effectively ended/plateaued — stop, don't burn to the cap
+                        _log(out_dir, arm, {"event": "plateau_end", "at_turn": cur}); break
                     await asyncio.sleep(5)
             except (websockets.ConnectionClosed, OSError) as e:  # reconnect + continue
                 totals["reconnects"] += 1
