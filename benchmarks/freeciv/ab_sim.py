@@ -24,7 +24,7 @@ _BENCH = os.path.dirname(_HERE)
 if _BENCH not in sys.path:
     sys.path.insert(0, _BENCH)
 
-from freeciv import adapter, atoms, actions, client, turncycle, metrics, llm_agent, reason  # noqa: E402
+from freeciv import adapter, atoms, actions, client, turncycle, metrics, llm_agent, reason, duel_sim  # noqa: E402
 
 WS = os.environ.get("FREECIV_PROXY_WS", "ws://localhost:8002/llmsocket/8002")
 TOKEN = os.environ.get("FREECIV_API_TOKEN", "test-token-fc3d-001")
@@ -71,16 +71,20 @@ async def _pregame(ws, seed):
 
 
 def _context(arm, norm):
-    """Arm-specific state rendering + (pln) reasoning. Returns (context_text, reason_ms, n_conclusions)."""
+    """Arm-specific state rendering + (pln) reasoning. Returns (context_text, reason_ms, recs).
+
+    ``recs`` is the raw derived-recommendation list (empty for the plain arm) — the caller uses it
+    both for the conclusion count and to flag which per-unit moves PLN recommended.
+    """
     plain = llm_agent.render_plain(norm)
     if arm != "pln":
-        return plain, None, 0
+        return plain, None, []
     facts = atoms.sentences_from_facts(adapter.facts_from_state(norm))
     t0 = time.time()
     recs = reason.derive(facts)
     reason_ms = int((time.time() - t0) * 1000)
     block = reason.format_for_llm(recs)
-    return (plain + ("\n\n" + block if block else "")), reason_ms, len(recs)
+    return (plain + ("\n\n" + block if block else "")), reason_ms, recs
 
 
 async def run(arm, seed, hours, max_turns, out_dir):
@@ -93,6 +97,8 @@ async def run(arm, seed, hours, max_turns, out_dir):
     totals = {"proposed": 0, "submitted": 0, "blocked": 0, "turns_advanced": 0,
               "llm_errors": 0, "reconnects": 0}
     turns_seen = []
+    stalls = 0  # consecutive no-advance turns; a persistent plateau ends the game (else it would
+                # no_advance-loop until the hours cap when the game has effectively ended)
     ws = None
     try:
         while time.time() < deadline and totals["turns_advanced"] < max_turns:
@@ -106,17 +112,23 @@ async def run(arm, seed, hours, max_turns, out_dir):
                 st = await turncycle.get_state(ws) or st
                 norm = adapter.normalize_state(st)
                 cur = turncycle.turn_of(st)
-                ctx, reason_ms, n_conc = _context(arm, norm)
+                ctx, reason_ms, recs = _context(arm, norm)
+                n_conc = len(recs)
+                recommendations, rec_ents = duel_sim._parse_recs(recs)
                 mine = [u for u in norm["units"] if u.get("owner") == norm["player_perspective"]]
                 acts, meta = llm_agent.decide(ctx, mine)
                 proposed = submitted = blocked = 0
+                moves = []
                 for a in acts:
                     proposed += 1
-                    if actions.validate_action(a, st).is_valid:
-                        await ws.send(json.dumps(client.action_message(actions.normalize_action(a))))
+                    na = actions.normalize_action(a)
+                    valid = actions.validate_action(a, st).is_valid
+                    if valid:
+                        await ws.send(json.dumps(client.action_message(na)))
                         submitted += 1
                     else:
                         blocked += 1
+                    moves.append(duel_sim._move_record(na, valid, rec_ents))
                 await turncycle.send_end_turn(ws)
                 nt = await turncycle.await_turn_advance(ws, cur, timeout=45)
                 if meta.get("error"):
@@ -126,13 +138,17 @@ async def run(arm, seed, hours, max_turns, out_dir):
                        "proposed": proposed, "submitted": submitted, "blocked": blocked,
                        "illegal_rate": (blocked / proposed) if proposed else 0.0,
                        "llm_ms": meta.get("llm_ms"), "reason_ms": reason_ms, "n_conclusions": n_conc,
-                       "prompt_chars": meta.get("prompt_chars"), "llm_error": meta.get("error")}
+                       "prompt_chars": meta.get("prompt_chars"), "llm_error": meta.get("error"),
+                       "moves": moves, "recommendations": recommendations}
                 _log(out_dir, arm, rec)
                 if nt is not None:
-                    totals["turns_advanced"] += 1; turns_seen.append(nt)
+                    totals["turns_advanced"] += 1; turns_seen.append(nt); stalls = 0
                 _heartbeat(out_dir, arm, turn=(nt if nt is not None else cur), **totals)
                 if nt is None:
-                    _log(out_dir, arm, {"event": "no_advance", "at_turn": cur})
+                    stalls += 1
+                    _log(out_dir, arm, {"event": "no_advance", "at_turn": cur, "stalls": stalls})
+                    if stalls >= 8:  # game has effectively ended/plateaued — stop, don't burn to the cap
+                        _log(out_dir, arm, {"event": "plateau_end", "at_turn": cur}); break
                     await asyncio.sleep(5)
             except (websockets.ConnectionClosed, OSError) as e:  # reconnect + continue
                 totals["reconnects"] += 1

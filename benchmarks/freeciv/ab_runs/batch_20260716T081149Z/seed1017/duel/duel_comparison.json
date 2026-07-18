@@ -1,0 +1,89 @@
+{
+  "base": "benchmarks/freeciv/ab_runs/batch_20260716T081149Z/seed1017/duel",
+  "games": [
+    {
+      "subdir": "g1",
+      "pln_side": 0,
+      "pln": {
+        "final": {
+          "n_cities": 3,
+          "n_units": 26,
+          "n_techs": 12
+        },
+        "peak": {
+          "n_cities": 3,
+          "n_units": 26,
+          "n_techs": 12
+        },
+        "plateau_turn": 250,
+        "turns": 250,
+        "avg_proposed": 2.94,
+        "avg_conclusions": 0.47,
+        "pct_actions_eq_recs": 5.2
+      },
+      "plain": {
+        "final": {
+          "n_cities": 2,
+          "n_units": 25,
+          "n_techs": 10
+        },
+        "peak": {
+          "n_cities": 2,
+          "n_units": 25,
+          "n_techs": 10
+        },
+        "plateau_turn": 250,
+        "turns": 250,
+        "avg_proposed": 2.94,
+        "avg_conclusions": 0.0,
+        "pct_actions_eq_recs": 0.0
+      },
+      "winner_arm": "pln",
+      "plateau_turn": 250
+    },
+    {
+      "subdir": "g2",
+      "pln_side": 1,
+      "pln": {
+        "final": {
+          "n_cities": 3,
+          "n_units": 31,
+          "n_techs": 11
+        },
+        "peak": {
+          "n_cities": 3,
+          "n_units": 31,
+          "n_techs": 11
+        },
+        "plateau_turn": 250,
+        "turns": 250,
+        "avg_proposed": 2.86,
+        "avg_conclusions": 0.73,
+        "pct_actions_eq_recs": 6.0
+      },
+      "plain": {
+        "final": {
+          "n_cities": 3,
+          "n_units": 23,
+          "n_techs": 16
+        },
+        "peak": {
+          "n_cities": 3,
+          "n_units": 23,
+          "n_techs": 16
+        },
+        "plateau_turn": 250,
+        "turns": 250,
+        "avg_proposed": 2.98,
+        "avg_conclusions": 0.0,
+        "pct_actions_eq_recs": 0.0
+      },
+      "winner_arm": "pln",
+      "plateau_turn": 250
+    }
+  ],
+  "pln_wins": 2,
+  "plain_wins": 0,
+  "source": "raw",
+  "generated": "2026-07-17 15:27:49"
+}
