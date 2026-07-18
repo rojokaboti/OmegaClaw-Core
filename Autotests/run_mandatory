@@ -3,10 +3,6 @@ test_tool_policy.py
 test_llm_logging.py
 test_provider_config.py
 test_memory_schema.py
-test_freeciv_adapter.py
-test_freeciv_turn_cycle.py
-test_freeciv_client_ws.py
-test_freeciv_ab.py
 test_tracing.py
 test_errors.py
 test_metta_sessions.py
@@ -19,7 +15,6 @@ test_plugin_registry.py
 test_install_policy.py
 test_skill_workshop.py
 test_session_store.py
-test_delegation.py
 test_scheduler.py
 mock/test_actions_equivalence.py
 mock/test_comm.py

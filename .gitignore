@@ -28,15 +28,9 @@ Autotests/logs/
 # reasoning traces (runtime, Issue #7)
 memory/traces/
 
-# FreeCiv A/B run artifacts (keep only the final comparison.{md,json})
-benchmarks/freeciv/ab_runs/**/*.jsonl
-benchmarks/freeciv/ab_runs/**/*.heartbeat
-benchmarks/freeciv/ab_runs/**/*_summary.json
-benchmarks/freeciv/ab_runs/LATEST*
-benchmarks/freeciv/ab_runs/**/*.log
-benchmarks/freeciv/ab_runs/duel_launch*.log
-# viz page data is regenerated from run artifacts by build_index.py / dump_atoms.py
-benchmarks/freeciv/viz/data/
+# Benchmarks + FreeCiv harness were extracted to the OmegaClaw-Bench repo. Ignore any
+# leftover local run artifacts (some are created root-owned by the docker runtime).
+benchmarks/
 # throwaway experiment build (in-container model prefetch)
 Dockerfile.reason
 

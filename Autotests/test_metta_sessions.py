@@ -2,7 +2,7 @@
 
 Pure-Python, no Docker/LLM/MeTTa. Runs under pytest and standalone
 (`python3 Autotests/test_metta_sessions.py`). Covers lifecycle, infer-program assembly,
-session isolation, LRU/size limits, snapshotting, and the FreeCiv auto-session seed.
+session isolation, LRU/size limits, and snapshotting.
 """
 import json
 import os
@@ -11,8 +11,7 @@ import tempfile
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _SRC = os.path.join(_REPO_ROOT, "src")
-_BENCHMARKS = os.path.join(_REPO_ROOT, "benchmarks")
-for _p in (_SRC, _BENCHMARKS, _REPO_ROOT):
+for _p in (_SRC, _REPO_ROOT):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
@@ -116,33 +115,6 @@ def test_snapshot_writes_file_and_respects_size_cap():
         finally:
             os.environ.pop("OMEGACLAW_SESSION_SNAPSHOT_DIR", None)
             os.environ.pop("OMEGACLAW_MAX_SNAPSHOT_BYTES", None)
-
-
-# --- freeciv auto-session seed --------------------------------------------
-
-def test_freeciv_observe_seeds_session():
-    from freeciv import freeciv_tool
-    with tempfile.TemporaryDirectory() as d:
-        os.environ["OMEGACLAW_SESSION_SNAPSHOT_DIR"] = d
-        os.environ["FREECIV_GAME_ID"] = "gtest"
-        try:
-            state = {"format": "llm_optimized", "turn": 2, "phase": "movement",
-                     "player_perspective": 1,
-                     "units": {"7": {"id": 7, "type": "Settler", "owner": 1, "x": 4, "y": 5, "hp": 10}},
-                     "cities": {}, "players": {"1": {"id": 1}}, "techs": {"player1": ["Pottery"]},
-                     "economic": {"resources": {"gold": 5}}, "strategic": {}, "tactical": {}}
-            out = freeciv_tool.observe(state=state)
-            assert "(stv" in out
-            seeded = ms.facts("freeciv:gtest")
-            assert seeded and all("(stv" in s for s in seeded)
-            # re-observing the SAME state must not double the session (dedup)
-            n1 = len(seeded)
-            freeciv_tool.observe(state=state)
-            n2 = len(ms.facts("freeciv:gtest"))
-            assert n2 == n1, (n1, n2)
-        finally:
-            os.environ.pop("OMEGACLAW_SESSION_SNAPSHOT_DIR", None)
-            os.environ.pop("FREECIV_GAME_ID", None)
 
 
 if __name__ == "__main__":
