@@ -16,10 +16,6 @@
     "- Search the web: search string"
     "- Search the web using the Tavily Search Agent: tavily-search string"
     "- Get technical analysis for a stock ticker using the Technical Analysis Agent: technical-analysis ticker"
-    ;FREECIV BENCHMARK:
-    "- Observe the current FreeCiv game state as PLN reasoning premises (facts with truth values): freeciv-observe"
-    "- Validate and submit a FreeCiv action given as a JSON string; illegal moves are refused before submission: freeciv-action json"
-    "  Action JSON examples: {\"type\":\"unit_move\",\"unit_id\":7,\"dest_x\":11,\"dest_y\":5} ; {\"type\":\"unit_build_city\",\"unit_id\":7} ; {\"type\":\"city_production\",\"city_id\":1,\"production_type\":\"Granary\"} ; {\"type\":\"end_turn\"}"
     ;FILESYSTEM SKILLS (see LOADED_SKILLS catalogue for available names):
     "- Read a loaded filesystem skill's full instructions before following it: use-skill name"
     ;PLUGIN TOOLS (see PLUGIN_TOOLS catalogue for available names; pass \"\" arg if none needed):

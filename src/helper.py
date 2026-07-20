@@ -7,8 +7,6 @@ TS_RE = re.compile(r'^\("(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})"')
 LLM_COMMANDS = {
     "append-file",
     "episodes",
-    "freeciv-action",
-    "freeciv-observe",
     "metta",
     "metta-session-add",
     "metta-session-clear",

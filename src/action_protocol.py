@@ -122,10 +122,6 @@ ARG_SPEC = {
     "propose-skill": [("name", "skill"), ("body", "skill_md", "content", "text")],
     "write-file": [("path", "file", "filename"), ("content", "text", "str")],
     "append-file": [("path", "file", "filename"), ("content", "text", "str")],
-    # FreeCiv benchmark tools (Issue #6). observe takes no args (reads current game state);
-    # action takes a single JSON string describing the candidate move.
-    "freeciv-observe": [],
-    "freeciv-action": [("action", "action_json", "text")],
     # Session-scoped reasoning (Issue #8). create/clear/snapshot take a session id;
     # add/infer take a session id + a premise/query expression.
     "metta-session-create": [("session", "sid", "text")],
@@ -572,18 +568,6 @@ def _selftest():
     assert r.ok and actions_to_metta(r.actions) == '((metta-session-add "g1" "(f)"))', actions_to_metta(r.actions)
     r = parse_actions('{"actions":[{"tool":"metta-session-add","args":{"session":"g1"}}]}')
     assert not r.ok and "expr" in msgs(r), r
-
-    # freeciv-observe: zero-arg tool renders bare (no args required).
-    r = parse_actions('{"actions":[{"tool":"freeciv-observe","args":{}}]}')
-    assert r.ok and actions_to_metta(r.actions) == '((freeciv-observe))', actions_to_metta(r.actions)
-
-    # freeciv-action: single JSON-string arg passed through verbatim.
-    r = parse_actions('{"actions":[{"tool":"freeciv-action","args":{"action":"{\\"type\\":\\"end_turn\\"}"}}]}')
-    assert r.ok and actions_to_metta(r.actions) == '((freeciv-action "{\\"type\\":\\"end_turn\\"}"))', actions_to_metta(r.actions)
-
-    # freeciv-action missing its arg -> whole batch rejected.
-    r = parse_actions('{"actions":[{"tool":"freeciv-action","args":{}}]}')
-    assert not r.ok and "action" in msgs(r), r
 
     # Unknown tool rejected.
     r = parse_actions('{"actions":[{"tool":"rm-rf","args":{"text":"/"}}]}')

@@ -7,7 +7,8 @@ only as hardcoded MeTTa equations + a static ``getSkills`` prose tuple, so none 
 ecosystem could be consumed without a rewrite. This module discovers, validates and
 compiles external ``SKILL.md`` bundles into the agent prompt.
 
-Design (verified against the runtime, see rojo-docs/issue-11-skill-loader.md):
+Design (verified against the runtime, see benchmark-docs/issue-11-skill-loader.md in
+the OmegaClaw-Bench repo):
 
 - A ``SKILL.md`` is a **procedural instruction playbook the agent follows using the
   existing primitive tools** (shell / read-file / send / metta / …), NOT a new atomic
