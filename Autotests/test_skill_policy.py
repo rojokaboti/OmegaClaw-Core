@@ -11,8 +11,8 @@ import tempfile
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _SRC = os.path.join(_REPO_ROOT, "src")
-_BENCH = os.path.join(_REPO_ROOT, "benchmarks")
-for _p in (_SRC, _REPO_ROOT, _BENCH):
+_HERE = os.path.dirname(os.path.abspath(__file__))  # skill_policy_fixtures lives here (was benchmarks/)
+for _p in (_SRC, _REPO_ROOT, _HERE):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
