@@ -4,7 +4,7 @@ Emits one JSON object per event to a JSONL trace file so a single loop iteration
 input -> LLM call -> action parse -> policy decision -> result are all linkable by a shared
 ``trace_id``. Generalizes the per-call JSONL logging from Issue #3 (``lib_llm_ext._log_raw``)
 into a cross-component trace with a ``contextvars``-based current-trace context, so the Python
-components (``lib_llm_ext.callProvider``, ``action_protocol.parse_and_render_metta``,
+components (``plugin.llmProviderChat``, ``action_protocol.parse_and_render_metta``,
 ``tool_policy.log_denial``) emit under the current iteration's id without threading it through
 MeTTa signatures.
 

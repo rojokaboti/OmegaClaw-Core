@@ -60,7 +60,22 @@ import random
 import threading
 import time
 import uuid
+from urllib.parse import urlparse
 from collections import deque
+from pathlib import Path
+import sys
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from src.logger import get_logger
+try:
+    import pluginapi as plugin
+except ModuleNotFoundError:
+    import src.pluginapi as plugin
+
+logger = get_logger(__name__)
 
 _running = False
 _thread = None
@@ -76,10 +91,6 @@ _ws_token = ""
 _inbox = deque(maxlen=256)
 _outbox = deque(maxlen=100)
 _last_seen_seq = None
-
-
-def _log(message):
-    print(f"[WS] {message}")
 
 
 def _ensure_websockets_available():
@@ -106,12 +117,51 @@ def _connect_client(ws_url, ws_token):
         return connect(ws_url, extra_headers=headers, **kwargs)  # for websockets<=4.14
 
 
+_LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def _ws_insecure_opt_in():
+    return str(os.environ.get("OMEGACLAW_WS_ALLOW_INSECURE", "")).strip().lower() in (
+        "1", "true", "yes", "on")
+
+
+def _ws_scheme_ok(ws_url):
+    """Return (ok, reason). The websocket channel is an agent control plane carrying the bearer
+    token + inbound command frames, so cleartext ``ws://`` is rejected by default (interception /
+    tampering risk). ``ws://`` is allowed only for loopback hosts (traffic never leaves the box)
+    or when ``OMEGACLAW_WS_ALLOW_INSECURE=1`` is set as an explicit unsafe/dev opt-in."""
+    parsed = urlparse(ws_url)
+    scheme = (parsed.scheme or "").lower()
+    if scheme == "wss":
+        return True, ""
+    if scheme != "ws":
+        return False, "WS_URL must use wss:// (or ws:// for loopback); got scheme {!r}".format(scheme)
+    host = (parsed.hostname or "").lower()
+    if host in _LOOPBACK_HOSTS:
+        return True, ""
+    if _ws_insecure_opt_in():
+        logger.warning(
+            "starting websocket over CLEARTEXT ws:// to %r (OMEGACLAW_WS_ALLOW_INSECURE set) — "
+            "bearer token and control frames are unencrypted on the network.", host or ws_url)
+        return True, ""
+    return False, ("cleartext ws:// to non-loopback host {!r} is refused; use wss:// or set "
+                   "OMEGACLAW_WS_ALLOW_INSECURE=1 for an explicit unsafe/dev opt-in".format(host or ws_url))
+
+
 def _resolve_connection_inputs(ws_url=None, ws_token=None):
     resolved_url = str(ws_url or os.environ.get("WS_URL", "")).strip()
     resolved_token = str(ws_token or os.environ.get("WS_TOKEN", "")).strip()
 
+    # Fail-closed (ported from the retired channel_registry, Issue #43 hardening): the websocket
+    # channel is an unauthenticated control plane, so refuse to bring it up without both a URL and
+    # a bearer token, and reject cleartext ws:// to non-loopback endpoints.
     if not resolved_url:
         raise ValueError("WS_URL is required")
+    if not resolved_token:
+        raise ValueError("WS_TOKEN is required (websocket control plane is fail-closed)")
+    scheme_ok, reason = _ws_scheme_ok(resolved_url)
+    if not scheme_ok:
+        raise ValueError(reason)
 
     return resolved_url, resolved_token
 
@@ -168,11 +218,11 @@ def _handle_frame(raw_message):
     try:
         frame = json.loads(raw_message)
     except json.JSONDecodeError:
-        _log(f"Ignoring non-JSON frame: {raw_message!r}")
+        logger.warning(f"Ignoring non-JSON frame: {raw_message!r}")
         return
 
     if not isinstance(frame, dict):
-        _log(f"Ignoring unexpected frame payload: {frame!r}")
+        logger.warning(f"Ignoring unexpected frame payload: {frame!r}")
         return
 
     frame_type = frame.get("type")
@@ -180,20 +230,20 @@ def _handle_frame(raw_message):
         seq = frame.get("seq")
         text = frame.get("text")
         if not isinstance(seq, int) or not isinstance(text, str):
-            _log(f"Ignoring malformed user_message frame: {frame!r}")
+            logger.warning(f"Ignoring malformed user_message frame: {frame!r}")
             return
         _enqueue_user_message(seq, text)
         return
 
     if frame_type == "ack":
-        _log(f"Ack received for seq={frame.get('seq')} client_seq={frame.get('client_seq')}")
+        logger.info(f"Ack received for seq={frame.get('seq')} client_seq={frame.get('client_seq')}")
         return
 
     if frame_type == "error":
-        _log(f"Server error {frame.get('code')}: {frame.get('message')}")
+        logger.error(f"Server error {frame.get('code')}: {frame.get('message')}")
         return
 
-    _log(f"Ignoring unsupported frame type: {frame_type!r}")
+    logger.warning(f"Ignoring unsupported frame type: {frame_type!r}")
 
 
 def _drain_outbox(ws):
@@ -225,7 +275,7 @@ def _listen_once(ws):
 
 def _listener_loop():
     backoff_seconds = 1.0
-    _log(f"Starting adapter for {_ws_url}")
+    logger.info(f"Starting adapter for {_ws_url}")
 
     while _running:
         active_ws = None
@@ -233,7 +283,7 @@ def _listener_loop():
             with _connect_client(_ws_url, _ws_token) as ws:
                 active_ws = ws
                 _set_connection(ws)
-                _log("Connected")
+                logger.info("Connected")
                 backoff_seconds = 1.0
                 _listen_once(ws)
         except Exception as exc:
@@ -244,13 +294,13 @@ def _listener_loop():
 
             delay = min(backoff_seconds, 30.0)
             delay += random.uniform(0.0, delay * 0.2)
-            _log(f"Connection error: {exc}. Reconnecting in {delay:.1f}s")
+            logger.exception(f"Connection error: {exc}. Reconnecting in {delay:.1f}s")
             time.sleep(delay)
             backoff_seconds = min(backoff_seconds * 2.0, 30.0)
         finally:
             _clear_connection(active_ws)
 
-    _log("Adapter stopped")
+    logger.info("Adapter stopped")
 
 
 def start_websocket(ws_url=None, ws_token=None):
@@ -260,7 +310,7 @@ def start_websocket(ws_url=None, ws_token=None):
         _ensure_websockets_available()
         _ws_url, _ws_token = _resolve_connection_inputs(ws_url, ws_token)
     except Exception as exc:
-        _log(f"WebSocket channel disabled: {exc}")
+        logger.exception(f"WebSocket channel disabled: {exc}")
         return None
 
     _clear_connection()
@@ -284,7 +334,7 @@ def stop_websocket():
     try:
         active_ws.close()
     except Exception as exc:
-        _log(f"Error while closing websocket: {exc}")
+        logger.exception(f"Error while closing websocket: {exc}")
 
 
 def getLastMessage():
@@ -324,6 +374,25 @@ def send_message(text):
     try:
         _send_json(payload, ws=active_ws)
     except Exception as exc:
-        _log(f"Send failed, buffering for reconnect: {exc}")
+        logger.exception(f"Send failed, buffering for reconnect: {exc}")
         with _msg_lock:
             _outbox.append(payload)
+
+
+class WSChannel(plugin.CommChannel):
+
+    def __init__(self):
+        super().__init__()
+
+    def config(self, config: dict) -> None:
+        start_websocket(config.get("WS_URL", ""), config.get("WS_TOKEN", ""))
+
+    def receive(self) -> str:
+        return getLastMessage()
+
+    def send(self, message: str) -> None:
+        send_message(message)
+
+
+def loadOmegaClawPlugin():
+    plugin.registerCommChannel("websocket", WSChannel())

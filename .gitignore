@@ -49,3 +49,7 @@ memory/sessions.db-*
 # scheduler jobs store (runtime, Issue #17)
 memory/jobs.db
 memory/jobs.db-*
+
+# logs (upstream structured logging)
+logs/*.log
+logs/*.log.*

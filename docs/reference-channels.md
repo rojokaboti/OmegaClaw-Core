@@ -47,6 +47,7 @@ Telegram adapter using Bot API long polling.
 - `start_telegram(chat_id, poll_timeout)` — starts a poll loop.
 - `TG_CHAT_ID` is optional; if empty, the adapter can auto-bind to the first valid inbound chat.
 - Outbound messages are chunked to Telegram-safe lengths.
+- Uses the same one-time `auth <secret>` ownership gate as the other adapters.
 
 ## `channels/slack.py`
 
@@ -98,5 +99,5 @@ See [tutorial-04-adding-a-channel.md](./tutorial-04-adding-a-channel.md).
 
 ## Related reference
 
-- [reference-skills-communication.md](./reference-skills-communication.md) — the MeTTa surface (`send`, `receive`, `search`).
+- [reference-skills-communication.md](./reference-skills-communication.md) — the MeTTa surface (`send`, `receive`, `websearch`).
 - [reference-configuration.md](./reference-configuration.md) — channel parameters.
