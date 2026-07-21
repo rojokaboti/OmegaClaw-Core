@@ -10,6 +10,7 @@ The original history is safely restored during teardown regardless of the test o
 Run:
     pytest test_memory_missing_history_file_mock.py -s
 """
+from actions import act
 from helpers import (
     Checker, dexec_root, make_prompt, wait_for_skill_call, HISTORY_FILE
 )
@@ -30,7 +31,7 @@ def test_history_recreation_mock(llm, comm):
 
             c.step("Send message to trigger read and write")
             prompt = make_prompt(c.run_id, "Testing history recreation.")
-            llm.set_answer(prompt, f'(send "History tested {c.run_id}")')
+            llm.set_answer(prompt, act(("send", f"History tested {c.run_id}")))
 
             if not comm.send_message(prompt):
                 c.fail("comm", "Failed to deliver prompt")
