@@ -182,7 +182,7 @@ class MattermostChannel(plugin.CommChannel):
         global MM_URL, CHANNEL_ID
         url = config.get("MM_URL", MM_URL)
         channel = config.get("MM_CHANNEL_ID", CHANNEL_ID)
-        start_mattermost(url, channel_id)
+        start_mattermost(url, channel)
 
     def receive(self) -> str:
         return getLastMessage()

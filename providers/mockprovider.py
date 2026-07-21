@@ -36,4 +36,3 @@ class MockProviderImpl(llm.AbstractAIProvider):
 
     def chat(self, content: str, max_tokens: int = 6000, reasoning: str = "medium", **kwargs) -> str:
         return self._llm_mock().chat(content)
-

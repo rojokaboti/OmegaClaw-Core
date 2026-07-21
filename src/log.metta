@@ -2,7 +2,7 @@
 
 (= (log $type $module $msg)
    (let $str (swrite $msg)
-     (case $type 
+     (case $type
         ((INFO (py-call (logger.log_info $str $module)))
         (DEBUG (py-call (logger.log_debug $str $module)))
         (WARNING (py-call (logger.log_warning $str $module)))

@@ -7,7 +7,7 @@ Verifies the agent's ability to gracefully handle missing essential files:
      is missing.
 
 The LLM responses are mocked to return simple acknowledgments, allowing
-the test to focus purely on file I/O safety and fallback mechanics without 
+the test to focus purely on file I/O safety and fallback mechanics without
 testing LLM behavior.
 
 Run:
@@ -48,7 +48,7 @@ def test_missing_default_prompt_mock(llm, comm):
         finally:
             c.step("Teardown: restore prompt.txt")
             dexec_root("mv", PROMPT_BAK, PROMPT_FILE)
-            
+
         c.done()
 
 
@@ -59,7 +59,7 @@ def test_missing_provider_prompt_mock(llm, comm):
         try:
             c.step("Ensure provider prompt is missing (move if it exists)")
             dexec_root("sh", "-c", f"mv {PROMPT_PROVIDER_FILE} {PROMPT_PROVIDER_BAK} 2>/dev/null || true")
-            
+
             c.step("Send message to agent")
             prompt = make_prompt(c.run_id, "Testing fallback to default prompt.")
             llm.set_answer(prompt, f'(send "Fallback tested {c.run_id}")')
@@ -74,5 +74,5 @@ def test_missing_provider_prompt_mock(llm, comm):
         finally:
             c.step("Teardown: restore provider prompt if it existed")
             dexec_root("sh", "-c", f"mv {PROMPT_PROVIDER_BAK} {PROMPT_PROVIDER_FILE} 2>/dev/null || true")
-            
+
         c.done()

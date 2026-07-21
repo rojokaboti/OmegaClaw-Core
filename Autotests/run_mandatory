@@ -10,6 +10,7 @@ test_skill_loader.py
 test_skill_policy.py
 test_skill_install.py
 test_plugin_registry.py
+test_plugin_bootstrap.py
 test_install_policy.py
 test_skill_workshop.py
 test_session_store.py

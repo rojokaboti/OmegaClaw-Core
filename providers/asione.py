@@ -42,7 +42,7 @@ class ASIOneProviderImpl(llm.AIProvider):
                 max_tokens=max_tokens,
                 extra_body={
                     "enable_thinking": True,
-                    "thinking_budget": 6000 
+                    "thinking_budget": 6000
                 },
                 **kwargs
             )

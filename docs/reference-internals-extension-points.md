@@ -24,33 +24,34 @@ Full walkthrough: [tutorial-06-remote-agentverse-skills.md](./tutorial-06-remote
 
 ## Add a channel
 
-Three touch points:
+Channels are plugins implementing `pluginapi.CommChannel` (loaded by `src/plugin.py::initPlugins`):
 
-1. New Python module `channels/myadapter.py` implementing `start_*`, `getLastMessage`, `send_message`.
-2. A new branch in `initChannels`, `(receive)`, and `(send $msg)` in `src/channels.metta`.
-3. New parameters declared via `(= (MY_*) (empty))` and bound by `configure`.
+1. New Python module `channels/myadapter.py` defining a `CommChannel` subclass with `config(dict)`,
+   `receive() -> str`, and `send(str)`, plus a module-level `loadOmegaClawPlugin()` that calls
+   `pluginapi.registerCommChannel("myname", MyChannel())`.
+2. Add a record to [`config/plugins.yaml`](../config/plugins.yaml) (`name: myadapter`,
+   `loader: python`, `location: "{REPO}/channels"`) so `initPlugins` loads it on start.
+3. Select it at runtime with `commchannel=myname` (or the `configure commchannel …` default in
+   `src/channels.metta`). Per-channel config arrives as CLI `<key>=<value>` args handed to `config()`.
 
 Full walkthrough: [tutorial-04-adding-a-channel.md](./tutorial-04-adding-a-channel.md).
 
 ## Add an LLM provider
 
-In `src/loop.metta`, the main dispatch is:
-
-```metta
-(if (== (provider) OpenAI)
-    (useGPT ...)
-    (if (== (provider) Anthropic)
-        (py-call (lib_llm_ext.useClaude $send))
-        (if (== (provider) ASICloud)
-            (py-call (lib_llm_ext.useMiniMax $send))
-            (py-call (lib_llm_ext.useAsi1 $send)))))
-```
+Providers are plugins implementing `pluginapi.LLMProvider`. The loop calls the selected provider
+through `llmProviderChat` (`src/plugin.py`) — there is no per-provider `if` chain in
+`src/loop.metta` any more.
 
 To add a provider:
 
-1. Implement a call function in `lib_llm_ext.py` (or a new module).
-2. Add a branch to the `if` chain.
-3. Use the new provider name in the `configure provider ...` line or via command-line `provider=...`.
+1. In `providers/`, define an `LLMProvider` subclass with `config(dict)` and
+   `chat(prompt, max_tokens, reasoning_mode) -> str`. OpenAI-compatible endpoints can subclass the
+   shared `AIProvider` in `providers/lib_llm_ext.py`, or just reuse `OpenAIAPIPreconfigured`
+   (see the `SNET` / `ASICloud` / `Anthropic` registrations in `providers/openaiapi.py`).
+2. Add a `loadOmegaClawPlugin()` calling `pluginapi.registerLLMProvider("MyProvider", MyProvider(…))`,
+   and list the module in `config/plugins.yaml` under `{REPO}/providers`.
+3. Select it with `configure provider MyProvider` in `src/loop.metta`, or `provider=MyProvider` on
+   the command line.
 
 ## Change the prompt
 

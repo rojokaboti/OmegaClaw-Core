@@ -32,7 +32,7 @@ def dexec(*args):
     """
     Executes a command inside the Docker container as the default user.
     Prints the command being executed and explicitly logs any standard error (stderr)
-    to the console. This helps surface hidden failures (like missing commands or 
+    to the console. This helps surface hidden failures (like missing commands or
     runtime crashes) immediately during test execution.
     """
     cmd = ["docker", "exec", CONTAINER, *args]
@@ -47,7 +47,7 @@ def dexec_root(*args):
     """
     Executes a command inside the Docker container as the 'root' user.
     Prints the command being executed and explicitly logs any standard error (stderr)
-    to the console. This helps surface hidden failures (like missing commands or 
+    to the console. This helps surface hidden failures (like missing commands or
     runtime crashes) immediately during test execution.
     """
     cmd = ["docker", "exec", "-u", "root", CONTAINER, *args]

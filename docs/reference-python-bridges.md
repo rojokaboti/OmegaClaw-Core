@@ -21,7 +21,7 @@ The MeTTa bridge functions are invoked by calling `log` helper function defined 
 (log INFO "memory" "Initializing memory")
 ```
 
-**Logging configuration** 
+**Logging configuration**
 
 By default, logging is configured from:
 
