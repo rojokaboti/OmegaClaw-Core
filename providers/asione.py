@@ -33,7 +33,10 @@ class ASIOneProviderImpl(llm.AIProvider):
         if self._client is None:
             raise RuntimeError(f"{self.name} not configured (set {self._var_name})")
 
-        sysmsg, usermsg = content.split(":-:-:-:")
+        # Safe split (shared with the other providers): tolerates a missing delimiter and extra
+        # delimiters inside the user/context body, instead of a bare content.split(...) that raises
+        # ValueError before any model call (outside the try below).
+        sysmsg, usermsg = llm._split_system_user(content)
         try:
             response = self._client.chat.completions.create(
                 model=self._model_name,

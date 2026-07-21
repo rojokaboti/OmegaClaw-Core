@@ -4,7 +4,6 @@ import threading
 import time
 
 import requests
-import websocket
 import auth
 from src.logger import get_logger
 import pluginapi as plugin
@@ -92,6 +91,12 @@ def _get_display_name(user_id):
 
 def _ws_loop():
     global _ws, _connected, BOT_USER_ID, _use_proxy
+
+    # Lazy import: `websocket` (the websocket-client package) is only needed once Mattermost is
+    # actually selected and connects. Importing it at module load would make eager plugin bootstrap
+    # (initPlugins loads every plugin in config/plugins.yaml) fail on a runtime that lacks
+    # websocket-client, even when Mattermost is not the selected channel.
+    import websocket
 
     if _use_proxy:
         ws_url = MM_URL.replace("http", "ws")

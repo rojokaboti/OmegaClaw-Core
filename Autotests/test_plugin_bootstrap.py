@@ -106,6 +106,39 @@ def test_provider_config_wrappers_build_without_network():
         provider.config({})  # constructor only; client is lazy and openai is stubbed/unused
 
 
+def test_asione_chat_safe_prompt_split():
+    """Regression: ASIOne must use the safe prompt split (llm._split_system_user), not a bare
+    content.split(':-:-:-:') that raises ValueError on a missing or extra delimiter — before any
+    model call and outside the provider's own try/except. Exercises chat() with a stubbed client."""
+    _bootstrap_once()
+    provider = pluginapi._llmProviderRegistry["ASIOne"]
+    provider.config({})
+    captured = {}
+
+    class _FakeCompletions:
+        def create(self, **kwargs):
+            captured["messages"] = kwargs.get("messages")
+            return types.SimpleNamespace(
+                choices=[types.SimpleNamespace(message=types.SimpleNamespace(content="ok"))])
+
+    # Inject a fake client so _ensure_client() is a no-op and no network call happens.
+    provider.delegate._client = types.SimpleNamespace(
+        chat=types.SimpleNamespace(completions=_FakeCompletions()))
+
+    cases = {
+        "no delimiter": ("just the user text", "", "just the user text"),
+        "one delimiter": ("SYS:-:-:-:USER", "SYS", "USER"),
+        "delimiter inside user text": ("SYS:-:-:-:USER with :-:-:-: inside",
+                                       "SYS", "USER with :-:-:-: inside"),
+    }
+    for label, (content, exp_sys, exp_user) in cases.items():
+        out = provider.chat(content)  # must NOT raise ValueError
+        assert out == "ok", f"{label}: expected 'ok', got {out!r}"
+        msgs = captured["messages"]
+        assert msgs[0]["content"] == exp_sys, f"{label}: system={msgs[0]['content']!r}"
+        assert msgs[1]["content"] == exp_user, f"{label}: user={msgs[1]['content']!r}"
+
+
 def _run():
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for fn in fns:
