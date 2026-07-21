@@ -92,12 +92,20 @@ def test_initplugins_registers_channels_and_providers():
 def test_channel_config_wrappers_map_args_without_network():
     """Neutralize each channel's start_* entrypoint, then call config() to exercise arg mapping."""
     _bootstrap_once()
+    originals = {}
     for name, start_fn in _CHANNEL_START_FNS.items():
         mod = plugin._plugins[name].mod  # the file-loaded plugin module
         if hasattr(mod, start_fn):
+            originals[(name, start_fn)] = getattr(mod, start_fn)
             setattr(mod, start_fn, lambda *a, **k: None)
-    for cid, channel in pluginapi._commChannelRegistry.items():
-        channel.config({})  # must not raise (undefined-variable typos surface here)
+    try:
+        for cid, channel in pluginapi._commChannelRegistry.items():
+            channel.config({})  # must not raise (undefined-variable typos surface here)
+    finally:
+        # Restore the real start_* entrypoints so this test does not leak neutralized functions into
+        # later tests (the Mattermost fail-closed test needs the real start_mattermost).
+        for (name, start_fn), orig in originals.items():
+            setattr(plugin._plugins[name].mod, start_fn, orig)
 
 
 def test_provider_config_wrappers_build_without_network():
@@ -137,6 +145,32 @@ def test_asione_chat_safe_prompt_split():
         msgs = captured["messages"]
         assert msgs[0]["content"] == exp_sys, f"{label}: system={msgs[0]['content']!r}"
         assert msgs[1]["content"] == exp_user, f"{label}: user={msgs[1]['content']!r}"
+
+
+def test_mattermost_fails_closed_without_websocket_client():
+    """Selecting Mattermost without the optional websocket-client dependency must fail closed
+    SYNCHRONOUSLY with a clear error, not die asynchronously inside the _ws_loop thread (which
+    would leave the channel looking 'started' while never connecting)."""
+    _bootstrap_once()
+    mm = plugin._plugins["mattermost"].mod
+    _MISSING = object()
+    saved_ws = sys.modules.get("websocket", _MISSING)
+    # Setting a sys.modules entry to None makes `import websocket` raise ImportError deterministically
+    # — simulating a runtime without websocket-client.
+    sys.modules["websocket"] = None
+    try:
+        raised = ""
+        try:
+            mm.start_mattermost("https://mm.example", "chan")
+        except RuntimeError as e:
+            raised = str(e)
+        assert "websocket-client" in raised, \
+            f"expected a clear synchronous RuntimeError about websocket-client, got: {raised!r}"
+    finally:
+        if saved_ws is _MISSING:
+            sys.modules.pop("websocket", None)
+        else:
+            sys.modules["websocket"] = saved_ws
 
 
 def _run():

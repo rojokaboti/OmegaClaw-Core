@@ -158,6 +158,16 @@ def start_mattermost(MM_URL_, CHANNEL_ID_):
         _headers = {"Authorization": f"Bearer {BOT_TOKEN}"} if BOT_TOKEN else {}
         _use_proxy = False
     CHANNEL_ID = CHANNEL_ID_
+    # Fail closed SYNCHRONOUSLY if the optional websocket-client dependency is missing, rather than
+    # letting the background _ws_loop thread die later with an async ModuleNotFoundError (which would
+    # leave the channel looking "started" while never connecting). websocket-client provides the
+    # imported `websocket` module; it is only needed when Mattermost is the selected channel.
+    try:
+        import websocket  # noqa: F401
+    except ImportError as exc:
+        raise RuntimeError(
+            "Mattermost channel requires the 'websocket-client' package "
+            "(pip install websocket-client), which is not installed") from exc
     _running = True
     _connected = False
     t = threading.Thread(target=_ws_loop, daemon=True)
