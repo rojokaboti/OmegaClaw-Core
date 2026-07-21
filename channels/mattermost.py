@@ -4,8 +4,11 @@ import threading
 import time
 
 import requests
-import websocket
 import auth
+from src.logger import get_logger
+import pluginapi as plugin
+
+logger = get_logger(__name__)
 
 _running = False
 _ws = None
@@ -89,6 +92,12 @@ def _get_display_name(user_id):
 def _ws_loop():
     global _ws, _connected, BOT_USER_ID, _use_proxy
 
+    # Lazy import: `websocket` (the websocket-client package) is only needed once Mattermost is
+    # actually selected and connects. Importing it at module load would make eager plugin bootstrap
+    # (initPlugins loads every plugin in config/plugins.yaml) fail on a runtime that lacks
+    # websocket-client, even when Mattermost is not the selected channel.
+    import websocket
+
     if _use_proxy:
         ws_url = MM_URL.replace("http", "ws")
     else:
@@ -128,7 +137,8 @@ def _ws_loop():
 
         except websocket.WebSocketTimeoutException:
             continue
-        except Exception:
+        except Exception as e:
+            logger.exception(f"WebSocket error: {e}")
             break
 
     ws.close()
@@ -148,6 +158,16 @@ def start_mattermost(MM_URL_, CHANNEL_ID_):
         _headers = {"Authorization": f"Bearer {BOT_TOKEN}"} if BOT_TOKEN else {}
         _use_proxy = False
     CHANNEL_ID = CHANNEL_ID_
+    # Fail closed SYNCHRONOUSLY if the optional websocket-client dependency is missing, rather than
+    # letting the background _ws_loop thread die later with an async ModuleNotFoundError (which would
+    # leave the channel looking "started" while never connecting). websocket-client provides the
+    # imported `websocket` module; it is only needed when Mattermost is the selected channel.
+    try:
+        import websocket  # noqa: F401
+    except ImportError as exc:
+        raise RuntimeError(
+            "Mattermost channel requires the 'websocket-client' package "
+            "(pip install websocket-client), which is not installed") from exc
     _running = True
     _connected = False
     t = threading.Thread(target=_ws_loop, daemon=True)
@@ -167,3 +187,23 @@ def send_message(text):
         headers=_headers,
         json={"channel_id": CHANNEL_ID, "message": text}
     )
+
+class MattermostChannel(plugin.CommChannel):
+
+    def __init__(self):
+        super().__init__()
+
+    def config(self, config: dict) -> None:
+        global MM_URL, CHANNEL_ID
+        url = config.get("MM_URL", MM_URL)
+        channel = config.get("MM_CHANNEL_ID", CHANNEL_ID)
+        start_mattermost(url, channel)
+
+    def receive(self) -> str:
+        return getLastMessage()
+
+    def send(self, message: str) -> None:
+        send_message(message)
+
+def loadOmegaClawPlugin():
+    plugin.registerCommChannel("mattermost", MattermostChannel())

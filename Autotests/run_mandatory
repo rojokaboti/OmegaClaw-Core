@@ -1,17 +1,16 @@
 test_action_protocol.py
 test_tool_policy.py
 test_llm_logging.py
-test_provider_config.py
 test_memory_schema.py
 test_tracing.py
 test_errors.py
 test_metta_sessions.py
-test_channel_registry.py
 test_wschat.py
 test_skill_loader.py
 test_skill_policy.py
 test_skill_install.py
 test_plugin_registry.py
+test_plugin_bootstrap.py
 test_install_policy.py
 test_skill_workshop.py
 test_session_store.py
@@ -33,8 +32,10 @@ mock/test_llm.py
 mock/test_memory_chromadb_mock.py
 mock/test_memory_history_byte_window_truncation_mock.py
 mock/test_memory_history_mock.py
+mock/test_memory_missing_history_file_mock.py
 mock/test_memory_pin_window_visibility_mock.py
 mock/test_pin_invisible_within_iteration_mock.py
+mock/test_prompt_missing_files_mock.py
 mock/test_rpc.py
 mock/test_run_error_script_mock.py
 mock/test_run_repeated_mock.py
@@ -49,4 +50,5 @@ mock/test_technical_analysis_mock.py
 mock/test_transition_episodes_after_eviction_mock.py
 mock/test_transition_metta_to_remember_mock.py
 mock/test_transition_pin_to_remember_mock.py
+mock_websocket/test_wschat_unit.py
 test_websearch_smoke.py

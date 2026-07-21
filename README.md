@@ -79,7 +79,7 @@ curl -fsSL https://raw.githubusercontent.com/asi-alliance/OmegaClaw-Core/refs/he
 
 To run a specific version of OmegaClaw set version in `TAG` environment variable and run the following command:
 ```
-export TAG=v0.1.15; curl -fsSL  https://github.com/asi-alliance/OmegaClaw-Core/raw/refs/tags/$TAG/scripts/omegaclaw | bash -s -- singularitynet/omegaclaw:$TAG
+export TAG=v0.1.17; curl -fsSL  https://github.com/asi-alliance/OmegaClaw-Core/raw/refs/tags/$TAG/scripts/omegaclaw | bash -s -- singularitynet/omegaclaw:$TAG
 ```
 
 To stop the OmegaClaw Docker container:
@@ -108,9 +108,8 @@ Before running the system you need to choose your LLM API provider and export th
 | `OpenAI` | `OPENAI_API_KEY` | GPT models. Also reused by the OpenAI embedding provider below. |
 | `ASICloud` | `ASI_API_KEY` |  MiniMax models via ASI Alliance inference endpoint (`inference.asicloud.cudos.org`). |
 | `ASIOne` | `ASIONE_API_KEY` |  ASI1 Ultra model via ASI:One inference endpoint (`https://api.asi1.ai/v1`). |
-| `Ollama-local` | `OLLAMA_API_KEY` |  Ollama model via local inference endpoint. API endpoint is set via `LLM_SERVER_LOCAL_URL` environment variables. |
+| `OpenAIAPI` | `OPENAIAPI_API_KEY` |  Use OpenAI API with any endpoint and model. API endpoint and model are set via `openaiapi_url` and `model` command line parameters. |
 | `OpenRouter` | `OPENROUTER_API_KEY` |  GLM model via OpenRouter inference endpoint. |
-| `MiniMaxM3` | `OPENROUTER_API_KEY` |  MiniMax M3 model via OpenRouter inference endpoint. |
 
 Run the system via the following command which ensures the system is started from the root folder of PeTTa:
 ```
@@ -144,6 +143,8 @@ If you want to skip preloading the knowledge then run `export IMPORT_KB_ON_START
 | `wakeupInterval` | 600 | How long idle before the next scheduled wake-up (seconds) |
 | `LLM` | `gpt-5.4` | Model identifier passed to the provider (used with OpenAI provider only) |
 | `provider` | `Anthropic` | LLM provider, see the table of the providers above |
+| `model` | provider specific | LLM model to use, depends on provider |
+| `openaiapi_url` | http://localhost:11434/v1 | LLM endpoint URL. Only used by `OpenAIAPI` provider. |
 | `maxOutputToken` | 6000 | Output cap passed to the provider |
 | `reasoningMode` | `medium` | Reasoning-effort hint passed to the provider (OpenAI only) |
 | `securityPolicyPath` | ./repos/OmegaClaw-Core/profile/policy.yaml | Path to the security profile written using [OpenShell YAML](https://docs.nvidia.com/openshell/reference/policy-schema#filesystem-policy). See [./profile/policy.yaml](./profile/policy.yaml) as an example. Empty value disables restrictions. |
@@ -187,8 +188,6 @@ If you want to skip preloading the knowledge then run `export IMPORT_KB_ON_START
 | `OMEGACLAW_TOOL_POLICY_PATH` | Path to the tool/action policy YAML (default `profile/tool_policy.yaml`). Set to `profile/tool_policy.hardened.yaml` for a strict `default: deny` posture. A **relative** value is resolved against the install root (the repo dir), not the process CWD, so it works regardless of where the agent is launched. |
 | `OMEGACLAW_DEBUG_LLM_RAW` | `1`/`true` to log raw model responses (for debugging). Default off — raw bodies are **not** logged; only metadata (provider, model, timestamp, char count, trace id). When enabled, common secret/token formats are best-effort redacted (not a guarantee). |
 | `OMEGACLAW_LLM_LOG_PATH` | Optional path to append per-response JSONL log records (metadata always; redacted raw only when `OMEGACLAW_DEBUG_LLM_RAW` is set). |
-| `OMEGACLAW_LLM_CONFIG_PATH` | Path to the provider/model config YAML (default `profile/llm_providers.yaml`). Relative values resolve against the install root. **Failure model:** an absent *shipped default* (no env set) fails open to built-in defaults; an **explicit** path that is missing/invalid **fails closed** (no external provider registered) so prompts can't silently route to a cloud default. |
-| `OMEGACLAW_LLM_CONFIG_FAIL_OPEN` | `1`/`true` to opt an explicit `OMEGACLAW_LLM_CONFIG_PATH` back into fail-open (fall back to built-in defaults instead of failing closed). |
 | `OMEGACLAW_SKILLS_CONFIG_PATH` | Path to the filesystem-skill loader config YAML (default `profile/skills.yaml`) listing skill roots + allow/deny lists. Relative values resolve against the install root. Fails open to a safe empty set, so a missing/invalid file simply loads no external skills. |
 | `OMEGACLAW_SKILL_BODY_MAX_CHARS` | Max characters of a skill's instructions returned by `use-skill` (default `20000`); longer bodies are truncated. |
 | `OMEGACLAW_INSTALL_POLICY` | Untrusted-skill scan policy (Issue #19): `enforce` (default — HIGH findings block install), `warn` (flag but allow), or `off` (no scan gating). |
@@ -200,27 +199,24 @@ If you want to skip preloading the knowledge then run `export IMPORT_KB_ON_START
 
 ## Provider / model configuration
 
-Which providers exist, and each one's model, base URL, API style, and reasoning
-settings, are declared in [`profile/llm_providers.yaml`](./profile/llm_providers.yaml)
-— **not** hardcoded in Python. To switch model or provider, edit that file (or point
-`OMEGACLAW_LLM_CONFIG_PATH` at another one) and set the active `provider` in
-`src/loop.metta` (`Anthropic` by default); no Python edit is required.
+LLM providers are **plugins** (`providers/*.py`), loaded on start from
+[`config/plugins.yaml`](./config/plugins.yaml). Each provider module implements
+`pluginapi.LLMProvider` and registers itself under a name via `loadOmegaClawPlugin()`.
+OpenAI-compatible endpoints reuse `OpenAIAPIPreconfigured` in
+[`providers/openaiapi.py`](./providers/openaiapi.py), where the model, base URL, and API-key
+env var are the registration defaults — e.g. `Anthropic`, `ASICloud`, and the
+SingularityNet-hosted `SNET` (`SNET_API_KEY`, `llm.c.singularitynet.io/v1`).
 
-The MeTTa `LLM` value now reflects the model actually resolved for the active
-provider, and at startup the agent logs the effective configuration, e.g.:
+To switch model or provider:
 
-```
-[llm_config] provider=Anthropic model=claude-opus-4-6 base_url=https://api.anthropic.com/v1/ class=AIProvider available=True
-```
+- Set the active `provider` in `src/loop.metta` (`Anthropic` by default), or pass
+  `provider=<name>` on the command line.
+- Override a provider's model per run with a `model=<...>` CLI arg (handed to `config()`),
+  or change the default in the provider's registration in `providers/`.
 
-**Failure model.** If no config is configured and the shipped default is absent, the
-gate fails **open** to built-in defaults (mirroring the shipped YAML) with a warning, so
-the out-of-box agent never bricks. But if `OMEGACLAW_LLM_CONFIG_PATH` is **explicitly set**
-and the file is missing/invalid, the gate fails **closed** — no external provider is
-registered and a `[provider_config] SECURITY …` line is logged — so an operator pointing at
-a private/local provider can never have prompts silently routed to a built-in cloud default.
-Set `OMEGACLAW_LLM_CONFIG_FAIL_OPEN=1` to opt an explicit config back into fail-open. The
-`Test` provider (mock) is registered in code, not via this file.
+The `Test` provider (mock, `providers/mockprovider.py`) is registered like any other plugin and
+selected with `provider=Test`. An **unregistered** provider name fails loudly —
+`llmProviderConfig` raises rather than silently falling back to a cloud default.
 
 ---
 

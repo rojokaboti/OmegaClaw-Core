@@ -13,8 +13,12 @@ import types
 from contextlib import redirect_stdout
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _REPO_ROOT not in sys.path:
-    sys.path.insert(0, _REPO_ROOT)
+# `lib_llm_ext` moved into the providers/ package during the upstream plugin migration; add both
+# providers/ (so `import lib_llm_ext` resolves) and the repo root (so its `from src.*` imports work).
+_PROVIDERS = os.path.join(_REPO_ROOT, "providers")
+for _p in (_PROVIDERS, _REPO_ROOT):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 # Stub openai so `import lib_llm_ext` works without the real dependency.
 # `openai.OpenAI` is referenced in a type annotation evaluated at import time.

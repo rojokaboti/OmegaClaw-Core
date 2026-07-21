@@ -18,7 +18,7 @@ the OmegaClaw-Bench repo):
   (``getSkills`` + ``helper.LLM_COMMANDS`` + ``action_protocol.ARG_SPEC`` + MeTTa body)
   that adding a real tool requires.
 - Stdlib + PyYAML only, import-light, host-unit-testable, mirroring
-  ``provider_config.py`` / ``channel_registry.py``: repo-root-relative env-overridable
+  ``plugin_registry.py``: repo-root-relative env-overridable
   paths, mtime-signature cache + ``reset_cache()``, warn-once, best-effort side effects,
   ``redaction.redact_secrets`` on any logged/rendered text, ``_selftest()`` under
   ``__main__``.

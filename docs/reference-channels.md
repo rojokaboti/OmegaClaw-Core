@@ -1,29 +1,32 @@
 # Reference — Channels
 
-Channels are the I/O surface the agent uses to talk to the outside world. Adapters live in `channels/`; the MeTTa side (`src/channels.metta`) is a thin facade that resolves config from CLI args and delegates start/receive/send to the Python channel registry (`src/channel_registry.py`, Issue #9).
+Channels are the I/O surface the agent uses to talk to the outside world. Adapters live in `channels/` and are loaded as **plugins**: the MeTTa side (`src/channels.metta`) is a thin facade over the plugin runtime (`src/plugin.py` / `src/pluginapi.py`), and `config/plugins.yaml` lists which channel plugins to load on start.
 
 ## The adapter contract
 
-Each adapter exposes:
+Each adapter is a `pluginapi.CommChannel` subclass exposing:
 
-| Function | Purpose |
+| Method | Purpose |
 |---|---|
-| `start_<name>(...)` | Called once from `initChannels`. Opens sockets / spawns listener threads as needed. |
-| `getLastMessage()` | Returns the next unread inbound message as a string. Returns `""` if none. |
-| `send_message(str)` | Posts an outbound message. |
+| `config(dict)` | Called once when the channel is selected. Reads its config keys (from CLI args) and opens sockets / spawns listener threads as needed. |
+| `receive() -> str` | Returns the next unread inbound message as a string. Returns `""` if none. |
+| `send(str)` | Posts an outbound message. |
 
-The MeTTa side no longer hardcodes a per-channel `if` chain. `commchannel` (and the resolved
-config keys) are passed straight to the registry, which dispatches by name:
+Each module also defines `loadOmegaClawPlugin()`, which registers the channel under an id via
+`pluginapi.registerCommChannel(id, MyChannel())`. `initPlugins` (called from the loop) imports every
+plugin in `config/plugins.yaml` and runs its `loadOmegaClawPlugin()`. The MeTTa side then dispatches
+by id — no per-channel `if` chain:
 
 ```metta
 (= (receive)
-   (py-call (channel_registry.receive (commchannel))))
+   (commChannelReceive))
 ```
 
-`send` and `initChannels` delegate the same way (`channel_registry.send` / `.start_channel`). The
-registry maps each name to a `Channel` object (`src/channel_registry.py`); adding a channel is one
-`register(...)` call rather than editing three branches. An unknown `commchannel` resolves to
-`channels/mock.py`, the in-process test channel used when no real channel is selected.
+`send` and `initChannels` delegate the same way (`commChannelSend` / `commChannelConfig`, defined in
+`src/plugin.py`). Adding a channel is a new `CommChannel` subclass + a `config/plugins.yaml` entry
+rather than editing three MeTTa branches. Note the mock/test channel is `channels/mockchannel.py`,
+registered under id **`test`** (select with `commchannel=test`); an **unknown** `commchannel` id is
+no longer silently mapped to mock — `commChannelConfig` raises for an unregistered id.
 
 ## `channels/irc.py`
 
@@ -47,6 +50,7 @@ Telegram adapter using Bot API long polling.
 - `start_telegram(chat_id, poll_timeout)` — starts a poll loop.
 - `TG_CHAT_ID` is optional; if empty, the adapter can auto-bind to the first valid inbound chat.
 - Outbound messages are chunked to Telegram-safe lengths.
+- Uses the same one-time `auth <secret>` ownership gate as the other adapters.
 
 ## `channels/slack.py`
 
@@ -98,5 +102,5 @@ See [tutorial-04-adding-a-channel.md](./tutorial-04-adding-a-channel.md).
 
 ## Related reference
 
-- [reference-skills-communication.md](./reference-skills-communication.md) — the MeTTa surface (`send`, `receive`, `search`).
+- [reference-skills-communication.md](./reference-skills-communication.md) — the MeTTa surface (`send`, `receive`, `websearch`).
 - [reference-configuration.md](./reference-configuration.md) — channel parameters.

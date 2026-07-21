@@ -1,8 +1,10 @@
 module.exports = {
-  branchPrefix: "main",
-  username: "renovate-asi",
+  branchPrefix: "renovate/",
+  branchPrefixOld: "main",
+  username: "renovate-asi[bot]",
   gitAuthor: "Renovate Bot <bot@renovateapp.com>",
   onboarding: false,
+  requireConfig: false,
   platform: "github",
   forkProcessing: "disable",
   repositories: ["asi-alliance/OmegaClaw-Core"],
@@ -10,7 +12,7 @@ module.exports = {
   dependencyDashboardAutoclose: true,
   prCreation: "approval",
   prConcurrentLimit: 0,
-  reviewers: "anseliv",
+  reviewers: ["anseliv", "vsbogd"],
   packageRules: [
     {
       description: "lockFileMaintenance",
@@ -22,7 +24,7 @@ module.exports = {
         "major",
         "lockFileMaintenance",
       ],
-      minimumReleaseAge: 3,
+      minimumReleaseAge: "3",
     },
   ],
 };

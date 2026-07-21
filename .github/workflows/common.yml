@@ -110,13 +110,11 @@ jobs:
           python ../src/helper.py
           python ../src/action_protocol.py
           python ../src/tool_policy.py
-          python ../src/provider_config.py
           python ../src/memory_schema.py
           python ../src/redaction.py
           python ../src/tracing.py
           python ../src/errors.py
           python ../src/metta_sessions.py
-          python ../src/channel_registry.py
           python ../src/skill_loader.py
           python ../src/skill_policy.py
           python ../src/skill_install.py
@@ -125,6 +123,7 @@ jobs:
           python ../src/skill_workshop.py
           python ../src/session_store.py
           python ../src/scheduler.py
+          python ../Autotests/test_plugin_bootstrap.py
           pytest -s -v @run_mandatory
         env:
           OMEGACLAW_CONTAINER: ${{ env.AUTOTESTS_OMEGACLAW_CONTAINER }}
